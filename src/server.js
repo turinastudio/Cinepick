@@ -1,6 +1,11 @@
 import http from "node:http";
 import { manifest } from "./manifest.js";
-import { json, notFound, serverError } from "./lib/http.js";
+import {
+  json,
+  notFound,
+  proxyStream,
+  serverError
+} from "./lib/http.js";
 import {
   debugStreamsFromExternalId,
   getProviderByCatalog,
@@ -153,6 +158,30 @@ async function handleDebug(res, pathname) {
   });
 }
 
+async function handleProxy(req, res, pathname) {
+  const match = pathname.match(/^\/p\/(.+)$/);
+
+  if (!match) {
+    notFound(res);
+    return;
+  }
+
+  try {
+    const b64 = match[1].replace(/\.mp4$/i, "");
+    const decoded = JSON.parse(Buffer.from(b64, "base64").toString("utf-8"));
+    const { url, headers } = decoded;
+
+    if (!url) {
+      notFound(res, "Missing target URL");
+      return;
+    }
+
+    await proxyStream(req, res, url, headers || {});
+  } catch (error) {
+    serverError(res, new Error("Invalid proxy payload", { cause: error }));
+  }
+}
+
 const server = http.createServer(async (req, res) => {
   if (!req.url) {
     notFound(res);
@@ -194,6 +223,11 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === "GET" && url.pathname.startsWith("/_debug/stream/")) {
       await handleDebug(res, url.pathname);
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname.startsWith("/p/")) {
+      await handleProxy(req, res, url.pathname);
       return;
     }
 

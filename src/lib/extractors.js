@@ -49,11 +49,29 @@ function buildBehaviorHints(url, referer = null) {
   return Object.keys(behaviorHints).length > 0 ? behaviorHints : undefined;
 }
 
-function buildStream(name, title, url, referer = null) {
-  const stream = { name, title, url };
+function buildProxiedUrl(targetUrl, referer = null) {
+  const payload = {
+    url: targetUrl,
+    headers: referer ? {
+      Referer: referer,
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    } : {}
+  };
+  const b64 = Buffer.from(JSON.stringify(payload)).toString("base64");
+  return `/p/${b64}.mp4`;
+}
+
+function buildStream(name, title, url, referer = null, shouldProxy = false) {
+  const finalUrl = shouldProxy ? buildProxiedUrl(url, referer) : url;
+  const stream = { name, title, url: finalUrl };
   const behaviorHints = buildBehaviorHints(url, referer);
 
   if (behaviorHints) {
+    if (shouldProxy) {
+      // When proxying, we don't need Stremio to send headers, 
+      // as our proxy will do it.
+      delete behaviorHints.proxyHeaders;
+    }
     stream.behaviorHints = behaviorHints;
   }
 
@@ -904,30 +922,46 @@ export function matchExtractorByUrl(url) {
   return extractorRegistry.find((extractor) => hostIncludes(host, extractor.aliases)) || null;
 }
 
-export async function resolveExtractorStream(url, label) {
+export async function resolveExtractorStream(url, label, shouldProxy = false) {
   const matchedExtractor = matchExtractorByUrl(url);
+  let streams = [];
 
   try {
     if (matchedExtractor) {
-      return await matchedExtractor.resolve(url, label);
-    }
-
-    if (/\.(m3u8|mp4)(\?|$)/i.test(url)) {
-      return [buildStream("Gnula", label, url, null)];
-    }
-
-    const genericM3u8 = await extractGenericM3u8Page(url, label);
-    if (genericM3u8.length) {
-      return genericM3u8;
-    }
-
-    const jwPlayer = await extractJWPlayer(url, label);
-    if (jwPlayer.length) {
-      return jwPlayer;
+      streams = await matchedExtractor.resolve(url, label);
+    } else if (/\.(m3u8|mp4)(\?|$)/i.test(url)) {
+      streams = [buildStream("Gnula", label, url, null)];
+    } else {
+      const genericM3u8 = await extractGenericM3u8Page(url, label);
+      if (genericM3u8.length) {
+        streams = genericM3u8;
+      } else {
+        const jwPlayer = await extractJWPlayer(url, label);
+        if (jwPlayer.length) {
+          streams = jwPlayer;
+        }
+      }
     }
   } catch {
     return [];
   }
 
-  return [];
+  if (shouldProxy && streams.length > 0) {
+    return streams.map((stream) => {
+      if (stream.url && !stream.url.startsWith("/p/")) {
+        const referer = url; // Use the extraction URL as referer for the proxy
+        return {
+          ...stream,
+          url: buildProxiedUrl(stream.url, referer),
+          behaviorHints: {
+            ...(stream.behaviorHints || {}),
+            proxyHeaders: undefined // Proxy handles headers now
+          }
+        };
+      }
+      return stream;
+    });
+  }
+
+  return streams;
 }

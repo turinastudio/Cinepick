@@ -669,8 +669,10 @@ export class GnulaProvider extends Provider {
     try {
       const html = await this.fetchText(player.pageUrl);
       const directUrl = this.extractVarUrl(html) || player.pageUrl;
-      const label = [player.lang, player.server, player.quality].filter(Boolean).join(" ");
-      const extracted = await resolveExtractorStream(directUrl, label);
+      const shouldProxy = ["streamwish", "vidhide", "doodstream", "filemoon", "voe", "uqload"].includes(
+        String(player.server || "generic").toLowerCase()
+      );
+      const extracted = await resolveExtractorStream(directUrl, label, shouldProxy);
 
       if (extracted.length > 0) {
         markSourceSuccess(sourceKey);
@@ -683,21 +685,7 @@ export class GnulaProvider extends Provider {
       if (/\.(m3u8|mp4)(\?|$)/i.test(directUrl)) {
         markSourceSuccess(sourceKey);
         return [
-          {
-            name: "Gnula",
-            title: label,
-            url: directUrl,
-            _sourceKey: sourceKey,
-            behaviorHints: {
-              notWebReady: /m3u8/i.test(directUrl),
-              proxyHeaders: {
-                request: {
-                  Referer: player.pageUrl,
-                  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-                }
-              }
-            }
-          }
+          buildStream("Gnula", label, directUrl, player.pageUrl, shouldProxy)
         ];
       }
     } catch {

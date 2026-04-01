@@ -525,54 +525,24 @@ export class CinecalidadProvider extends Provider {
         return [];
       }
 
-      const extracted = await resolveExtractorStream(directUrl, this.buildPlayerLabel(player));
+      const shouldProxy = ["streamwish", "vidhide", "doodstream", "filemoon", "voe", "uqload"].includes(
+        String(player.server || "generic").toLowerCase()
+      );
+      const extracted = await resolveExtractorStream(directUrl, this.buildPlayerLabel(player), shouldProxy);
+
       if (extracted.length > 0) {
         markSourceSuccess(sourceKey);
-        return extracted.map((stream) => {
-          const adjusted = {
-            ...stream,
-            name: "CineCalidad",
-            _sourceKey: sourceKey
-          };
-
-          if (player.server === "goodstream") {
-            const previousRequestHeaders =
-              adjusted.behaviorHints?.proxyHeaders?.request || {};
-            adjusted.behaviorHints = {
-              ...(adjusted.behaviorHints || {}),
-              proxyHeaders: {
-                request: {
-                  ...previousRequestHeaders,
-                  Referer: `${this.baseUrl}/`,
-                  Origin: this.baseUrl,
-                  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-                }
-              }
-            };
-          }
-
-          return adjusted;
-        });
+        return extracted.map((stream) => ({
+          ...stream,
+          name: "CineCalidad",
+          _sourceKey: sourceKey
+        }));
       }
 
       if (/\.(m3u8|mp4)(\?|$)/i.test(directUrl)) {
         markSourceSuccess(sourceKey);
         return [
-          {
-            name: "CineCalidad",
-            title: this.buildPlayerLabel(player),
-            url: directUrl,
-            _sourceKey: sourceKey,
-            behaviorHints: {
-              notWebReady: /m3u8/i.test(directUrl),
-              proxyHeaders: {
-                request: {
-                  Referer: player.pageUrl,
-                  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-                }
-              }
-            }
-          }
+          buildStream("CineCalidad", this.buildPlayerLabel(player), directUrl, player.pageUrl, shouldProxy)
         ];
       }
     } catch {

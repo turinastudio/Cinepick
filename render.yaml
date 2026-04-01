@@ -17,3 +17,5 @@ services:
         value: https://gnula.life
       - key: CINECALIDAD_BASE_URL
         value: https://www.cinecalidad.ec
+      - key: ADDON_URL
+        value: https://stremio-web-scraper-addon.onrender.com

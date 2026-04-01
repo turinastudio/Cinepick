@@ -58,7 +58,8 @@ function buildProxiedUrl(targetUrl, referer = null) {
     } : {}
   };
   const b64 = Buffer.from(JSON.stringify(payload)).toString("base64");
-  return `/p/${b64}.mp4`;
+  const base = (process.env.ADDON_URL || "").replace(/\/$/, "");
+  return `${base}/p/${b64}.mp4`;
 }
 
 function buildStream(name, title, url, referer = null, shouldProxy = false) {

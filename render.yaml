@@ -17,5 +17,11 @@ services:
         value: https://gnula.life
       - key: CINECALIDAD_BASE_URL
         value: https://www.cinecalidad.ec
+      - key: MHDFLIX_BASE_URL
+        value: https://ww1.mhdflix.com
+      - key: MHDFLIX_API_URL
+        value: https://core.mhdflix.com
+      - key: VERSERIESONLINE_BASE_URL
+        value: https://www.verseriesonline.net
       - key: ADDON_URL
         value: https://stremio-web-scraper-addon.onrender.com

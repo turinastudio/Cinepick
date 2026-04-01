@@ -167,8 +167,8 @@ async function handleProxy(req, res, pathname) {
   }
 
   try {
-    const b64 = match[1].replace(/\.mp4$/i, "");
-    const decoded = JSON.parse(Buffer.from(b64, "base64").toString("utf-8"));
+    const encodedPayload = match[1].replace(/\.(mp4|m3u8|ts|m4s|key|bin)$/i, "");
+    const decoded = JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf-8"));
     const { url, headers } = decoded;
 
     if (!url) {

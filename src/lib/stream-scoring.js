@@ -38,14 +38,14 @@ function detectLanguageScore(stream) {
 }
 
 function detectTransportScore(stream) {
-  const url = String(stream.url || "");
+  const url = String(stream._targetUrl || stream.url || "");
   if (/\.mp4(\?|$)/i.test(url)) return 8;
   if (/\.m3u8(\?|$)/i.test(url)) return 5;
   return 0;
 }
 
 function detectComplexityPenalty(stream) {
-  const requestHeaders = stream.behaviorHints?.proxyHeaders?.request || {};
+  const requestHeaders = stream._proxyHeaders || stream.behaviorHints?.proxyHeaders?.request || {};
   let penalty = 0;
 
   if (stream.behaviorHints?.notWebReady) {
@@ -147,7 +147,7 @@ export function scoreAndSelectStreams(providerId, streams, options = {}) {
   return cleaned
     .slice(0, Math.max(1, maxResults))
     .map((item) => {
-      const { _sourceKey, _providerId, ...stream } = item.stream;
+      const { _sourceKey, _providerId, _proxyHeaders, _targetUrl, ...stream } = item.stream;
       return stream;
     });
 }

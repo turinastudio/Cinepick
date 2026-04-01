@@ -1,5 +1,5 @@
 import { buildStremioId } from "../lib/ids.js";
-import { resolveExtractorStream } from "../lib/extractors.js";
+import { buildStream, resolveExtractorStream } from "../lib/extractors.js";
 import { markSourceFailure, markSourceSuccess } from "../lib/penalty-reliability.js";
 import { analyzeScoredStreams, scoreAndSelectStreams } from "../lib/stream-scoring.js";
 import { Provider } from "./base.js";

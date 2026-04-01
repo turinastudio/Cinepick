@@ -1,3 +1,5 @@
+import { buildProxiedUrl } from "./extractors.js";
+
 export function json(res, statusCode, payload) {
   const body = JSON.stringify(payload);
 
@@ -23,6 +25,44 @@ export function serverError(res, error) {
   });
 }
 
+function getHeaderValue(headers, name) {
+  return headers?.[name] || headers?.get?.(name) || null;
+}
+
+function isHlsResponse(targetUrl, response) {
+  const contentType = String(getHeaderValue(response.headers, "content-type") || "").toLowerCase();
+  return /\.m3u8(\?|$)/i.test(targetUrl) || contentType.includes("mpegurl") || contentType.includes("vnd.apple.mpegurl");
+}
+
+function absolutizeUrl(candidate, baseUrl) {
+  try {
+    return new URL(candidate, baseUrl).href;
+  } catch {
+    return candidate;
+  }
+}
+
+function rewriteHlsManifest(text, manifestUrl, targetHeaders) {
+  const lines = String(text || "").split(/\r?\n/);
+
+  return lines.map((line) => {
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      return line;
+    }
+
+    if (trimmed.startsWith("#")) {
+      return line.replace(/URI="([^"]+)"/gi, (_, uri) => {
+        const absolute = absolutizeUrl(uri, manifestUrl);
+        return `URI="${buildProxiedUrl(absolute, targetHeaders)}"`;
+      });
+    }
+
+    return buildProxiedUrl(absolutizeUrl(trimmed, manifestUrl), targetHeaders);
+  }).join("\n");
+}
+
 export async function proxyStream(req, res, targetUrl, targetHeaders = {}) {
   try {
     const headers = {
@@ -45,11 +85,22 @@ export async function proxyStream(req, res, targetUrl, targetHeaders = {}) {
     };
 
     const copyHeader = (name) => {
-      const val = response.headers?.[name] || response.headers?.get?.(name);
+      const val = getHeaderValue(response.headers, name);
       if (val) responseHeaders[name] = val;
     };
 
-    // Forward important headers
+    if (isHlsResponse(targetUrl, response)) {
+      const manifestText = await response.text();
+      const rewritten = rewriteHlsManifest(manifestText, response.url || targetUrl, headers);
+
+      responseHeaders["content-type"] = getHeaderValue(response.headers, "content-type") || "application/vnd.apple.mpegurl";
+      responseHeaders["cache-control"] = "no-store";
+
+      res.writeHead(response.status, responseHeaders);
+      res.end(rewritten);
+      return;
+    }
+
     ["content-type", "content-length", "content-range", "accept-ranges"].forEach(copyHeader);
 
     res.writeHead(response.status, responseHeaders);

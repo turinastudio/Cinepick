@@ -30,50 +30,75 @@ function pickQualityLabel(text, fallback = "") {
   return match ? `${match[1]}p` : fallback;
 }
 
-function buildBehaviorHints(url, referer = null) {
+function normalizeRequestHeaders(input) {
+  if (!input) {
+    return {};
+  }
+
+  if (typeof input === "string") {
+    return {
+      Referer: input,
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    };
+  }
+
+  if (typeof input === "object") {
+    return {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      ...input
+    };
+  }
+
+  return {};
+}
+
+function buildBehaviorHints(url, requestHeaders = null) {
   const behaviorHints = {};
+  const normalizedHeaders = normalizeRequestHeaders(requestHeaders);
 
   if (/\.m3u8(\?|$)/i.test(url)) {
     behaviorHints.notWebReady = true;
   }
 
-  if (referer) {
+  if (Object.keys(normalizedHeaders).length > 0) {
     behaviorHints.proxyHeaders = {
-      request: {
-        Referer: referer,
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-      }
+      request: normalizedHeaders
     };
   }
 
   return Object.keys(behaviorHints).length > 0 ? behaviorHints : undefined;
 }
 
-function buildProxiedUrl(targetUrl, referer = null) {
+export function buildProxiedUrl(targetUrl, requestHeaders = null) {
   const payload = {
     url: targetUrl,
-    headers: referer ? {
-      Referer: referer,
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-    } : {}
+    headers: normalizeRequestHeaders(requestHeaders)
   };
-  const b64 = Buffer.from(JSON.stringify(payload)).toString("base64");
+  const b64 = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const base = (process.env.ADDON_URL || "").replace(/\/$/, "");
-  return `${base}/p/${b64}.mp4`;
+  return `${base}/p/${b64}`;
 }
 
-function buildStream(name, title, url, referer = null, shouldProxy = false) {
-  const finalUrl = shouldProxy ? buildProxiedUrl(url, referer) : url;
+export function buildStream(name, title, url, requestHeaders = null, shouldProxy = false) {
+  const normalizedHeaders = normalizeRequestHeaders(requestHeaders);
+  const finalUrl = shouldProxy ? buildProxiedUrl(url, normalizedHeaders) : url;
   const stream = { name, title, url: finalUrl };
-  const behaviorHints = buildBehaviorHints(url, referer);
+  const behaviorHints = buildBehaviorHints(url, normalizedHeaders);
+
+  if (shouldProxy || Object.keys(normalizedHeaders).length > 0) {
+    stream._proxyHeaders = normalizedHeaders;
+  }
+
+  stream._targetUrl = url;
 
   if (behaviorHints) {
     if (shouldProxy) {
-      // When proxying, we don't need Stremio to send headers, 
-      // as our proxy will do it.
+      // When proxying, our server handles the upstream headers.
       delete behaviorHints.proxyHeaders;
     }
-    stream.behaviorHints = behaviorHints;
+    if (Object.keys(behaviorHints).length > 0) {
+      stream.behaviorHints = behaviorHints;
+    }
   }
 
   return stream;
@@ -538,19 +563,9 @@ async function extractVimeos(url, label) {
   }
 
   return [
-    {
-      name: "Gnula",
-      title: `${label} Vimeos`.trim(),
-      url: decodeHtmlEntities(m3u8),
-      behaviorHints: {
-        notWebReady: true,
-        proxyHeaders: {
-          request: {
-            Referer: "https://vimeos.net/"
-          }
-        }
-      }
-    }
+    buildStream("Gnula", `${label} Vimeos`.trim(), decodeHtmlEntities(m3u8), {
+      Referer: "https://vimeos.net/"
+    })
   ];
 }
 
@@ -817,17 +832,7 @@ async function extractGoodstream(url, label) {
     await fetchText(beaconUrl, { ...headers }).catch(() => null);
   }
 
-  return [{
-    name: "Gnula",
-    title: `${label} Goodstream`.trim(),
-    url: playlistUrl,
-    behaviorHints: {
-      notWebReady: true,
-      proxyHeaders: {
-        request: headers
-      }
-    }
-  }];
+  return [buildStream("Gnula", `${label} Goodstream`.trim(), playlistUrl, headers)];
 }
 
 const extractorRegistry = [
@@ -949,15 +954,21 @@ export async function resolveExtractorStream(url, label, shouldProxy = false) {
 
   if (shouldProxy && streams.length > 0) {
     return streams.map((stream) => {
-      if (stream.url && !stream.url.startsWith("/p/")) {
-        const referer = url; // Use the extraction URL as referer for the proxy
+      if (stream.url && !/\/p\//.test(stream.url)) {
+        const upstreamHeaders =
+          stream._proxyHeaders ||
+          stream.behaviorHints?.proxyHeaders?.request ||
+          normalizeRequestHeaders(url);
+
+        const proxiedBehaviorHints = { ...(stream.behaviorHints || {}) };
+        delete proxiedBehaviorHints.proxyHeaders;
+
         return {
           ...stream,
-          url: buildProxiedUrl(stream.url, referer),
-          behaviorHints: {
-            ...(stream.behaviorHints || {}),
-            proxyHeaders: undefined // Proxy handles headers now
-          }
+          url: buildProxiedUrl(stream._targetUrl || stream.url, upstreamHeaders),
+          _proxyHeaders: upstreamHeaders,
+          _targetUrl: stream._targetUrl || stream.url,
+          behaviorHints: Object.keys(proxiedBehaviorHints).length > 0 ? proxiedBehaviorHints : undefined
         };
       }
       return stream;

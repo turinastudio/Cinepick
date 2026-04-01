@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: stremio-web-scraper-addon
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: STREAM_SELECTION_MODE
+        value: global
+      - key: STREAM_MAX_RESULTS
+        value: 1

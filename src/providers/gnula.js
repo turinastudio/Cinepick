@@ -669,9 +669,8 @@ export class GnulaProvider extends Provider {
     try {
       const html = await this.fetchText(player.pageUrl);
       const directUrl = this.extractVarUrl(html) || player.pageUrl;
-      const shouldProxy = ["streamwish", "vidhide", "doodstream", "filemoon", "voe", "uqload"].includes(
-        String(player.server || "generic").toLowerCase()
-      );
+      const label = [player.lang, player.server, player.quality].filter(Boolean).join(" ");
+      const shouldProxy = true;
       const extracted = await resolveExtractorStream(directUrl, label, shouldProxy);
 
       if (extracted.length > 0) {

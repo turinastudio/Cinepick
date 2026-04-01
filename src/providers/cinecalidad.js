@@ -525,9 +525,7 @@ export class CinecalidadProvider extends Provider {
         return [];
       }
 
-      const shouldProxy = ["streamwish", "vidhide", "doodstream", "filemoon", "voe", "uqload"].includes(
-        String(player.server || "generic").toLowerCase()
-      );
+      const shouldProxy = true;
       const extracted = await resolveExtractorStream(directUrl, this.buildPlayerLabel(player), shouldProxy);
 
       if (extracted.length > 0) {

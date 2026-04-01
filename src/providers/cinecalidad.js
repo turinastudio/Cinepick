@@ -563,9 +563,15 @@ export class CinecalidadProvider extends Provider {
             title: this.buildPlayerLabel(player),
             url: directUrl,
             _sourceKey: sourceKey,
-            behaviorHints: /m3u8/i.test(directUrl)
-              ? { notWebReady: true }
-              : undefined
+            behaviorHints: {
+              notWebReady: /m3u8/i.test(directUrl),
+              proxyHeaders: {
+                request: {
+                  Referer: player.pageUrl,
+                  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+                }
+              }
+            }
           }
         ];
       }

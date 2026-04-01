@@ -38,4 +38,8 @@ export class Provider {
   async debugStreamsFromExternalId(_params) {
     return null;
   }
+
+  async debugInternalStreams(_params) {
+    return null;
+  }
 }

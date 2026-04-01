@@ -2,8 +2,10 @@ import { parseStremioId } from "../lib/ids.js";
 import { analyzeScoredStreams, scoreAndSelectStreams } from "../lib/stream-scoring.js";
 import { CinecalidadProvider } from "./cinecalidad.js";
 import { GnulaProvider } from "./gnula.js";
+import { MhdflixProvider } from "./mhdflix.js";
+import { VerSeriesOnlineProvider } from "./verseriesonline.js";
 
-const providers = [new GnulaProvider(), new CinecalidadProvider()];
+const providers = [new GnulaProvider(), new CinecalidadProvider(), new MhdflixProvider(), new VerSeriesOnlineProvider()];
 const streamSelectionMode = String(process.env.STREAM_SELECTION_MODE || "global").trim().toLowerCase();
 
 export function getProviderByCatalog(catalogId) {
@@ -13,6 +15,14 @@ export function getProviderByCatalog(catalogId) {
 
   if (catalogId.startsWith("cinecalidad-")) {
     return providers.find((provider) => provider.id === "cinecalidad") ?? null;
+  }
+
+  if (catalogId.startsWith("mhdflix-")) {
+    return providers.find((provider) => provider.id === "mhdflix") ?? null;
+  }
+
+  if (catalogId.startsWith("verseriesonline-")) {
+    return providers.find((provider) => provider.id === "verseriesonline") ?? null;
   }
 
   return null;

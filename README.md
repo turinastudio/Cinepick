@@ -1,13 +1,15 @@
 # Stremio Web Scraper Addon
 
-Addon de Stremio orientado a providers web estilo Aniyomi/Cloudstream, con seleccion inteligente de streams y soporte para deploy en Render.
+Addon de Stremio orientado a providers web estilo Aniyomi/Cloudstream, con seleccion inteligente de streams, proxy interno de medios y deploy en Render.
 
 ## Estado actual
 
 - Providers integrados:
   - `gnula`
   - `cinecalidad`
-- Recursos de Stremio:
+  - `mhdflix`
+  - `verseriesonline`
+- Recursos:
   - `/manifest.json`
   - `/catalog/:type/:id.json`
   - `/meta/:type/:id.json`
@@ -16,34 +18,50 @@ Addon de Stremio orientado a providers web estilo Aniyomi/Cloudstream, con selec
 - Soporte para IDs externos de Stremio/Cinemeta:
   - peliculas: `tt1234567`
   - series: `tt1234567:1:1`
-- Seleccion de streams:
-  - mejor global entre providers
-  - o mejor por provider
-- Penalidades persistentes por host para priorizar fuentes que rinden mejor
 
 ## Ejecutar en local
 
+Opcion rapida:
+
 ```powershell
+.\start-local.bat
+```
+
+Opcion manual:
+
+```powershell
+$env:ADDON_URL='http://127.0.0.1:3000'
+$env:STREAM_SELECTION_MODE='per_provider'
 npm start
 ```
 
-El addon queda disponible en:
+Manifest local:
 
 - `http://127.0.0.1:3000/manifest.json`
+
+Health check:
+
+- `http://127.0.0.1:3000/`
 
 ## Variables utiles
 
 ```powershell
 $env:GNULA_BASE_URL='https://gnula.life'
 $env:CINECALIDAD_BASE_URL='https://www.cinecalidad.ec'
+$env:MHDFLIX_BASE_URL='https://ww1.mhdflix.com'
+$env:MHDFLIX_API_URL='https://core.mhdflix.com'
+$env:VERSERIESONLINE_BASE_URL='https://www.verseriesonline.net'
 $env:STREAM_SELECTION_MODE='global'
 $env:STREAM_MAX_RESULTS='1'
 $env:GNULA_DISABLED_SOURCES='streamwish,doodstream'
 $env:CINECALIDAD_DISABLED_SOURCES='goodstream,streamwish'
+$env:MHDFLIX_DISABLED_SOURCES='mixdrop,lulu'
+$env:VERSERIESONLINE_DISABLED_SOURCES='doodstream,uqload'
+$env:ADDON_URL='http://127.0.0.1:3000'
 npm start
 ```
 
-Opciones:
+Opciones principales:
 
 - `STREAM_SELECTION_MODE=global`
   Devuelve el mejor stream absoluto entre todos los providers.
@@ -53,70 +71,142 @@ Opciones:
   Devuelve solo el mejor resultado.
 - `STREAM_MAX_RESULTS=2`
   Devuelve mejor resultado mas backup.
-- `GNULA_DISABLED_SOURCES=host1,host2`
-- `CINECALIDAD_DISABLED_SOURCES=host1,host2`
+- `*_DISABLED_SOURCES=host1,host2`
+  Evita procesar esos hosts para el provider correspondiente.
+
+## Seleccion de streams
+
+El addon no devuelve simplemente el primer host que encuentra.
+
+Usa:
+
+- score por host
+- idioma
+- transporte (`mp4` vs `m3u8`)
+- complejidad de headers/cookies
+- penalidades persistentes por fuente
+
+Las penalidades se guardan en:
+
+- [data/source-penalties.json](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/data/source-penalties.json)
+
+## Proxy de medios
+
+Los providers integrados usan proxy interno para mejorar compatibilidad en localhost y Render:
+
+- los streams se entregan como `/p/...`
+- el proxy preserva headers reales
+- para HLS reescribe manifests y segmentos
+
+`ADDON_URL` es critico:
+
+- en local: `http://127.0.0.1:3000`
+- en Render: `https://TU-SERVICIO.onrender.com`
+
+Sin `ADDON_URL`, los streams proxyeados pueden quedar mal armados.
+
+## Providers
+
+### Gnula
+
+- peliculas, series, anime y otros
+- matching por `tt...`
+- debug externo estable
+
+### CineCalidad
+
+- peliculas y series
+- soporte de episodios tipo `ver-el-episodio/...`
+- matching por `tt...`
+- soporte de `vimeos`, `goodstream`, `voe`, `filemoon`, `streamwish`
+
+### MhdFlix
+
+- peliculas y series
+- usa la API `core.mhdflix.com`
+- soporta meta, episodios y streams
+- matching por `tt...`
+
+### VerSeriesOnline
+
+- series
+- soporte para estructura actual:
+  - `/series/<slug>/`
+  - `/series/<slug>/temporada-1/`
+  - `/series/<slug>/temporada-1/episodio-1/`
+- busqueda por URL directa
+- fallback de busqueda por slug
+- `csrf + cookies + POST /hashembedlink`
 
 ## Probar rapido
-
-Manifest:
-
-- `http://127.0.0.1:3000/manifest.json`
-
-Health check:
-
-- `http://127.0.0.1:3000/`
 
 Busqueda:
 
 - `http://127.0.0.1:3000/catalog/movie/gnula-movies.json?search=matrix`
 - `http://127.0.0.1:3000/catalog/movie/cinecalidad-movies.json?search=matrix`
+- `http://127.0.0.1:3000/catalog/movie/mhdflix-movies.json?search=matrix`
+- `http://127.0.0.1:3000/catalog/series/verseriesonline-series.json?search=the%20madison`
 
 Debug externo:
 
 - `http://127.0.0.1:3000/_debug/stream/movie/tt2948356.json`
 - `http://127.0.0.1:3000/_debug/stream/series/tt9813792:3:1.json`
 
+Debug interno:
+
+- `http://127.0.0.1:3000/_debug/stream/series/verseriesonline%3Aseries%3Aep%3AL3Nlcmllcy90aGUtbWFkaXNvbi90ZW1wb3JhZGEtMS9lcGlzb2Rpby0xLw%3A1%3A1%3AL3Nlcmllcy90aGUtbWFkaXNvbi8.json`
+
 ## Deploy en Render
 
-El proyecto ya esta preparado para Render:
+### 1. Subir cambios a GitHub
 
-- escucha en `0.0.0.0`
-- usa `process.env.PORT`
-- expone health check en `/`
-- incluye [render.yaml](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/render.yaml)
+```powershell
+git status
+git add .
+git commit -m "Update providers and proxy"
+git push origin main
+```
 
-### Opcion 1: usando `render.yaml`
+### 2. En Render
 
-1. Subi el repo a GitHub.
-2. En Render, crea un `Web Service` desde ese repo.
-3. Render deberia detectar [render.yaml](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/render.yaml) automaticamente.
-4. Agrega estas variables de entorno:
-   - `GNULA_BASE_URL=https://gnula.life`
-   - `CINECALIDAD_BASE_URL=https://www.cinecalidad.ec`
-   - `STREAM_SELECTION_MODE=global`
-   - `STREAM_MAX_RESULTS=1`
+Si el servicio ya existe:
 
-### Opcion 2: configuracion manual
+1. Abri el servicio.
+2. Hace click en `Manual Deploy`.
+3. Elegi `Deploy latest commit`.
 
-- Build command: `npm install`
-- Start command: `npm start`
-- Health check path: `/`
-- Runtime: `Node`
-- Node version recomendada: `20`
+Si el servicio todavia no existe:
 
-Variables recomendadas:
+1. Crea un `Web Service` desde el repo.
+2. Deja que use [render.yaml](/C:/Users/lautaroturina/Desktop/Codex%20Stremio%20Addon/render.yaml).
 
-- `GNULA_BASE_URL=https://gnula.life`
-- `CINECALIDAD_BASE_URL=https://www.cinecalidad.ec`
+### 3. Variables recomendadas en Render
+
+- `NODE_VERSION=20`
+- `ADDON_URL=https://TU-SERVICIO.onrender.com`
 - `STREAM_SELECTION_MODE=global`
 - `STREAM_MAX_RESULTS=1`
+- `GNULA_BASE_URL=https://gnula.life`
+- `CINECALIDAD_BASE_URL=https://www.cinecalidad.ec`
+- `MHDFLIX_BASE_URL=https://ww1.mhdflix.com`
+- `MHDFLIX_API_URL=https://core.mhdflix.com`
+- `VERSERIESONLINE_BASE_URL=https://www.verseriesonline.net`
 
-URL final de instalacion:
+### 4. Verificar deploy
+
+Proba:
+
+- `https://TU-SERVICIO.onrender.com/`
+- `https://TU-SERVICIO.onrender.com/manifest.json`
+
+La URL de instalacion en Stremio es:
 
 - `https://TU-SERVICIO.onrender.com/manifest.json`
 
-## Nota importante
+## Hallazgos importantes
 
-El addon intenta devolver solo streams directos reproducibles. Si un host no se puede resolver a una `url` real, se descarta.
-
-En algunos casos un sitio puede exponer varios players pero solo uno o dos resolverse bien. Para eso existe el sistema de score y penalidades, que ayuda a elegir automaticamente el host mas prometedor.
+- Los problemas actuales suelen ser por host concreto, no por provider base.
+- `goodstream` sigue siendo irregular en Stremio.
+- `vimeos` resulto util para `cinecalidad`.
+- `verseriesonline` cambio bastante respecto de la extension original; la estructura nueva es `/series/...`.
+- `mhdflix` funciona bien a nivel API, pero la reproduccion final depende de los hosts que devuelva cada item.

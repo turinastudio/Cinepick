@@ -76,7 +76,9 @@ export function buildProxiedUrl(targetUrl, requestHeaders = null) {
   };
   const b64 = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const base = (process.env.ADDON_URL || "").replace(/\/$/, "");
-  return `${base}/p/${b64}`;
+  const extensionMatch = String(targetUrl || "").match(/(\.m3u8|\.mp4|\.ts|\.m4s|\.key|\.bin)(?:\?|$)/i);
+  const extension = extensionMatch?.[1]?.toLowerCase() || ".bin";
+  return `${base}/p/${b64}${extension}`;
 }
 
 export function buildStream(name, title, url, requestHeaders = null, shouldProxy = false) {

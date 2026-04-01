@@ -137,6 +137,22 @@ async function handleDebug(res, pathname) {
   const resolved = resolveProviderFromMetaId(decodedId);
 
   if (resolved && resolved.type === requestedType) {
+    const providerDebug = await resolved.provider.debugInternalStreams({
+      type: resolved.type,
+      slug: resolved.slug
+    });
+
+    if (providerDebug) {
+      json(res, 200, {
+        mode: "internal",
+        provider: resolved.provider.id,
+        type: resolved.type,
+        slug: resolved.slug,
+        ...providerDebug
+      });
+      return;
+    }
+
     json(res, 200, {
       mode: "internal",
       provider: resolved.provider.id,

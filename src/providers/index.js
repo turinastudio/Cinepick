@@ -5,9 +5,10 @@ import { Cineplus123Provider } from "./cineplus123.js";
 import { GnulaProvider } from "./gnula.js";
 import { LaMovieProvider } from "./lamovie.js";
 import { MhdflixProvider } from "./mhdflix.js";
+import { SerieskaoProvider } from "./serieskao.js";
 import { VerSeriesOnlineProvider } from "./verseriesonline.js";
 
-const providers = [new GnulaProvider(), new CinecalidadProvider(), new MhdflixProvider(), new VerSeriesOnlineProvider(), new Cineplus123Provider(), new LaMovieProvider()];
+const providers = [new GnulaProvider(), new CinecalidadProvider(), new MhdflixProvider(), new VerSeriesOnlineProvider(), new Cineplus123Provider(), new LaMovieProvider(), new SerieskaoProvider()];
 const streamSelectionMode = String(process.env.STREAM_SELECTION_MODE || "global").trim().toLowerCase();
 const providerTimeoutMs = Math.max(1000, Number(process.env.PROVIDER_TIMEOUT_MS || 12000) || 12000);
 const providerDebugTimeoutMs = Math.max(providerTimeoutMs, Number(process.env.PROVIDER_DEBUG_TIMEOUT_MS || 18000) || 18000);
@@ -35,6 +36,10 @@ export function getProviderByCatalog(catalogId) {
 
   if (catalogId.startsWith("cineplus123-")) {
     return providers.find((provider) => provider.id === "cineplus123") ?? null;
+  }
+
+  if (catalogId.startsWith("serieskao-")) {
+    return providers.find((provider) => provider.id === "serieskao") ?? null;
   }
 
   return null;

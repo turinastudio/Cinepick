@@ -31,5 +31,7 @@ services:
         value: https://www.verseriesonline.net
       - key: CINEPLUS123_BASE_URL
         value: https://cineplus123.org
+      - key: SERIESKAO_BASE_URL
+        value: https://serieskao.top
       - key: ADDON_URL
         value: https://stremio-web-scraper-addon.onrender.com

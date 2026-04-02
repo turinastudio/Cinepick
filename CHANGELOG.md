@@ -108,6 +108,22 @@
     - `hanerix/streamwish` validado
     - `cvid` y `uqload` todavia incompletos
   - usa scoring, penalidades y proxy
+- `serieskao`
+  - nuevo provider en `src/providers/serieskao.js`
+  - port basado en la extension original
+  - soporta peliculas y series
+  - soporta:
+    - busqueda
+    - meta
+    - episodios
+    - streams
+    - matching por IDs externos `tt...`
+  - parsea `videoSources` y descifra `dataLink` antes de pasar por extractores compartidos
+  - suma fallback para paginas intermedias como `xupalace`
+  - validado:
+    - `Breaking Bad 1x1` -> `VidHide`
+    - `Matrix (1999)` -> `Voe`
+  - usa scoring, penalidades y proxy
 
 ### Debug y DX
 
@@ -158,3 +174,4 @@
 - El deploy en Render debe incluir `ADDON_URL` con la URL publica real del servicio.
 - Si cambia la URL del servicio en Render, hay que actualizar `ADDON_URL`.
 - `render.yaml` ahora tambien incluye `LAMOVIE_BASE_URL`.
+- `render.yaml` ahora tambien incluye `SERIESKAO_BASE_URL`.

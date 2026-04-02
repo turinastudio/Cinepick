@@ -11,6 +11,7 @@ Addon de Stremio orientado a providers web estilo Aniyomi/Cloudstream, con selec
 - `lamovie`
 - `verseriesonline`
 - `cineplus123`
+- `serieskao`
 - Recursos:
   - `/manifest.json`
   - `/catalog/:type/:id.json`
@@ -55,6 +56,7 @@ $env:MHDFLIX_API_URL='https://core.mhdflix.com'
 $env:LAMOVIE_BASE_URL='https://la.movie'
 $env:VERSERIESONLINE_BASE_URL='https://www.verseriesonline.net'
 $env:CINEPLUS123_BASE_URL='https://cineplus123.org'
+$env:SERIESKAO_BASE_URL='https://serieskao.top'
 $env:STREAM_SELECTION_MODE='global'
 $env:STREAM_MAX_RESULTS='1'
 $env:PROVIDER_TIMEOUT_MS='12000'
@@ -188,6 +190,23 @@ Sin `ADDON_URL`, los streams proxyeados pueden quedar mal armados.
   - `hanerix/streamwish` validado
   - `cvid` y `uqload` siguen siendo mas irregulares
 
+### SeriesKao
+
+- peliculas y series
+- port basado en la extension original
+- soporta:
+  - busqueda
+  - meta
+  - episodios
+  - streams
+  - matching por IDs externos `tt...`
+- parsea `videoSources` y descifra `dataLink` antes de pasar por extractores compartidos
+- agrega fallback para paginas intermedias tipo `xupalace`
+- validado en casos reales:
+  - series: `Breaking Bad 1x1` resolviendo `VidHide`
+  - peliculas: `Matrix (1999)` resolviendo `Voe`
+- usa scoring, penalidades y proxy igual que los otros providers
+
 ## Probar rapido
 
 Busqueda:
@@ -249,6 +268,7 @@ Si el servicio todavia no existe:
 - `LAMOVIE_BASE_URL=https://la.movie`
 - `VERSERIESONLINE_BASE_URL=https://www.verseriesonline.net`
 - `CINEPLUS123_BASE_URL=https://cineplus123.org`
+- `SERIESKAO_BASE_URL=https://serieskao.top`
 
 ### 4. Verificar deploy
 
@@ -309,6 +329,7 @@ Render toma estas variables desde [render.yaml](/C:/Users/lautaroturina/Desktop/
 - `LAMOVIE_BASE_URL`
 - `VERSERIESONLINE_BASE_URL`
 - `CINEPLUS123_BASE_URL`
+- `SERIESKAO_BASE_URL`
 - `ADDON_URL`
 
 Si cambias la URL publica del servicio, actualiza tambien `ADDON_URL`.

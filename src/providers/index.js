@@ -61,7 +61,13 @@ export async function resolveStreamsFromExternalId(type, id) {
   const collected = [];
 
   for (const provider of providers) {
-    const streams = await provider.getStreamsFromExternalId({ type, externalId: id });
+    let streams = [];
+    try {
+      streams = await provider.getStreamsFromExternalId({ type, externalId: id });
+    } catch (error) {
+      console.warn(`[streams] ${provider.id} fallo para ${type}:${id}: ${error.message}`);
+      continue;
+    }
 
     if (streams?.length) {
       collected.push(
@@ -88,7 +94,19 @@ export async function debugStreamsFromExternalId(type, id) {
   const collected = [];
 
   for (const provider of providers) {
-    const debug = await provider.debugStreamsFromExternalId({ type, externalId: id });
+    let debug = null;
+    try {
+      debug = await provider.debugStreamsFromExternalId({ type, externalId: id });
+    } catch (error) {
+      debug = {
+        provider: provider.id,
+        type,
+        externalId: id,
+        status: "error",
+        error: error.message
+      };
+    }
+
     if (debug) {
       results.push(debug);
       if (Array.isArray(debug.streams) && debug.streams.length > 0) {

@@ -73,13 +73,13 @@ function buildBehaviorHints(url, requestHeaders = null) {
   return Object.keys(behaviorHints).length > 0 ? behaviorHints : undefined;
 }
 
-export function buildProxiedUrl(targetUrl, requestHeaders = null) {
+export function buildProxiedUrl(targetUrl, requestHeaders = null, baseOverride = "") {
   const payload = {
     url: targetUrl,
     headers: normalizeRequestHeaders(requestHeaders)
   };
   const b64 = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  const base = (process.env.ADDON_URL || "").replace(/\/$/, "");
+  const base = String(baseOverride || process.env.ADDON_URL || "").replace(/\/$/, "");
   const extensionMatch = String(targetUrl || "").match(/(\.m3u8|\.mp4|\.ts|\.m4s|\.key|\.bin)(?:\?|$)/i);
   const extension = extensionMatch?.[1]?.toLowerCase() || ".bin";
   return `${base}/p/${b64}${extension}`;

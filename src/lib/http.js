@@ -42,7 +42,14 @@ function absolutizeUrl(candidate, baseUrl) {
   }
 }
 
-function rewriteHlsManifest(text, manifestUrl, targetHeaders) {
+function getRequestOrigin(req) {
+  const forwardedProto = String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim();
+  const proto = forwardedProto || "http";
+  const reqHost = req.headers.host || "127.0.0.1";
+  return `${proto}://${reqHost}`;
+}
+
+function rewriteHlsManifest(text, manifestUrl, targetHeaders, publicOrigin) {
   const lines = String(text || "").split(/\r?\n/);
 
   return lines.map((line) => {
@@ -55,16 +62,17 @@ function rewriteHlsManifest(text, manifestUrl, targetHeaders) {
     if (trimmed.startsWith("#")) {
       return line.replace(/URI="([^"]+)"/gi, (_, uri) => {
         const absolute = absolutizeUrl(uri, manifestUrl);
-        return `URI="${buildProxiedUrl(absolute, targetHeaders)}"`;
+        return `URI="${buildProxiedUrl(absolute, targetHeaders, publicOrigin)}"`;
       });
     }
 
-    return buildProxiedUrl(absolutizeUrl(trimmed, manifestUrl), targetHeaders);
+    return buildProxiedUrl(absolutizeUrl(trimmed, manifestUrl), targetHeaders, publicOrigin);
   }).join("\n");
 }
 
 export async function proxyStream(req, res, targetUrl, targetHeaders = {}) {
   try {
+    const publicOrigin = getRequestOrigin(req);
     const headers = {
       "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
       ...targetHeaders
@@ -91,7 +99,7 @@ export async function proxyStream(req, res, targetUrl, targetHeaders = {}) {
 
     if (isHlsResponse(targetUrl, response)) {
       const manifestText = await response.text();
-      const rewritten = rewriteHlsManifest(manifestText, response.url || targetUrl, headers);
+      const rewritten = rewriteHlsManifest(manifestText, response.url || targetUrl, headers, publicOrigin);
 
       responseHeaders["content-type"] = getHeaderValue(response.headers, "content-type") || "application/vnd.apple.mpegurl";
       responseHeaders["cache-control"] = "no-store";

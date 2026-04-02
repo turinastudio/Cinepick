@@ -1,6 +1,6 @@
 # Stremio Web Scraper Addon
 
-Addon de Stremio orientado a providers web estilo Aniyomi/Cloudstream, con seleccion inteligente de streams, proxy interno de medios y deploy en Render.
+Addon de Stremio orientado a providers web estilo Aniyomi/Cloudstream, con seleccion inteligente de streams, proxy interno de medios y deploy principal en Railway.
 
 ## Estado actual
 
@@ -59,8 +59,8 @@ $env:CINEPLUS123_BASE_URL='https://cineplus123.org'
 $env:SERIESKAO_BASE_URL='https://serieskao.top'
 $env:STREAM_SELECTION_MODE='global'
 $env:STREAM_MAX_RESULTS='1'
-$env:PROVIDER_TIMEOUT_MS='12000'
-$env:PROVIDER_DEBUG_TIMEOUT_MS='18000'
+$env:PROVIDER_TIMEOUT_MS='25000'
+$env:PROVIDER_DEBUG_TIMEOUT_MS='40000'
 $env:GNULA_DISABLED_SOURCES='streamwish,doodstream'
 $env:CINECALIDAD_DISABLED_SOURCES='goodstream,streamwish'
 $env:MHDFLIX_DISABLED_SOURCES='mixdrop,lulu'
@@ -81,9 +81,9 @@ Opciones principales:
   Devuelve solo el mejor resultado.
 - `STREAM_MAX_RESULTS=2`
   Devuelve mejor resultado mas backup.
-- `PROVIDER_TIMEOUT_MS=12000`
+- `PROVIDER_TIMEOUT_MS=25000`
   Timeout por provider durante `/stream/...` externos.
-- `PROVIDER_DEBUG_TIMEOUT_MS=18000`
+- `PROVIDER_DEBUG_TIMEOUT_MS=40000`
   Timeout por provider durante `/_debug/stream/...`.
 - `*_DISABLED_SOURCES=host1,host2`
   Evita procesar esos hosts para el provider correspondiente.
@@ -106,7 +106,7 @@ Las penalidades se guardan en:
 
 ## Proxy de medios
 
-Los providers integrados usan proxy interno para mejorar compatibilidad en localhost y Render:
+Los providers integrados usan proxy interno para mejorar compatibilidad en localhost y produccion:
 
 - los streams se entregan como `/p/...`
 - el proxy preserva headers reales
@@ -115,6 +115,7 @@ Los providers integrados usan proxy interno para mejorar compatibilidad en local
 `ADDON_URL` es critico:
 
 - en local: `http://127.0.0.1:3000`
+- en Railway: `https://TU-SERVICIO.up.railway.app`
 - en Render: `https://TU-SERVICIO.onrender.com`
 
 Sin `ADDON_URL`, los streams proxyeados pueden quedar mal armados.
@@ -229,7 +230,52 @@ Debug interno:
 
 - `http://127.0.0.1:3000/_debug/stream/series/verseriesonline%3Aseries%3Aep%3AL3Nlcmllcy90aGUtbWFkaXNvbi90ZW1wb3JhZGEtMS9lcGlzb2Rpby0xLw%3A1%3A1%3AL3Nlcmllcy90aGUtbWFkaXNvbi8.json`
 
+## Deploy en Railway
+
+Instancia principal recomendada:
+
+- `https://stremio-web-scraper-addon-production.up.railway.app/manifest.json`
+
+### 1. Crear servicio
+
+1. Conecta el repo en Railway.
+2. Deja que detecte el servicio Node.
+3. Verifica:
+   - `Build Command`: `npm install`
+   - `Start Command`: `npm start`
+4. Genera dominio publico.
+
+### 2. Variables recomendadas en Railway
+
+- `NODE_VERSION=20`
+- `ADDON_URL=https://TU-SERVICIO.up.railway.app`
+- `STREAM_SELECTION_MODE=global`
+- `STREAM_MAX_RESULTS=1`
+- `PROVIDER_TIMEOUT_MS=25000`
+- `PROVIDER_DEBUG_TIMEOUT_MS=40000`
+- `GNULA_BASE_URL=https://gnula.life`
+- `CINECALIDAD_BASE_URL=https://www.cinecalidad.ec`
+- `MHDFLIX_BASE_URL=https://ww1.mhdflix.com`
+- `MHDFLIX_API_URL=https://core.mhdflix.com`
+- `LAMOVIE_BASE_URL=https://la.movie`
+- `VERSERIESONLINE_BASE_URL=https://www.verseriesonline.net`
+- `CINEPLUS123_BASE_URL=https://cineplus123.org`
+- `SERIESKAO_BASE_URL=https://serieskao.top`
+
+### 3. Verificar deploy
+
+Proba:
+
+- `https://TU-SERVICIO.up.railway.app/`
+- `https://TU-SERVICIO.up.railway.app/manifest.json`
+
+La URL de instalacion en Stremio es:
+
+- `https://TU-SERVICIO.up.railway.app/manifest.json`
+
 ## Deploy en Render
+
+Render queda como alternativa secundaria o backup, pero hoy Railway esta mostrando mejor compatibilidad real con los providers.
 
 ### 1. Subir cambios a GitHub
 
@@ -259,8 +305,8 @@ Si el servicio todavia no existe:
 - `ADDON_URL=https://TU-SERVICIO.onrender.com`
 - `STREAM_SELECTION_MODE=global`
 - `STREAM_MAX_RESULTS=1`
-- `PROVIDER_TIMEOUT_MS=12000`
-- `PROVIDER_DEBUG_TIMEOUT_MS=18000`
+- `PROVIDER_TIMEOUT_MS=25000`
+- `PROVIDER_DEBUG_TIMEOUT_MS=40000`
 - `GNULA_BASE_URL=https://gnula.life`
 - `CINECALIDAD_BASE_URL=https://www.cinecalidad.ec`
 - `MHDFLIX_BASE_URL=https://ww1.mhdflix.com`
@@ -284,6 +330,7 @@ La URL de instalacion en Stremio es:
 ## Hallazgos importantes
 
 - Los problemas actuales suelen ser por host concreto, no por provider base.
+- Railway esta funcionando mejor que Render para esta combinacion de providers y hosts.
 - `goodstream` sigue siendo irregular en Stremio.
 - `vimeos` resulto util para `cinecalidad`.
 - Las mejoras en extractores compartidos si pegaron en providers pesados:
@@ -357,3 +404,42 @@ Y si queres validar streams:
 
 - [Zootopia debug](https://stremio-web-scraper-addon.onrender.com/_debug/stream/movie/tt2948356.json)
 - [From 3x1 debug](https://stremio-web-scraper-addon.onrender.com/_debug/stream/series/tt9813792:3:1.json)
+
+## Guia rapida para actualizar Railway
+
+### 1. Verificar y subir cambios
+
+```powershell
+git status
+git add .
+git commit -m "Update providers and docs"
+git push origin main
+```
+
+### 2. Confirmar variables
+
+En Railway revisa:
+
+- `ADDON_URL`
+- `STREAM_SELECTION_MODE`
+- `STREAM_MAX_RESULTS`
+- `PROVIDER_TIMEOUT_MS`
+- `PROVIDER_DEBUG_TIMEOUT_MS`
+- `GNULA_BASE_URL`
+- `CINECALIDAD_BASE_URL`
+- `MHDFLIX_BASE_URL`
+- `MHDFLIX_API_URL`
+- `LAMOVIE_BASE_URL`
+- `VERSERIESONLINE_BASE_URL`
+- `CINEPLUS123_BASE_URL`
+- `SERIESKAO_BASE_URL`
+
+### 3. Redeploy
+
+- con `git push` normalmente alcanza
+- si queres forzarlo, usa `Redeploy` desde Railway
+
+### 4. Verificar despues del deploy
+
+- `https://TU-SERVICIO.up.railway.app/`
+- `https://TU-SERVICIO.up.railway.app/manifest.json`

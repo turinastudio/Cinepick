@@ -175,3 +175,7 @@
 - Si cambia la URL del servicio en Render, hay que actualizar `ADDON_URL`.
 - `render.yaml` ahora tambien incluye `LAMOVIE_BASE_URL`.
 - `render.yaml` ahora tambien incluye `SERIESKAO_BASE_URL`.
+- Railway quedo operativo con:
+  - `manifest.json` publico
+  - streams proxyeados desde su propio dominio
+- Para esta combinacion de providers y hosts, Railway esta respondiendo mejor que Render.

@@ -79,7 +79,7 @@ export function buildProxiedUrl(targetUrl, requestHeaders = null, baseOverride =
     headers: normalizeRequestHeaders(requestHeaders)
   };
   const b64 = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  const base = String(baseOverride || process.env.ADDON_URL || "").replace(/\/$/, "");
+  const base = String(baseOverride || "").replace(/\/$/, "");
   const extensionMatch = String(targetUrl || "").match(/(\.m3u8|\.mp4|\.ts|\.m4s|\.key|\.bin)(?:\?|$)/i);
   const extension = extensionMatch?.[1]?.toLowerCase() || ".bin";
   return `${base}/p/${b64}${extension}`;

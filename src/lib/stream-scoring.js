@@ -2,6 +2,7 @@ import { getPenaltyForSource } from "./penalty-reliability.js";
 import { buildHttpStreamTitle } from "./stream-format.js";
 
 const DEFAULT_MAX_RESULTS = 2;
+const DEFAULT_DISABLED_SOURCES = new Set(["netu", "hqq", "waaw", "waaw.tv"]);
 
 const HOST_SCORES = {
   vidhide: 100,
@@ -20,6 +21,23 @@ const HOST_SCORES = {
   uqload: 58,
   dood: 42
 };
+
+function getDisabledSourceSet() {
+  if (/^(1|true|yes)$/i.test(String(process.env.ALLOW_UNSTABLE_HOSTS || ""))) {
+    return new Set();
+  }
+
+  const configured = String(
+    process.env.STREAM_DISABLED_SOURCES ||
+    process.env.DISABLED_STREAM_SOURCES ||
+    ""
+  )
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+
+  return new Set([...DEFAULT_DISABLED_SOURCES, ...configured]);
+}
 
 function detectResolutionScore(stream) {
   const text = `${stream.title || ""} ${stream.description || ""}`.toLowerCase();
@@ -174,7 +192,13 @@ function selectWithProviderDiversity(scoredItems, maxResults) {
 }
 
 export function analyzeScoredStreams(providerId, streams, options = {}) {
+  const disabledSources = getDisabledSourceSet();
+
   return dedupeStreams(streams)
+    .filter((stream) => {
+      const sourceLabel = detectSourceLabel(stream);
+      return !disabledSources.has(sourceLabel);
+    })
     .map((stream) => {
       const sourceLabel = detectSourceLabel(stream);
       const sourceKey = buildSourceKey(providerId, stream);

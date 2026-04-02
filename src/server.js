@@ -53,6 +53,35 @@ function parseUrl(req) {
   return new URL(req.url, `http://${req.headers.host || `${host}:${port}`}`);
 }
 
+function getRequestOrigin(req) {
+  const forwardedProto = String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim();
+  const proto = forwardedProto || "http";
+  const reqHost = req.headers.host || `${host}:${port}`;
+  return `${proto}://${reqHost}`;
+}
+
+function absolutizeStreamUrls(req, streams) {
+  const origin = getRequestOrigin(req);
+
+  return (Array.isArray(streams) ? streams : []).map((stream) => {
+    if (!stream || typeof stream !== "object") {
+      return stream;
+    }
+
+    const next = { ...stream };
+
+    if (typeof next.url === "string" && next.url.startsWith("/")) {
+      next.url = `${origin}${next.url}`;
+    }
+
+    if (typeof next.externalUrl === "string" && next.externalUrl.startsWith("/")) {
+      next.externalUrl = `${origin}${next.externalUrl}`;
+    }
+
+    return next;
+  });
+}
+
 async function handleCatalog(res, pathname, searchParams) {
   const match = pathname.match(/^\/catalog\/([^/]+)\/([^/.]+)\.json$/);
 
@@ -101,7 +130,7 @@ async function handleMeta(res, pathname) {
   json(res, 200, createMetaResponse(item));
 }
 
-async function handleStream(res, pathname) {
+async function handleStream(req, res, pathname) {
   const match = pathname.match(/^\/stream\/([^/]+)\/(.+)\.json$/);
 
   if (!match) {
@@ -114,7 +143,7 @@ async function handleStream(res, pathname) {
 
   if (!resolved || resolved.type !== requestedType) {
     const externalStreams = await resolveStreamsFromExternalId(requestedType, decodeURIComponent(rawId));
-    json(res, 200, { streams: externalStreams });
+    json(res, 200, { streams: absolutizeStreamUrls(req, externalStreams) });
     return;
   }
 
@@ -123,7 +152,7 @@ async function handleStream(res, pathname) {
     slug: resolved.slug
   });
 
-  json(res, 200, { streams });
+  json(res, 200, { streams: absolutizeStreamUrls(req, streams) });
 }
 
 async function handleDebug(res, pathname) {
@@ -282,7 +311,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && url.pathname.startsWith("/stream/")) {
-      await handleStream(res, url.pathname);
+      await handleStream(req, res, url.pathname);
       return;
     }
 

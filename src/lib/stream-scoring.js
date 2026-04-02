@@ -1,4 +1,5 @@
 import { getPenaltyForSource } from "./penalty-reliability.js";
+import { buildHttpStreamTitle } from "./stream-format.js";
 
 const DEFAULT_MAX_RESULTS = 1;
 
@@ -133,10 +134,17 @@ export function analyzeScoredStreams(providerId, streams, options = {}) {
         complexityPenalty -
         penalty;
 
+      const cleanedTitle = options.cleanTitle ? options.cleanTitle(stream.title || "") : (stream.title || "");
+      const formattedTitle = buildHttpStreamTitle({
+        ...stream,
+        title: cleanedTitle,
+        _sourceLabel: sourceLabel
+      });
+
       return {
         stream: {
           ...stream,
-          title: options.cleanTitle ? options.cleanTitle(stream.title || "") : (stream.title || "")
+          title: formattedTitle
         },
         score,
         sourceKey,

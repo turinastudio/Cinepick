@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { buildStremioId } from "../lib/ids.js";
+import { buildTorrentTitle } from "../lib/torrent-format.js";
 import { Provider } from "./base.js";
 
 const DEFAULT_TRACKERS = [
@@ -441,9 +442,15 @@ export class PelispandaProvider extends Provider {
 
     const parsedMagnet = /^magnet:/i.test(decodedUrl) ? this.parseMagnet(decodedUrl) : null;
     const displayName = this.cleanText(parsedMagnet?.dn || this.filenameFromUrl(decodedUrl) || baseTitle);
-    const fullTitle = `[TORRENT]${languageTag ? `${languageTag}` : ""} ${displayName || baseTitle}`.trim();
     const trackers = this.normalizeTrackers(parsedMagnet?.tr?.length ? parsedMagnet.tr : DEFAULT_TRACKERS);
-    const infoText = `${fullTitle} ${baseTitle}`.toLowerCase();
+    const infoText = `${displayName} ${baseTitle}`.toLowerCase();
+    const size = this.extractSizeLabel(infoText);
+    const fullTitle = buildTorrentTitle({
+      languageTag,
+      baseTitle,
+      rawName: displayName,
+      size
+    });
 
     return {
       name: "PelisPanda",
@@ -453,7 +460,7 @@ export class PelispandaProvider extends Provider {
       sources: trackers.map((tracker) => `tracker:${tracker}`),
       seeders: this.extractFirstNumber(infoText, /\b(\d+)\s*(?:seed|seeder|semillas)\b/i),
       peers: this.extractFirstNumber(infoText, /\b(\d+)\s*(?:peer|leech|leecher)\b/i),
-      size: this.extractSizeLabel(infoText),
+      size,
       behaviorHints: {
         bingeGroup: "torrent"
       }

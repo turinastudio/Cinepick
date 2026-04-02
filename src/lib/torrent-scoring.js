@@ -35,9 +35,9 @@ function buildTorrentText(stream) {
 
 function detectResolutionScore(stream) {
   const text = buildTorrentText(stream);
-  if (/\b(2160p|4k)\b/.test(text)) return 28;
-  if (/\b1080p\b/.test(text)) return 22;
-  if (/\b720p\b/.test(text)) return 14;
+  if (/\b1080p\b/.test(text)) return 26;
+  if (/\b(2160p|4k)\b/.test(text)) return 22;
+  if (/\b720p\b/.test(text)) return 16;
   if (/\b480p\b/.test(text)) return 6;
   return 0;
 }
@@ -45,7 +45,8 @@ function detectResolutionScore(stream) {
 function detectLanguageScore(stream) {
   const text = buildTorrentText(stream);
   if (text.includes("[lat]") || /\blatino\b|\blatam\b/.test(text)) return 30;
-  if (text.includes("[cast]") || /\bcastellano\b|\bespa[nñ]ol\b/.test(text)) return 18;
+  if (text.includes("[cast]") || /\bcastellano\b|\bespa[ñn]ol\b/.test(text)) return 22;
+  if (/\bdual\b|\bdual audio\b|\bmulti(audio)?\b/.test(text)) return 14;
   if (text.includes("[sub]") || /\bsubtitulado\b|\bvose\b/.test(text)) return 8;
   return 0;
 }
@@ -79,6 +80,17 @@ function detectSizeScore(stream) {
   return 0;
 }
 
+function detectQualityScore(stream) {
+  const text = buildTorrentText(stream);
+  if (/\bweb[-\s]?dl\b/.test(text)) return 8;
+  if (/\bwebrip\b/.test(text)) return 6;
+  if (/\b(?:blu[-\s]?ray|bdrip|brrip)\b/.test(text)) return 7;
+  if (/\bremux\b/.test(text)) return 4;
+  if (/\bdvdrip\b/.test(text)) return -8;
+  if (/\b(?:screener|camrip)\b/.test(text)) return -16;
+  return 0;
+}
+
 function detectSeasonPackPenalty(stream) {
   const text = buildTorrentText(stream);
   if (/\b(complete season|season pack|temporada completa|pack temporada)\b/.test(text)) {
@@ -93,6 +105,15 @@ function detectCamPenalty(stream) {
     return 40;
   }
   return 0;
+}
+
+function detectVisualTagPenalty(stream) {
+  const text = buildTorrentText(stream);
+  let penalty = 0;
+  if (/\b3d\b/.test(text)) penalty += 20;
+  if (/\bai\b/.test(text)) penalty += 12;
+  if ((/\bdv\b|\bdolby vision\b/.test(text)) && !/\bhdr\b/.test(text)) penalty += 6;
+  return penalty;
 }
 
 function dedupeTorrents(streams) {
@@ -123,17 +144,21 @@ export function analyzeScoredTorrents(providerId, streams) {
       const seederScore = detectSeederScore(stream);
       const peerScore = detectPeerScore(stream);
       const sizeScore = detectSizeScore(stream);
+      const qualityScore = detectQualityScore(stream);
       const seasonPackPenalty = detectSeasonPackPenalty(stream);
       const camPenalty = detectCamPenalty(stream);
+      const visualTagPenalty = detectVisualTagPenalty(stream);
       const score =
         20 +
         resolutionScore +
         languageScore +
         seederScore +
         peerScore +
-        sizeScore -
+        sizeScore +
+        qualityScore -
         seasonPackPenalty -
-        camPenalty;
+        camPenalty -
+        visualTagPenalty;
 
       return {
         stream: {
@@ -148,8 +173,10 @@ export function analyzeScoredTorrents(providerId, streams) {
           seederScore,
           peerScore,
           sizeScore,
+          qualityScore,
           seasonPackPenalty,
-          camPenalty
+          camPenalty,
+          visualTagPenalty
         }
       };
     })

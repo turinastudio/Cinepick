@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { buildStremioId } from "../lib/ids.js";
+import { buildTorrentTitle } from "../lib/torrent-format.js";
 import { scoreAndSelectTorrents } from "../lib/torrent-scoring.js";
 import { Provider } from "./base.js";
 
@@ -439,10 +440,15 @@ export class DonTorrentProvider extends Provider {
       }
 
       const trackers = DEFAULT_TRACKERS;
-      const detailParts = [context.baseTitle, context.quality, context.language, context.size].filter(Boolean);
+      const title = buildTorrentTitle({
+        languageTag: "[CAST]",
+        baseTitle: context.baseTitle,
+        rawName: `${context.baseTitle} ${context.quality || ""}`.trim(),
+        size: context.size
+      });
       return {
         name: "DonTorrent",
-        title: `[TORRENT][CAST] ${detailParts.join(" ")}`.replace(/\s+/g, " ").trim(),
+        title,
         infoHash: infoHash.toUpperCase(),
         fileIdx: 0,
         sources: trackers.map((tracker) => `tracker:${tracker}`),

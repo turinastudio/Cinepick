@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { buildStremioId } from "../lib/ids.js";
+import { buildTorrentTitle } from "../lib/torrent-format.js";
 import { scoreAndSelectTorrents } from "../lib/torrent-scoring.js";
 import { Provider } from "./base.js";
 
@@ -291,7 +292,12 @@ export class EliteTorrentProvider extends Provider {
 
     const parsedMagnet = this.parseMagnet(decodedUrl);
     const displayName = this.cleanText(parsedMagnet?.dn || context.label || context.baseTitle || "EliteTorrent");
-    const title = `[TORRENT][CAST] ${displayName}`.replace(/\s+/g, " ").trim();
+    const title = buildTorrentTitle({
+      languageTag: "[CAST]",
+      baseTitle: context.baseTitle || displayName,
+      rawName: displayName,
+      size: context.size
+    });
     const trackers = this.normalizeTrackers(parsedMagnet?.tr?.length ? parsedMagnet.tr : DEFAULT_TRACKERS);
 
     return {

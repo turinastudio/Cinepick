@@ -7,8 +7,10 @@ import {
   serverError
 } from "./lib/http.js";
 import {
+  debugProviderStreamsFromExternalId,
   debugStreamsFromExternalId,
   getProviderByCatalog,
+  getProviderById,
   resolveProviderFromMetaId,
   resolveStreamsFromExternalId
 } from "./providers/index.js";
@@ -169,8 +171,59 @@ async function handleDebug(res, pathname) {
     id: decodedId,
     selectionMode: debug.selectionMode || "global",
     results: debug.results || [],
+    globalScoredHttpStreams: debug.globalScoredHttpStreams || [],
+    globalScoredTorrentStreams: debug.globalScoredTorrentStreams || [],
+    globalSelectedHttpStreams: debug.globalSelectedHttpStreams || [],
+    globalSelectedTorrentStreams: debug.globalSelectedTorrentStreams || [],
     globalScoredStreams: debug.globalScoredStreams || [],
     globalSelectedStreams: debug.globalSelectedStreams || []
+  });
+}
+
+async function handleProviderDebug(res, pathname) {
+  const match = pathname.match(/^\/_debug\/provider\/([^/]+)\/stream\/([^/]+)\/(.+)\.json$/);
+
+  if (!match) {
+    notFound(res);
+    return;
+  }
+
+  const [, providerId, requestedType, rawId] = match;
+  const decodedId = decodeURIComponent(rawId);
+  const provider = getProviderById(providerId);
+
+  if (!provider) {
+    json(res, 404, {
+      error: "Provider not found",
+      provider: providerId
+    });
+    return;
+  }
+
+  const resolved = resolveProviderFromMetaId(decodedId);
+  if (resolved && resolved.provider.id === providerId && resolved.type === requestedType) {
+    const providerDebug = await provider.debugInternalStreams({
+      type: resolved.type,
+      slug: resolved.slug
+    });
+
+    json(res, 200, {
+      mode: "internal",
+      provider: provider.id,
+      type: resolved.type,
+      slug: resolved.slug,
+      ...providerDebug
+    });
+    return;
+  }
+
+  const debug = await debugProviderStreamsFromExternalId(providerId, requestedType, decodedId);
+  json(res, 200, {
+    mode: "external",
+    provider: providerId,
+    type: requestedType,
+    id: decodedId,
+    result: debug
   });
 }
 
@@ -239,6 +292,11 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === "GET" && url.pathname.startsWith("/_debug/stream/")) {
       await handleDebug(res, url.pathname);
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname.startsWith("/_debug/provider/")) {
+      await handleProviderDebug(res, url.pathname);
       return;
     }
 

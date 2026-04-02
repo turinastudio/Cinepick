@@ -1,6 +1,6 @@
 {
   "name": "stremio-web-scraper-addon",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Stremio addon base for web providers ported from Aniyomi-style scrapers.",
   "type": "module",
   "main": "src/server.js",

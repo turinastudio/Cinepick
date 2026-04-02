@@ -1,11 +1,11 @@
 export const manifest = {
   id: "com.stremio.web.scraper",
-  version: "0.1.0",
+  version: "0.1.1",
   name: "Web Scraper Addon",
   description: "Addon base para Stremio con providers web reutilizables.",
   resources: ["catalog", "meta", "stream"],
   types: ["movie", "series"],
-  idPrefixes: ["gnula:", "cinecalidad:", "mhdflix:", "lamovie:", "verseriesonline:", "cineplus123:", "serieskao:", "tt"],
+  idPrefixes: ["gnula:", "cinecalidad:", "mhdflix:", "mitorrent:", "pelispanda:", "lamovie:", "verseriesonline:", "cineplus123:", "serieskao:", "tt"],
   catalogs: [
     {
       type: "movie",
@@ -41,6 +41,30 @@ export const manifest = {
       type: "series",
       id: "mhdflix-series",
       name: "MhdFlix Series",
+      extra: [{ name: "search", isRequired: true }]
+    },
+    {
+      type: "movie",
+      id: "mitorrent-movies",
+      name: "MiTorrent Movies",
+      extra: [{ name: "search", isRequired: true }]
+    },
+    {
+      type: "series",
+      id: "mitorrent-series",
+      name: "MiTorrent Series",
+      extra: [{ name: "search", isRequired: true }]
+    },
+    {
+      type: "movie",
+      id: "pelispanda-movies",
+      name: "PelisPanda Movies",
+      extra: [{ name: "search", isRequired: true }]
+    },
+    {
+      type: "series",
+      id: "pelispanda-series",
+      name: "PelisPanda Series",
       extra: [{ name: "search", isRequired: true }]
     },
     {

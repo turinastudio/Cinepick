@@ -25,6 +25,10 @@ services:
         value: https://ww1.mhdflix.com
       - key: MHDFLIX_API_URL
         value: https://core.mhdflix.com
+      - key: MITORRENT_BASE_URL
+        value: https://mitorrent.mx
+      - key: PELISPANDA_BASE_URL
+        value: https://pelispanda.org
       - key: LAMOVIE_BASE_URL
         value: https://la.movie
       - key: VERSERIESONLINE_BASE_URL

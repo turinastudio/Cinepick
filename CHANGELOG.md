@@ -22,6 +22,10 @@
   - `STREAM_SELECTION_MODE=global`
   - `STREAM_SELECTION_MODE=per_provider`
 - `STREAM_MAX_RESULTS` controla cuantos resultados devuelve el addon despues del score.
+- Se agregaron timeouts por provider para evitar que el debug o la resolucion global queden colgados:
+  - `PROVIDER_TIMEOUT_MS`
+  - `PROVIDER_DEBUG_TIMEOUT_MS`
+- La resolucion global de providers ahora corre en paralelo en vez de hacerlo en serie.
 - Se agregaron variables para desactivar hosts por provider:
   - `GNULA_DISABLED_SOURCES`
   - `CINECALIDAD_DISABLED_SOURCES`
@@ -68,6 +72,9 @@
   - validado con:
     - `Matrix (1999)` en movie
     - `Breaking Bad 1x1` en series
+    - `From S2E8` en series
+  - el matching ahora prioriza la ruta publica `/series/<slug>`
+  - se castiga fuertemente a candidatos de `animes` cuando el match real es una serie normal
 - `verseriesonline`
   - nuevo provider en `src/providers/verseriesonline.js`
   - soporta series
@@ -141,6 +148,10 @@
   - ahora se aparta si no encuentra un candidato realmente razonable
 - `cineplus123` no estaba roto en provider: los bloqueos reales estuvieron en extractores por host.
 - En `cineplus123` peliculas, el primer host validado fue `hanerix`.
+- En `From S2E8`:
+  - `lamovie` ya encuentra `From (2022)` en vez de anime y devuelve streams reales
+  - `cinecalidad` tambien resuelve bien ese episodio
+  - `verseriesonline` puede seguir siendo mas lento y caer en timeout dentro del debug externo
 
 ### Deploy
 

@@ -13,6 +13,10 @@ services:
         value: global
       - key: STREAM_MAX_RESULTS
         value: 1
+      - key: PROVIDER_TIMEOUT_MS
+        value: 12000
+      - key: PROVIDER_DEBUG_TIMEOUT_MS
+        value: 18000
       - key: GNULA_BASE_URL
         value: https://gnula.life
       - key: CINECALIDAD_BASE_URL

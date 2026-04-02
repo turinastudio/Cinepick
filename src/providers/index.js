@@ -9,6 +9,8 @@ import { VerSeriesOnlineProvider } from "./verseriesonline.js";
 
 const providers = [new GnulaProvider(), new CinecalidadProvider(), new MhdflixProvider(), new VerSeriesOnlineProvider(), new Cineplus123Provider(), new LaMovieProvider()];
 const streamSelectionMode = String(process.env.STREAM_SELECTION_MODE || "global").trim().toLowerCase();
+const providerTimeoutMs = Math.max(1000, Number(process.env.PROVIDER_TIMEOUT_MS || 12000) || 12000);
+const providerDebugTimeoutMs = Math.max(providerTimeoutMs, Number(process.env.PROVIDER_DEBUG_TIMEOUT_MS || 18000) || 18000);
 
 export function getProviderByCatalog(catalogId) {
   if (catalogId.startsWith("gnula-")) {
@@ -64,21 +66,31 @@ export function resolveProviderFromMetaId(id) {
 
 export async function resolveStreamsFromExternalId(type, id) {
   const collected = [];
+  const settled = await Promise.all(
+    providers.map((provider) =>
+      withTimeout(
+        provider.getStreamsFromExternalId({ type, externalId: id }),
+        providerTimeoutMs,
+        provider.id,
+        type,
+        id,
+        "streams"
+      )
+    )
+  );
 
-  for (const provider of providers) {
-    let streams = [];
-    try {
-      streams = await provider.getStreamsFromExternalId({ type, externalId: id });
-    } catch (error) {
-      console.warn(`[streams] ${provider.id} fallo para ${type}:${id}: ${error.message}`);
+  for (const item of settled) {
+    if (!item.ok) {
+      console.warn(`[streams] ${item.providerId} fallo para ${type}:${id}: ${item.error}`);
       continue;
     }
 
-    if (streams?.length) {
+    const streams = Array.isArray(item.value) ? item.value : [];
+    if (streams.length > 0) {
       collected.push(
         ...streams.map((stream) => ({
           ...stream,
-          _providerId: provider.id
+          _providerId: item.providerId
         }))
       );
     }
@@ -95,35 +107,41 @@ export async function resolveStreamsFromExternalId(type, id) {
 }
 
 export async function debugStreamsFromExternalId(type, id) {
-  const results = [];
   const collected = [];
-
-  for (const provider of providers) {
-    let debug = null;
-    try {
-      debug = await provider.debugStreamsFromExternalId({ type, externalId: id });
-    } catch (error) {
-      debug = {
-        provider: provider.id,
+  const settled = await Promise.all(
+    providers.map((provider) =>
+      withTimeout(
+        provider.debugStreamsFromExternalId({ type, externalId: id }),
+        providerDebugTimeoutMs,
+        provider.id,
+        type,
+        id,
+        "debug"
+      )
+    )
+  );
+  const results = settled.map((item) => {
+    if (!item.ok) {
+      return {
+        provider: item.providerId,
         type,
         externalId: id,
-        status: "error",
-        error: error.message
+        status: item.timeout ? "timeout" : "error",
+        error: item.error
       };
     }
 
-    if (debug) {
-      results.push(debug);
-      if (Array.isArray(debug.streams) && debug.streams.length > 0) {
-        collected.push(
-          ...debug.streams.map((stream) => ({
-            ...stream,
-            _providerId: provider.id
-          }))
-        );
-      }
+    const debug = item.value;
+    if (Array.isArray(debug?.streams) && debug.streams.length > 0) {
+      collected.push(
+        ...debug.streams.map((stream) => ({
+          ...stream,
+          _providerId: item.providerId
+        }))
+      );
     }
-  }
+    return debug;
+  });
 
   const globalScoredStreams = analyzeScoredStreams("global", collected).map((item) => ({
     title: item.stream.title,
@@ -140,7 +158,43 @@ export async function debugStreamsFromExternalId(type, id) {
   return {
     results,
     selectionMode: streamSelectionMode,
+    providerTimeoutMs,
+    providerDebugTimeoutMs,
     globalScoredStreams,
     globalSelectedStreams
   };
+}
+
+async function withTimeout(promise, timeoutMs, providerId, type, id, mode) {
+  let timeoutHandle = null;
+
+  try {
+    const value = await Promise.race([
+      Promise.resolve(promise),
+      new Promise((_, reject) => {
+        timeoutHandle = setTimeout(() => {
+          reject(new Error(`${mode} timeout after ${timeoutMs}ms`));
+        }, timeoutMs);
+      })
+    ]);
+
+    return {
+      ok: true,
+      providerId,
+      value
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      providerId,
+      timeout: /timeout/i.test(error?.message || ""),
+      error: error instanceof Error ? error.message : String(error),
+      type,
+      externalId: id
+    };
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
+  }
 }

@@ -57,6 +57,8 @@ $env:VERSERIESONLINE_BASE_URL='https://www.verseriesonline.net'
 $env:CINEPLUS123_BASE_URL='https://cineplus123.org'
 $env:STREAM_SELECTION_MODE='global'
 $env:STREAM_MAX_RESULTS='1'
+$env:PROVIDER_TIMEOUT_MS='12000'
+$env:PROVIDER_DEBUG_TIMEOUT_MS='18000'
 $env:GNULA_DISABLED_SOURCES='streamwish,doodstream'
 $env:CINECALIDAD_DISABLED_SOURCES='goodstream,streamwish'
 $env:MHDFLIX_DISABLED_SOURCES='mixdrop,lulu'
@@ -77,6 +79,10 @@ Opciones principales:
   Devuelve solo el mejor resultado.
 - `STREAM_MAX_RESULTS=2`
   Devuelve mejor resultado mas backup.
+- `PROVIDER_TIMEOUT_MS=12000`
+  Timeout por provider durante `/stream/...` externos.
+- `PROVIDER_DEBUG_TIMEOUT_MS=18000`
+  Timeout por provider durante `/_debug/stream/...`.
 - `*_DISABLED_SOURCES=host1,host2`
   Evita procesar esos hosts para el provider correspondiente.
 
@@ -149,6 +155,10 @@ Sin `ADDON_URL`, los streams proxyeados pueden quedar mal armados.
 - validado con:
   - `Matrix (1999)` en movie
   - `Breaking Bad 1x1` en series
+  - `From S2E8` en series
+- matching endurecido para titulos ambiguos:
+  - prioriza coincidencias confirmadas por `/series/<slug>`
+  - penaliza candidatos de `/animes/...` cuando no son match real
 
 ### VerSeriesOnline
 
@@ -230,6 +240,8 @@ Si el servicio todavia no existe:
 - `ADDON_URL=https://TU-SERVICIO.onrender.com`
 - `STREAM_SELECTION_MODE=global`
 - `STREAM_MAX_RESULTS=1`
+- `PROVIDER_TIMEOUT_MS=12000`
+- `PROVIDER_DEBUG_TIMEOUT_MS=18000`
 - `GNULA_BASE_URL=https://gnula.life`
 - `CINECALIDAD_BASE_URL=https://www.cinecalidad.ec`
 - `MHDFLIX_BASE_URL=https://ww1.mhdflix.com`
@@ -257,6 +269,11 @@ La URL de instalacion en Stremio es:
 - Las mejoras en extractores compartidos si pegaron en providers pesados:
   - `cinecalidad` levanto mas hosts en peliculas como `Zootopia`
   - `cineplus123` y `verseriesonline` sumaron mejores resultados en series como `From`
+- En `From S2E8`, `LaMovie` ya no toma anime:
+  - encuentra `From (2022)`
+  - resuelve `S2E8`
+  - devuelve `vimeos` y `goodstream`
+- En `From S2E8`, `VerSeriesOnline` puede llegar a timeout en debug externo si el timeout por provider es muy bajo o el host tarda demasiado.
 - `verseriesonline` cambio bastante respecto de la extension original; la estructura nueva es `/series/...`.
 - `mhdflix` funciona bien a nivel API, pero la reproduccion final depende de los hosts que devuelva cada item.
 - `mhdflix` antes inventaba matches en titulos ambiguos como `From`; ahora se aparta cuando no hay coincidencia razonable.
@@ -283,6 +300,8 @@ Render toma estas variables desde [render.yaml](/C:/Users/lautaroturina/Desktop/
 - `NODE_VERSION`
 - `STREAM_SELECTION_MODE`
 - `STREAM_MAX_RESULTS`
+- `PROVIDER_TIMEOUT_MS`
+- `PROVIDER_DEBUG_TIMEOUT_MS`
 - `GNULA_BASE_URL`
 - `CINECALIDAD_BASE_URL`
 - `MHDFLIX_BASE_URL`

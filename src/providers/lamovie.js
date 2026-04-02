@@ -101,7 +101,7 @@ export class LaMovieProvider extends Provider {
       return [];
     }
 
-    const candidates = await this.searchWithFallbackQueries(externalMeta);
+    const candidates = await this.searchWithFallbackQueries(type, externalMeta);
     const filtered = candidates.filter((candidate) => candidate.type === type);
     const validCandidates = filtered.length > 0 ? filtered : candidates;
     const bestMatch = this.pickBestCandidate(validCandidates, externalMeta);
@@ -159,7 +159,7 @@ export class LaMovieProvider extends Provider {
     const queries = this.buildSearchQueries(externalMeta);
     debug.queries = queries;
 
-    const candidates = await this.searchWithFallbackQueries(externalMeta);
+    const candidates = await this.searchWithFallbackQueries(type, externalMeta);
     debug.candidates = candidates.map((candidate) => ({
       id: candidate.id,
       type: candidate.type,
@@ -531,9 +531,10 @@ export class LaMovieProvider extends Provider {
       return null;
     }
 
+    const rawPostType = String(post?.type || post?.postType || (resolvedType === "movie" ? "movies" : "tvshows")).trim();
     const slug = this.encodePayload({
       kind: "media",
-      postType: post?.type || post?.postType || (resolvedType === "movie" ? "movies" : "tvshows"),
+      postType: rawPostType,
       slug: post?.slug || String(post?._id || post?.id || ""),
       id: Number(post?._id || post?.id) || 0
     });
@@ -546,7 +547,8 @@ export class LaMovieProvider extends Provider {
       posterShape: "poster",
       description: String(post?.overview || "").trim(),
       genres: [],
-      releaseInfo: ""
+      releaseInfo: "",
+      _postType: rawPostType
     };
   }
 
@@ -661,18 +663,88 @@ export class LaMovieProvider extends Provider {
       .trim();
   }
 
-  async searchWithFallbackQueries(externalMeta) {
+  async searchWithFallbackQueries(type, externalMeta) {
     const deduped = new Map();
+    const directCandidates = await this.probeDirectCandidates(type, externalMeta);
+
+    for (const result of directCandidates) {
+      if (!deduped.has(result.id)) {
+        deduped.set(result.id, result);
+      }
+    }
+
     for (const query of this.buildSearchQueries(externalMeta)) {
-      const results = await this.search({ type: "movie", query }).catch(() => []);
-      const seriesResults = await this.search({ type: "series", query }).catch(() => []);
-      for (const result of [...results, ...seriesResults]) {
+      const results = await this.search({ type, query }).catch(() => []);
+      for (const result of results) {
         if (!deduped.has(result.id)) {
           deduped.set(result.id, result);
         }
       }
     }
     return Array.from(deduped.values());
+  }
+
+  async probeDirectCandidates(type, externalMeta) {
+    const postType = type === "movie" ? "movies" : "tvshows";
+    const publicType = type === "movie" ? "movies" : "series";
+    const year = this.extractYear(externalMeta.releaseInfo || externalMeta.year || "");
+    const slugBase = this.slugify(externalMeta.name);
+    const slugCandidates = [
+      year ? `${slugBase}-${year}` : "",
+      slugBase
+    ].filter(Boolean);
+    const directMatches = [];
+
+    for (const slug of [...new Set(slugCandidates)]) {
+      try {
+        const exists = await this.probePublicPath(`/${publicType}/${slug}`);
+        if (!exists) {
+          continue;
+        }
+
+        const payload = await this.fetchApiJson(`single/${postType}`, {
+          slug,
+          postType
+        });
+        const mapped = this.mapSearchItem(payload);
+        if (mapped && mapped.type === type) {
+          mapped._directPathMatch = true;
+          directMatches.push(mapped);
+        }
+      } catch {
+        // Ignore direct slug misses.
+      }
+    }
+
+    return directMatches;
+  }
+
+  async probePublicPath(path) {
+    const headers = {
+      "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      referer: `${this.baseUrl}/`
+    };
+
+    let response = await fetch(`${this.baseUrl}${path}`, {
+      method: "HEAD",
+      redirect: "manual",
+      headers
+    }).catch(() => null);
+
+    if (!response || response.status >= 400 || response.status === 405) {
+      response = await fetch(`${this.baseUrl}${path}`, {
+        method: "GET",
+        redirect: "manual",
+        headers
+      }).catch(() => null);
+    }
+
+    if (!response) {
+      return false;
+    }
+
+    return response.status >= 200 && response.status < 400;
   }
 
   buildSearchQueries(externalMeta) {
@@ -718,33 +790,98 @@ export class LaMovieProvider extends Provider {
   pickBestCandidate(candidates, externalMeta) {
     const targetTitle = this.normalizeTitle(externalMeta.name);
     const targetYear = this.extractYear(externalMeta.releaseInfo || externalMeta.year || "");
+    const targetWords = targetTitle.split(/\s+/).filter(Boolean);
+    const isShortTarget = targetWords.length <= 2 && targetTitle.length <= 12;
+    const strictShortCandidates = isShortTarget
+      ? candidates.filter((candidate) => {
+          const candidateTitle = this.normalizeTitle(candidate.name);
+          const candidateWords = candidateTitle.split(/\s+/).filter(Boolean);
+          const relaxedCandidateTitle = this.relaxTitle(candidateTitle);
+          const relaxedTargetTitle = this.relaxTitle(targetTitle);
 
-    const scored = candidates.map((candidate) => {
+          if (candidateTitle === targetTitle || relaxedCandidateTitle === relaxedTargetTitle) {
+            return true;
+          }
+
+          if (candidateTitle.startsWith(`${targetTitle} `) && candidateWords.length <= targetWords.length + 1) {
+            return true;
+          }
+
+          return false;
+        })
+      : candidates;
+
+    if (isShortTarget && strictShortCandidates.length === 0) {
+      return null;
+    }
+
+    const scored = strictShortCandidates.map((candidate) => {
       const candidateTitle = this.normalizeTitle(candidate.name);
       const candidateYear = this.extractYear(candidate.releaseInfo || "");
+      const candidatePostType = String(candidate._postType || "").toLowerCase();
+      const isAnimeCandidate = candidatePostType === "animes" || candidatePostType === "anime";
       const titleSimilarity = this.stringSimilarity(candidateTitle, targetTitle);
+      const candidateWords = candidateTitle.split(/\s+/).filter(Boolean);
+      const wordDelta = Math.abs(candidateWords.length - targetWords.length);
+      const hasWholeWordMatch = targetWords.every((word) => candidateWords.includes(word));
+      const candidateStartsWithTarget = candidateTitle.startsWith(`${targetTitle} `) || candidateTitle === targetTitle;
       const relaxedCandidateTitle = this.relaxTitle(candidateTitle);
       const relaxedTargetTitle = this.relaxTitle(targetTitle);
       const relaxedSimilarity = this.stringSimilarity(relaxedCandidateTitle, relaxedTargetTitle);
+      const relaxedCandidateWords = relaxedCandidateTitle.split(/\s+/).filter(Boolean);
+      const relaxedTargetWords = relaxedTargetTitle.split(/\s+/).filter(Boolean);
+      const relaxedWordDelta = Math.abs(relaxedCandidateWords.length - relaxedTargetWords.length);
+      const relaxedWholeWordMatch = relaxedTargetWords.every((word) => relaxedCandidateWords.includes(word));
 
       let score = 0;
       if (candidateTitle === targetTitle) score += 100;
-      else if (candidateTitle.includes(targetTitle) || targetTitle.includes(candidateTitle)) score += 30;
+      else if (candidateTitle.includes(targetTitle) || targetTitle.includes(candidateTitle)) {
+        if (isShortTarget) {
+          score += candidateStartsWithTarget && wordDelta <= 1 ? 22 : -20;
+        } else {
+          score += wordDelta <= 1 ? 30 : 12;
+        }
+      }
+
+      if (hasWholeWordMatch) {
+        score += isShortTarget ? 12 : 20;
+      } else if (isShortTarget) {
+        score -= 25;
+      }
 
       if (titleSimilarity >= 0.92) score += 65;
       else if (titleSimilarity >= 0.84) score += 40;
 
       if (relaxedCandidateTitle === relaxedTargetTitle) score += 35;
-      else if (relaxedCandidateTitle.includes(relaxedTargetTitle) || relaxedTargetTitle.includes(relaxedCandidateTitle)) score += 20;
+      else if (relaxedCandidateTitle.includes(relaxedTargetTitle) || relaxedTargetTitle.includes(relaxedCandidateTitle)) {
+        if (isShortTarget) {
+          score += relaxedWordDelta <= 1 ? 8 : -10;
+        } else {
+          score += 20;
+        }
+      }
+
+      if (relaxedWholeWordMatch) {
+        score += isShortTarget ? 8 : 15;
+      }
 
       if (relaxedSimilarity > 0.75) score += Math.floor(relaxedSimilarity * 30);
       if (targetYear && candidateYear && targetYear === candidateYear) score += 25;
+      if (candidate._directPathMatch) score += 120;
+
+      if (isAnimeCandidate) {
+        if (candidateTitle === targetTitle || relaxedCandidateTitle === relaxedTargetTitle) {
+          score += 5;
+        } else {
+          score -= isShortTarget ? 180 : 90;
+        }
+      }
 
       return { candidate, score };
     });
 
     scored.sort((a, b) => b.score - a.score);
-    return scored[0]?.score > 0 ? scored[0].candidate : candidates[0] || null;
+    return scored[0]?.score > 0 ? scored[0].candidate : strictShortCandidates[0] || null;
   }
 
   normalizeTitle(value) {
@@ -813,6 +950,16 @@ export class LaMovieProvider extends Provider {
       .filter(Boolean)
       .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
       .join(" ");
+  }
+
+  slugify(value) {
+    return String(value || "")
+      .normalize("NFD")
+      .replaceAll(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replaceAll(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .replace(/-+/g, "-");
   }
 
   dedupeEpisodeVideos(videos) {

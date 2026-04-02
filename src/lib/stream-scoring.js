@@ -1,7 +1,7 @@
 import { getPenaltyForSource } from "./penalty-reliability.js";
 import { buildHttpStreamTitle } from "./stream-format.js";
 
-const DEFAULT_MAX_RESULTS = 1;
+const DEFAULT_MAX_RESULTS = 2;
 
 const HOST_SCORES = {
   vidhide: 100,

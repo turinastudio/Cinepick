@@ -12,23 +12,31 @@ services:
       - key: STREAM_SELECTION_MODE
         value: global
       - key: STREAM_MAX_RESULTS
-        value: 1
+        value: 2
       - key: PROVIDER_TIMEOUT_MS
         value: 25000
       - key: PROVIDER_DEBUG_TIMEOUT_MS
         value: 40000
+      - key: TMDB_API_KEY
+        value: 439c478a771f35c05022f9feabcca01c
       - key: GNULA_BASE_URL
         value: https://gnula.life
       - key: CINECALIDAD_BASE_URL
         value: https://www.cinecalidad.ec
+      - key: CUEVANA_BASE_URL
+        value: https://ww1.cuevana3.is
+      - key: HOMECINE_BASE_URL
+        value: https://homecine.to
+      - key: TIOPLUS_BASE_URL
+        value: https://tioplus.app
+      - key: VERHDLINK_BASE_URL
+        value: https://verhdlink.com
+      - key: CINEHDPLUS_BASE_URL
+        value: https://cinehdplus.gratis
       - key: MHDFLIX_BASE_URL
         value: https://ww1.mhdflix.com
       - key: MHDFLIX_API_URL
         value: https://core.mhdflix.com
-      - key: MITORRENT_BASE_URL
-        value: https://mitorrent.mx
-      - key: PELISPANDA_BASE_URL
-        value: https://pelispanda.org
       - key: LAMOVIE_BASE_URL
         value: https://la.movie
       - key: VERSERIESONLINE_BASE_URL

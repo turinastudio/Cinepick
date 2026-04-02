@@ -5,7 +5,7 @@ export const manifest = {
   description: "Addon base para Stremio con providers web reutilizables.",
   resources: ["catalog", "meta", "stream"],
   types: ["movie", "series"],
-  idPrefixes: ["gnula:", "cinecalidad:", "cuevana:", "homecine:", "tioplus:", "verhdlink:", "cinehdplus:", "mhdflix:", "mitorrent:", "pelispanda:", "lamovie:", "verseriesonline:", "cineplus123:", "serieskao:", "dontorrent:", "elitetorrent:", "tt"],
+  idPrefixes: ["gnula:", "cinecalidad:", "cuevana:", "homecine:", "tioplus:", "verhdlink:", "cinehdplus:", "mhdflix:", "lamovie:", "verseriesonline:", "cineplus123:", "serieskao:", "tt"],
   catalogs: [
     {
       type: "movie",
@@ -41,30 +41,6 @@ export const manifest = {
       type: "series",
       id: "mhdflix-series",
       name: "MhdFlix Series",
-      extra: [{ name: "search", isRequired: true }]
-    },
-    {
-      type: "movie",
-      id: "mitorrent-movies",
-      name: "MiTorrent Movies",
-      extra: [{ name: "search", isRequired: true }]
-    },
-    {
-      type: "series",
-      id: "mitorrent-series",
-      name: "MiTorrent Series",
-      extra: [{ name: "search", isRequired: true }]
-    },
-    {
-      type: "movie",
-      id: "pelispanda-movies",
-      name: "PelisPanda Movies",
-      extra: [{ name: "search", isRequired: true }]
-    },
-    {
-      type: "series",
-      id: "pelispanda-series",
-      name: "PelisPanda Series",
       extra: [{ name: "search", isRequired: true }]
     },
     {
@@ -109,29 +85,6 @@ export const manifest = {
       name: "Cineplus123 Series",
       extra: [{ name: "search", isRequired: true }]
     },
-    {
-      type: "movie",
-      id: "dontorrent-movies",
-      name: "DonTorrent Movies",
-      extra: [{ name: "search", isRequired: true }]
-    },
-    {
-      type: "series",
-      id: "dontorrent-series",
-      name: "DonTorrent Series",
-      extra: [{ name: "search", isRequired: true }]
-    },
-    {
-      type: "movie",
-      id: "elitetorrent-movies",
-      name: "EliteTorrent Movies",
-      extra: [{ name: "search", isRequired: true }]
-    },
-    {
-      type: "series",
-      id: "elitetorrent-series",
-      name: "EliteTorrent Series",
-      extra: [{ name: "search", isRequired: true }]
-    }
+    
   ]
 };

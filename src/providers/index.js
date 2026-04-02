@@ -5,14 +5,10 @@ import { CinecalidadProvider } from "./cinecalidad.js";
 import { CineHdPlusProvider } from "./cinehdplus.js";
 import { Cineplus123Provider } from "./cineplus123.js";
 import { CuevanaProvider } from "./cuevana.js";
-import { DonTorrentProvider } from "./dontorrent.js";
-import { EliteTorrentProvider } from "./elitetorrent.js";
 import { GnulaProvider } from "./gnula.js";
 import { HomeCineProvider } from "./homecine.js";
 import { LaMovieProvider } from "./lamovie.js";
 import { MhdflixProvider } from "./mhdflix.js";
-import { MitorrentProvider } from "./mitorrent.js";
-import { PelispandaProvider } from "./pelispanda.js";
 import { SerieskaoProvider } from "./serieskao.js";
 import { TioPlusProvider } from "./tioplus.js";
 import { VerHdLinkProvider } from "./verhdlink.js";
@@ -27,12 +23,8 @@ const providers = [
   new VerHdLinkProvider(),
   new CineHdPlusProvider(),
   new MhdflixProvider(),
-  new MitorrentProvider(),
-  new PelispandaProvider(),
   new VerSeriesOnlineProvider(),
   new Cineplus123Provider(),
-  new DonTorrentProvider(),
-  new EliteTorrentProvider(),
   new LaMovieProvider(),
   new SerieskaoProvider()
 ];
@@ -96,14 +88,6 @@ export function getProviderByCatalog(catalogId) {
     return providers.find((provider) => provider.id === "mhdflix") ?? null;
   }
 
-  if (catalogId.startsWith("mitorrent-")) {
-    return providers.find((provider) => provider.id === "mitorrent") ?? null;
-  }
-
-  if (catalogId.startsWith("pelispanda-")) {
-    return providers.find((provider) => provider.id === "pelispanda") ?? null;
-  }
-
   if (catalogId.startsWith("lamovie-")) {
     return providers.find((provider) => provider.id === "lamovie") ?? null;
   }
@@ -114,14 +98,6 @@ export function getProviderByCatalog(catalogId) {
 
   if (catalogId.startsWith("cineplus123-")) {
     return providers.find((provider) => provider.id === "cineplus123") ?? null;
-  }
-
-  if (catalogId.startsWith("dontorrent-")) {
-    return providers.find((provider) => provider.id === "dontorrent") ?? null;
-  }
-
-  if (catalogId.startsWith("elitetorrent-")) {
-    return providers.find((provider) => provider.id === "elitetorrent") ?? null;
   }
 
   if (catalogId.startsWith("serieskao-")) {

@@ -1,4 +1,4 @@
-const DEFAULT_TORRENT_MAX_RESULTS = 1;
+const DEFAULT_TORRENT_MAX_RESULTS = 2;
 const DEFAULT_TORRENT_MAX_SIZE_BYTES = 4 * 1024 ** 3;
 
 function parseSizeInBytes(value) {

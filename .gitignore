@@ -10,3 +10,5 @@ yarn-error.log*
 .vscode/
 
 data/source-penalties.json
+
+data/source-penalties.json

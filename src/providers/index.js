@@ -2,20 +2,30 @@ import { parseStremioId } from "../lib/ids.js";
 import { analyzeScoredStreams, scoreAndSelectStreams } from "../lib/stream-scoring.js";
 import { analyzeScoredTorrents, scoreAndSelectTorrents } from "../lib/torrent-scoring.js";
 import { CinecalidadProvider } from "./cinecalidad.js";
+import { CineHdPlusProvider } from "./cinehdplus.js";
 import { Cineplus123Provider } from "./cineplus123.js";
+import { CuevanaProvider } from "./cuevana.js";
 import { DonTorrentProvider } from "./dontorrent.js";
 import { EliteTorrentProvider } from "./elitetorrent.js";
 import { GnulaProvider } from "./gnula.js";
+import { HomeCineProvider } from "./homecine.js";
 import { LaMovieProvider } from "./lamovie.js";
 import { MhdflixProvider } from "./mhdflix.js";
 import { MitorrentProvider } from "./mitorrent.js";
 import { PelispandaProvider } from "./pelispanda.js";
 import { SerieskaoProvider } from "./serieskao.js";
+import { TioPlusProvider } from "./tioplus.js";
+import { VerHdLinkProvider } from "./verhdlink.js";
 import { VerSeriesOnlineProvider } from "./verseriesonline.js";
 
 const providers = [
   new GnulaProvider(),
   new CinecalidadProvider(),
+  new CuevanaProvider(),
+  new HomeCineProvider(),
+  new TioPlusProvider(),
+  new VerHdLinkProvider(),
+  new CineHdPlusProvider(),
   new MhdflixProvider(),
   new MitorrentProvider(),
   new PelispandaProvider(),

@@ -1,445 +1,206 @@
 # Stremio Web Scraper Addon
 
-Addon de Stremio orientado a providers web estilo Aniyomi/Cloudstream, con seleccion inteligente de streams, proxy interno de medios y deploy principal en Railway.
+Addon de Stremio para combinar:
+
+- providers HTTP latinos/castellanos
+- providers torrent
+- ranking global
+- proxy interno para HLS/MP4
+- debug por provider y debug global
+
+La arquitectura actual mezcla lo mejor de dos mundos:
+
+- la estructura de addon, ranking y debug de este repo
+- una capa HTTP/extractors reforzada con ideas portadas desde `Northstar`
 
 ## Estado actual
 
-- Providers integrados:
-  - `gnula`
-  - `cinecalidad`
+### Providers HTTP funcionando
+
+- `gnula`
+- `cinecalidad`
+- `cuevana`
+- `homecine`
+- `tioplus`
 - `mhdflix`
 - `lamovie`
 - `verseriesonline`
 - `cineplus123`
 - `serieskao`
-- Recursos:
-  - `/manifest.json`
-  - `/catalog/:type/:id.json`
-  - `/meta/:type/:id.json`
-  - `/stream/:type/:id.json`
-  - `/_debug/stream/:type/:id.json`
-- Soporte para IDs externos de Stremio/Cinemeta:
-  - peliculas: `tt1234567`
-  - series: `tt1234567:1:1`
+
+### Providers HTTP preparados pero pendientes de validar mejor
+
+- `verhdlink`
+- `cinehdplus`
+
+### Providers torrent funcionando
+
+- `pelispanda`
+- `dontorrent`
+
+### Providers torrent experimentales o inestables
+
+- `mitorrent`
+- `elitetorrent`
+- `mejortorrent` todavia no esta integrado al flujo final
+
+## Arquitectura
+
+### Entrada principal
+
+- [src/server.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/server.js)
+- [src/providers/index.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/index.js)
+- [src/manifest.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/manifest.js)
+
+### Capa HTTP nueva
+
+- [src/providers/webstreambase.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/webstreambase.js)
+- [src/lib/webstreamer/http.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/webstreamer/http.js)
+- [src/lib/webstreamer/common.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/webstreamer/common.js)
+- [src/lib/webstreamer/resolve.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/webstreamer/resolve.js)
+
+Esta capa usa:
+
+- `axios`
+- `cheerio-without-node-native`
+- `crypto-js`
+
+### Capa de extractors
+
+- [src/lib/extractors.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/extractors.js)
+
+Hoy mezcla extractors previos del proyecto con ports/adaptaciones inspiradas en `Northstar` y `Cloudstream`.
+
+### Ranking y formato
+
+- HTTP:
+  - [src/lib/stream-scoring.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/stream-scoring.js)
+  - [src/lib/stream-format.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/stream-format.js)
+- Torrent:
+  - [src/lib/torrent-scoring.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/torrent-scoring.js)
+  - [src/lib/torrent-format.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/torrent-format.js)
 
 ## Ejecutar en local
 
-Opcion rapida:
+### Instalacion
 
 ```powershell
-.\start-local.bat
+npm install
 ```
 
-Opcion manual:
+### Inicio rapido
 
 ```powershell
 $env:ADDON_URL='http://127.0.0.1:3000'
-$env:STREAM_SELECTION_MODE='per_provider'
+$env:STREAM_SELECTION_MODE='global'
 npm start
 ```
 
 Manifest local:
 
-- `http://127.0.0.1:3000/manifest.json`
+- [manifest local](http://127.0.0.1:3000/manifest.json)
 
-Health check:
+Healthcheck:
 
-- `http://127.0.0.1:3000/`
+- [health local](http://127.0.0.1:3000/)
 
-## Variables utiles
+## Variables de entorno importantes
 
-```powershell
-$env:GNULA_BASE_URL='https://gnula.life'
-$env:CINECALIDAD_BASE_URL='https://www.cinecalidad.ec'
-$env:MHDFLIX_BASE_URL='https://ww1.mhdflix.com'
-$env:MHDFLIX_API_URL='https://core.mhdflix.com'
-$env:LAMOVIE_BASE_URL='https://la.movie'
-$env:VERSERIESONLINE_BASE_URL='https://www.verseriesonline.net'
-$env:CINEPLUS123_BASE_URL='https://cineplus123.org'
-$env:SERIESKAO_BASE_URL='https://serieskao.top'
-$env:STREAM_SELECTION_MODE='global'
-$env:STREAM_MAX_RESULTS='1'
-$env:PROVIDER_TIMEOUT_MS='25000'
-$env:PROVIDER_DEBUG_TIMEOUT_MS='40000'
-$env:GNULA_DISABLED_SOURCES='streamwish,doodstream'
-$env:CINECALIDAD_DISABLED_SOURCES='goodstream,streamwish'
-$env:MHDFLIX_DISABLED_SOURCES='mixdrop,lulu'
-$env:LAMOVIE_DISABLED_SOURCES='doodstream,goodstream'
-$env:VERSERIESONLINE_DISABLED_SOURCES='doodstream,uqload'
-$env:CINEPLUS123_DISABLED_SOURCES='uqload,cvid'
-$env:ADDON_URL='http://127.0.0.1:3000'
-npm start
-```
+### Core
 
-Opciones principales:
+- `ADDON_URL`
+- `STREAM_SELECTION_MODE`
+- `STREAM_MAX_RESULTS`
+- `PROVIDER_TIMEOUT_MS`
+- `PROVIDER_DEBUG_TIMEOUT_MS`
+- `TMDB_API_KEY`
 
-- `STREAM_SELECTION_MODE=global`
-  Devuelve el mejor stream absoluto entre todos los providers.
-- `STREAM_SELECTION_MODE=per_provider`
-  Devuelve el mejor stream de cada provider.
-- `STREAM_MAX_RESULTS=1`
-  Devuelve solo el mejor resultado.
-- `STREAM_MAX_RESULTS=2`
-  Devuelve mejor resultado mas backup.
-- `PROVIDER_TIMEOUT_MS=25000`
-  Timeout por provider durante `/stream/...` externos.
-- `PROVIDER_DEBUG_TIMEOUT_MS=40000`
-  Timeout por provider durante `/_debug/stream/...`.
-- `*_DISABLED_SOURCES=host1,host2`
-  Evita procesar esos hosts para el provider correspondiente.
+### HTTP providers
 
-## Seleccion de streams
+- `GNULA_BASE_URL`
+- `CINECALIDAD_BASE_URL`
+- `CUEVANA_BASE_URL`
+- `HOMECINE_BASE_URL`
+- `TIOPLUS_BASE_URL`
+- `VERHDLINK_BASE_URL`
+- `CINEHDPLUS_BASE_URL`
+- `MHDFLIX_BASE_URL`
+- `MHDFLIX_API_URL`
+- `LAMOVIE_BASE_URL`
+- `VERSERIESONLINE_BASE_URL`
+- `CINEPLUS123_BASE_URL`
+- `SERIESKAO_BASE_URL`
 
-El addon no devuelve simplemente el primer host que encuentra.
+### Torrent providers
 
-Usa:
+- `MITORRENT_BASE_URL`
+- `PELISPANDA_BASE_URL`
+- `DONTORRENT_BASE_URL`
+- `ELITETORRENT_BASE_URL`
 
-- score por host
-- idioma
-- transporte (`mp4` vs `m3u8`)
-- complejidad de headers/cookies
-- penalidades persistentes por fuente
+## Debug util
 
-Las penalidades se guardan en:
+### Debug global
 
-- [data/source-penalties.json](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/data/source-penalties.json)
+- [debug global Matrix](http://127.0.0.1:3000/_debug/stream/movie/tt0133093.json)
+- [debug global Zootopia 2](http://127.0.0.1:3000/_debug/stream/movie/tt26443597.json)
 
-## Proxy de medios
+### Debug por provider
 
-Los providers integrados usan proxy interno para mejorar compatibilidad en localhost y produccion:
-
-- los streams se entregan como `/p/...`
-- el proxy preserva headers reales
-- para HLS reescribe manifests y segmentos
-
-`ADDON_URL` es critico:
-
-- en local: `http://127.0.0.1:3000`
-- en Railway: `https://TU-SERVICIO.up.railway.app`
-- en Render: `https://TU-SERVICIO.onrender.com`
-
-Sin `ADDON_URL`, los streams proxyeados pueden quedar mal armados.
-
-## Providers
-
-### Gnula
-
-- peliculas, series, anime y otros
-- matching por `tt...`
-- debug externo estable
-
-### CineCalidad
-
-- peliculas y series
-- soporte de episodios tipo `ver-el-episodio/...`
-- matching por `tt...`
-- soporte de `vimeos`, `goodstream`, `voe`, `filemoon`, `streamwish`
-
-### MhdFlix
-
-- peliculas y series
-- usa la API `core.mhdflix.com`
-- soporta meta, episodios y streams
-- matching por `tt...`
-- para titulos cortos/ambiguos ahora prioriza no inventar matches
-
-### LaMovie
-
-- peliculas y series
-- usa la API `wp-api/v1`
-- soporta:
-  - busqueda
-  - meta
-  - episodios
-  - streams
-  - matching por `tt...`
-- usa scoring, penalidades y proxy
-- trae extractor puntual para embeds `lamovie.link`
-- validado con:
-  - `Matrix (1999)` en movie
-  - `Breaking Bad 1x1` en series
-  - `From S2E8` en series
-- matching endurecido para titulos ambiguos:
-  - prioriza coincidencias confirmadas por `/series/<slug>`
-  - penaliza candidatos de `/animes/...` cuando no son match real
-
-### VerSeriesOnline
-
-- series
-- soporte para estructura actual:
-  - `/series/<slug>/`
-  - `/series/<slug>/temporada-1/`
-  - `/series/<slug>/temporada-1/episodio-1/`
-- busqueda por URL directa
-- fallback de busqueda por slug
-- `csrf + cookies + POST /hashembedlink`
-- parser de players ajustado a `play-option`
-- titulos de stream mas limpios en debug y seleccion global
-
-### Cineplus123
-
-- peliculas y series
-- soporte DooPlay con `POST /wp-admin/admin-ajax.php`
-- series:
-  - busqueda
-  - meta
-  - episodios tipo `/capitulo/<slug>-1x1/`
-  - streams
-- peliculas:
-  - meta y players funcionando
-  - resolucion parcial de hosts
-  - `hanerix/streamwish` validado
-  - `cvid` y `uqload` siguen siendo mas irregulares
-
-### SeriesKao
-
-- peliculas y series
-- port basado en la extension original
-- soporta:
-  - busqueda
-  - meta
-  - episodios
-  - streams
-  - matching por IDs externos `tt...`
-- parsea `videoSources` y descifra `dataLink` antes de pasar por extractores compartidos
-- agrega fallback para paginas intermedias tipo `xupalace`
-- validado en casos reales:
-  - series: `Breaking Bad 1x1` resolviendo `VidHide`
-  - peliculas: `Matrix (1999)` resolviendo `Voe`
-- usa scoring, penalidades y proxy igual que los otros providers
-
-## Probar rapido
-
-Busqueda:
-
-- `http://127.0.0.1:3000/catalog/movie/gnula-movies.json?search=matrix`
-- `http://127.0.0.1:3000/catalog/movie/cinecalidad-movies.json?search=matrix`
-- `http://127.0.0.1:3000/catalog/movie/mhdflix-movies.json?search=matrix`
-- `http://127.0.0.1:3000/catalog/movie/lamovie-movies.json?search=matrix`
-- `http://127.0.0.1:3000/catalog/movie/cineplus123-movies.json?search=matrix`
-- `http://127.0.0.1:3000/catalog/series/verseriesonline-series.json?search=the%20madison`
-- `http://127.0.0.1:3000/catalog/series/lamovie-series.json?search=breaking`
-- `http://127.0.0.1:3000/catalog/series/cineplus123-series.json?search=breaking`
-
-Debug externo:
-
-- `http://127.0.0.1:3000/_debug/stream/movie/tt2948356.json`
-- `http://127.0.0.1:3000/_debug/stream/series/tt9813792:3:1.json`
-
-Debug interno:
-
-- `http://127.0.0.1:3000/_debug/stream/series/verseriesonline%3Aseries%3Aep%3AL3Nlcmllcy90aGUtbWFkaXNvbi90ZW1wb3JhZGEtMS9lcGlzb2Rpby0xLw%3A1%3A1%3AL3Nlcmllcy90aGUtbWFkaXNvbi8.json`
+- [CineCalidad Matrix](http://127.0.0.1:3000/_debug/provider/cinecalidad/stream/movie/tt0133093.json)
+- [Cuevana Matrix](http://127.0.0.1:3000/_debug/provider/cuevana/stream/movie/tt0133093.json)
+- [HomeCine Enredados](http://127.0.0.1:3000/_debug/provider/homecine/stream/movie/tt0398286.json)
+- [TioPlus Hamnet](http://127.0.0.1:3000/_debug/provider/tioplus/stream/movie/tt14905854.json)
+- [PelisPanda Zootopia 2](http://127.0.0.1:3000/_debug/provider/pelispanda/stream/movie/tt26443597.json)
+- [DonTorrent Interstellar](http://127.0.0.1:3000/_debug/provider/dontorrent/stream/movie/tt0816692.json)
 
 ## Deploy en Railway
 
-Instancia principal recomendada:
+### Archivos preparados
 
-- `https://stremio-web-scraper-addon-production.up.railway.app/manifest.json`
+- [package.json](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/package.json)
+- [package-lock.json](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/package-lock.json)
+- [railway.json](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/railway.json)
 
-### 1. Crear servicio
+### Comandos esperados por Railway
 
-1. Conecta el repo en Railway.
-2. Deja que detecte el servicio Node.
-3. Verifica:
-   - `Build Command`: `npm install`
-   - `Start Command`: `npm start`
-4. Genera dominio publico.
+- Build: `npm install`
+- Start: `npm start`
+- Healthcheck: `/`
 
-### 2. Variables recomendadas en Railway
+### Variables recomendadas en Railway
 
-- `NODE_VERSION=20`
+- `NODE_ENV=production`
 - `ADDON_URL=https://TU-SERVICIO.up.railway.app`
 - `STREAM_SELECTION_MODE=global`
 - `STREAM_MAX_RESULTS=1`
 - `PROVIDER_TIMEOUT_MS=25000`
 - `PROVIDER_DEBUG_TIMEOUT_MS=40000`
+- `TMDB_API_KEY=439c478a771f35c05022f9feabcca01c`
 - `GNULA_BASE_URL=https://gnula.life`
 - `CINECALIDAD_BASE_URL=https://www.cinecalidad.ec`
+- `CUEVANA_BASE_URL=https://ww1.cuevana3.is`
+- `HOMECINE_BASE_URL=https://homecine.to`
+- `TIOPLUS_BASE_URL=https://tioplus.app`
+- `VERHDLINK_BASE_URL=https://verhdlink.com`
+- `CINEHDPLUS_BASE_URL=https://cinehdplus.gratis`
 - `MHDFLIX_BASE_URL=https://ww1.mhdflix.com`
 - `MHDFLIX_API_URL=https://core.mhdflix.com`
+- `MITORRENT_BASE_URL=https://mitorrent.mx`
+- `PELISPANDA_BASE_URL=https://pelispanda.org`
 - `LAMOVIE_BASE_URL=https://la.movie`
 - `VERSERIESONLINE_BASE_URL=https://www.verseriesonline.net`
 - `CINEPLUS123_BASE_URL=https://cineplus123.org`
 - `SERIESKAO_BASE_URL=https://serieskao.top`
 
-### 3. Verificar deploy
-
-Proba:
+### Verificacion despues del deploy
 
 - `https://TU-SERVICIO.up.railway.app/`
 - `https://TU-SERVICIO.up.railway.app/manifest.json`
 
-La URL de instalacion en Stremio es:
+## Documentacion adicional
 
-- `https://TU-SERVICIO.up.railway.app/manifest.json`
-
-## Deploy en Render
-
-Render queda como alternativa secundaria o backup, pero hoy Railway esta mostrando mejor compatibilidad real con los providers.
-
-### 1. Subir cambios a GitHub
-
-```powershell
-git status
-git add .
-git commit -m "Update providers and proxy"
-git push origin main
-```
-
-### 2. En Render
-
-Si el servicio ya existe:
-
-1. Abri el servicio.
-2. Hace click en `Manual Deploy`.
-3. Elegi `Deploy latest commit`.
-
-Si el servicio todavia no existe:
-
-1. Crea un `Web Service` desde el repo.
-2. Deja que use [render.yaml](/C:/Users/lautaroturina/Desktop/Codex%20Stremio%20Addon/render.yaml).
-
-### 3. Variables recomendadas en Render
-
-- `NODE_VERSION=20`
-- `ADDON_URL=https://TU-SERVICIO.onrender.com`
-- `STREAM_SELECTION_MODE=global`
-- `STREAM_MAX_RESULTS=1`
-- `PROVIDER_TIMEOUT_MS=25000`
-- `PROVIDER_DEBUG_TIMEOUT_MS=40000`
-- `GNULA_BASE_URL=https://gnula.life`
-- `CINECALIDAD_BASE_URL=https://www.cinecalidad.ec`
-- `MHDFLIX_BASE_URL=https://ww1.mhdflix.com`
-- `MHDFLIX_API_URL=https://core.mhdflix.com`
-- `LAMOVIE_BASE_URL=https://la.movie`
-- `VERSERIESONLINE_BASE_URL=https://www.verseriesonline.net`
-- `CINEPLUS123_BASE_URL=https://cineplus123.org`
-- `SERIESKAO_BASE_URL=https://serieskao.top`
-
-### 4. Verificar deploy
-
-Proba:
-
-- `https://TU-SERVICIO.onrender.com/`
-- `https://TU-SERVICIO.onrender.com/manifest.json`
-
-La URL de instalacion en Stremio es:
-
-- `https://TU-SERVICIO.onrender.com/manifest.json`
-
-## Hallazgos importantes
-
-- Los problemas actuales suelen ser por host concreto, no por provider base.
-- Railway esta funcionando mejor que Render para esta combinacion de providers y hosts.
-- `goodstream` sigue siendo irregular en Stremio.
-- `vimeos` resulto util para `cinecalidad`.
-- Las mejoras en extractores compartidos si pegaron en providers pesados:
-  - `cinecalidad` levanto mas hosts en peliculas como `Zootopia`
-  - `cineplus123` y `verseriesonline` sumaron mejores resultados en series como `From`
-- En `From S2E8`, `LaMovie` ya no toma anime:
-  - encuentra `From (2022)`
-  - resuelve `S2E8`
-  - devuelve `vimeos` y `goodstream`
-- En `From S2E8`, `VerSeriesOnline` puede llegar a timeout en debug externo si el timeout por provider es muy bajo o el host tarda demasiado.
-- `verseriesonline` cambio bastante respecto de la extension original; la estructura nueva es `/series/...`.
-- `mhdflix` funciona bien a nivel API, pero la reproduccion final depende de los hosts que devuelva cada item.
-- `mhdflix` antes inventaba matches en titulos ambiguos como `From`; ahora se aparta cuando no hay coincidencia razonable.
-- `cineplus123` ya quedo bien encaminado en series.
-- `cineplus123` peliculas dependen mas de mirrors concretos:
-  - `hanerix` respondio bien
-  - `cvid` y `uqload` siguen siendo incompletos
-
-## Guia rapida para actualizar Render
-
-### 1. Verificar y subir cambios
-
-```powershell
-git status
-git add .
-git commit -m "Update providers, extractors and matching"
-git push origin main
-```
-
-### 2. Confirmar `render.yaml`
-
-Render toma estas variables desde [render.yaml](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/render.yaml):
-
-- `NODE_VERSION`
-- `STREAM_SELECTION_MODE`
-- `STREAM_MAX_RESULTS`
-- `PROVIDER_TIMEOUT_MS`
-- `PROVIDER_DEBUG_TIMEOUT_MS`
-- `GNULA_BASE_URL`
-- `CINECALIDAD_BASE_URL`
-- `MHDFLIX_BASE_URL`
-- `MHDFLIX_API_URL`
-- `LAMOVIE_BASE_URL`
-- `VERSERIESONLINE_BASE_URL`
-- `CINEPLUS123_BASE_URL`
-- `SERIESKAO_BASE_URL`
-- `ADDON_URL`
-
-Si cambias la URL publica del servicio, actualiza tambien `ADDON_URL`.
-
-### 3. Redeploy
-
-Si tenes auto deploy:
-
-- con `git push` normalmente alcanza
-
-Si queres forzarlo:
-
-1. Abri el servicio en Render.
-2. Entra a `Manual Deploy`.
-3. Elegi `Deploy latest commit`.
-
-### 4. Verificar despues del deploy
-
-Proba:
-
-- [health](https://stremio-web-scraper-addon.onrender.com/)
-- [manifest](https://stremio-web-scraper-addon.onrender.com/manifest.json)
-
-Y si queres validar streams:
-
-- [Zootopia debug](https://stremio-web-scraper-addon.onrender.com/_debug/stream/movie/tt2948356.json)
-- [From 3x1 debug](https://stremio-web-scraper-addon.onrender.com/_debug/stream/series/tt9813792:3:1.json)
-
-## Guia rapida para actualizar Railway
-
-### 1. Verificar y subir cambios
-
-```powershell
-git status
-git add .
-git commit -m "Update providers and docs"
-git push origin main
-```
-
-### 2. Confirmar variables
-
-En Railway revisa:
-
-- `ADDON_URL`
-- `STREAM_SELECTION_MODE`
-- `STREAM_MAX_RESULTS`
-- `PROVIDER_TIMEOUT_MS`
-- `PROVIDER_DEBUG_TIMEOUT_MS`
-- `GNULA_BASE_URL`
-- `CINECALIDAD_BASE_URL`
-- `MHDFLIX_BASE_URL`
-- `MHDFLIX_API_URL`
-- `LAMOVIE_BASE_URL`
-- `VERSERIESONLINE_BASE_URL`
-- `CINEPLUS123_BASE_URL`
-- `SERIESKAO_BASE_URL`
-
-### 3. Redeploy
-
-- con `git push` normalmente alcanza
-- si queres forzarlo, usa `Redeploy` desde Railway
-
-### 4. Verificar despues del deploy
-
-- `https://TU-SERVICIO.up.railway.app/`
-- `https://TU-SERVICIO.up.railway.app/manifest.json`
+- [CONTINUATION_GUIDE.md](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/CONTINUATION_GUIDE.md)
+- [RESOURCES_USED.md](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/RESOURCES_USED.md)
+- [CLOUDSTREAM_EXTRACTORS_STATUS.md](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/CLOUDSTREAM_EXTRACTORS_STATUS.md)
+- [PORTING_GUIDE_ANIYOMI_TO_STREMIO.md](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/PORTING_GUIDE_ANIYOMI_TO_STREMIO.md)

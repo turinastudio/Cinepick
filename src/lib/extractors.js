@@ -126,6 +126,23 @@ function extractInlineCookieHeader(html) {
   return cookiePairs.join("; ");
 }
 
+function buildPlaybackHeaders(pageUrl, extra = {}) {
+  const normalized = String(pageUrl || "");
+  let origin = "";
+
+  try {
+    origin = new URL(normalized).origin;
+  } catch {
+    origin = "";
+  }
+
+  return normalizeRequestHeaders({
+    ...(origin ? { Origin: origin } : {}),
+    ...(normalized ? { Referer: normalized } : {}),
+    ...extra
+  });
+}
+
 const packedRegex = /eval\(function\(p,a,c,k,e,.*\)\)/i;
 
 function getPacked(text) {
@@ -245,6 +262,23 @@ async function fetchText(url, headers = {}) {
   }
 
   return response.text();
+}
+
+async function fetchJson(url, headers = {}) {
+  const response = await fetch(url, {
+    headers: {
+      "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      accept: "application/json,text/plain;q=0.9,*/*;q=0.8",
+      ...headers
+    },
+    redirect: "follow"
+  });
+
+  if (!response.ok) {
+    throw new Error(`Extractor JSON respondio ${response.status} para ${url}`);
+  }
+
+  return response.json();
 }
 
 async function extractMp4Upload(url, label) {
@@ -459,8 +493,93 @@ async function extractStreamWish(url, label) {
       }
     }
     return normalized;
-  })();
+    })();
   const refererHost = new URL(rewritten).host;
+  const embedCode = (() => {
+    try {
+      const parts = new URL(rewritten).pathname.replace(/\/+$/, "").split("/").filter(Boolean);
+      const markerIndex = parts.findIndex((part) => part === "e" || part === "embed");
+
+      if (markerIndex >= 0 && parts[markerIndex + 1]) {
+        return parts[markerIndex + 1];
+      }
+
+      return parts.at(-1) || "";
+    } catch {
+      return "";
+    }
+  })();
+
+  if (embedCode) {
+    try {
+      const parsed = new URL(rewritten);
+      const apiHeaders = {
+        Referer: rewritten,
+        Origin: parsed.origin,
+        Accept: "application/json, text/plain, */*"
+      };
+      const playback = await fetchJson(
+        `${parsed.origin}/api/videos/${encodeURIComponent(embedCode)}/embed/playback`,
+        apiHeaders
+      ).catch(() => null);
+      const payload = playback?.playback || playback;
+
+      if (payload?.iv && payload?.payload && Array.isArray(payload.key_parts) && payload.key_parts.length > 0) {
+        const key = Buffer.concat(payload.key_parts.map((part) => decodeBase64Url(part)));
+        const iv = decodeBase64Url(payload.iv);
+        const encryptedPayload = decodeBase64Url(payload.payload);
+        const tag = encryptedPayload.subarray(encryptedPayload.length - 16);
+        const encrypted = encryptedPayload.subarray(0, encryptedPayload.length - 16);
+        const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
+        decipher.setAuthTag(tag);
+        const media = JSON.parse(Buffer.concat([
+          decipher.update(encrypted),
+          decipher.final()
+        ]).toString("utf8"));
+        const sources = Array.isArray(media?.sources)
+          ? media.sources.filter((source) => source?.url)
+          : [];
+
+        if (sources.length > 0) {
+          const bestSource = [...sources].sort((left, right) => {
+            const leftHeight = parseInt(left.height || String(left.label || "").replace(/\D+/g, ""), 10) || 0;
+            const rightHeight = parseInt(right.height || String(right.label || "").replace(/\D+/g, ""), 10) || 0;
+            const leftBitrate = parseInt(left.bitrate_kbps, 10) || 0;
+            const rightBitrate = parseInt(right.bitrate_kbps, 10) || 0;
+
+            if (rightHeight !== leftHeight) {
+              return rightHeight - leftHeight;
+            }
+
+            return rightBitrate - leftBitrate;
+          })[0];
+
+          if (bestSource?.url) {
+            const quality = bestSource.height
+              ? `${bestSource.height}p`
+              : pickQualityLabel(String(bestSource.label || bestSource.url), "Auto");
+
+            return [
+              buildStream(
+                "Gnula",
+                `${label} StreamWish ${quality}`.trim(),
+                bestSource.url.startsWith("http")
+                  ? bestSource.url
+                  : new URL(bestSource.url, parsed.origin).href,
+                {
+                  Referer: rewritten,
+                  Origin: parsed.origin
+                }
+              )
+            ];
+          }
+        }
+      }
+    } catch {
+      // Fall back to the older HTML-based extraction below.
+    }
+  }
+
   let html = await fetchText(rewritten, {
     Origin: rewritten,
     Referer: rewritten
@@ -520,6 +639,47 @@ async function extractStreamWish(url, label) {
   }
 
   return [buildStream("Gnula", `${label} StreamWish HLS`.trim(), normalizedM3u8, `https://${refererHost}/`)];
+}
+
+async function extractFastream(url, label) {
+  const candidates = [
+    url,
+    url.replace("/e/", "/embed-").replace("/d/", "/embed-"),
+    url.replace("/embed-", "/d/")
+  ];
+
+  for (const candidate of Array.from(new Set(candidates))) {
+    const html = await fetchText(candidate, {
+      Referer: candidate
+    }).catch(() => null);
+
+    if (!html) {
+      continue;
+    }
+
+    const unpacked = getAndUnpack(html);
+    const fileMatch =
+      unpacked.match(/sources:\[\{file:"(.*?)"/i) ||
+      unpacked.match(/file:\s*"(https?:\/\/[^"]+\.m3u8[^"]*)"/i) ||
+      unpacked.match(/file:\s*'([^']+\.m3u8[^']*)'/i);
+
+    if (!fileMatch?.[1]) {
+      continue;
+    }
+
+    const streamUrl = decodeHtmlEntities(fileMatch[1]);
+    if (!isHttpUrl(streamUrl)) {
+      continue;
+    }
+
+    return [
+      buildStream("Gnula", `${label} Fastream HLS`.trim(), streamUrl, {
+        Referer: candidate
+      })
+    ];
+  }
+
+  return [];
 }
 
 function unpackWithDictionary(payload, radix, dictionary) {
@@ -933,6 +1093,266 @@ async function extractGoodstream(url, label) {
   return [buildStream("Gnula", `${label} Goodstream`.trim(), playlistUrl, headers)];
 }
 
+async function extractMixdrop(url, label) {
+  const candidates = Array.from(new Set([
+    url,
+    url.replace("/f/", "/e/"),
+    url.replace("/e/", "/f/")
+  ]));
+
+  for (const candidate of candidates) {
+    const html = await fetchText(candidate, {
+      Referer: candidate
+    }).catch(() => null);
+
+    if (!html || /can't find the (file|video)|deleted/i.test(html)) {
+      continue;
+    }
+
+    const unpacked = getAndUnpack(html);
+    const directMatch =
+      unpacked.match(/(?:MDCore|Core|MDp)\.wurl\s*=\s*"([^"]+)"/i)?.[1] ||
+      unpacked.match(/(?:MDCore|Core|MDp)\.wurl\s*=\s*'([^']+)'/i)?.[1] ||
+      unpacked.match(/wurl\s*=\s*"([^"]+)"/i)?.[1] ||
+      unpacked.match(/wurl\s*=\s*'([^']+)'/i)?.[1] ||
+      unpacked.match(/src:\s*"((?:https?:)?\/\/[^"]+)"/i)?.[1] ||
+      unpacked.match(/src:\s*'((?:https?:)?\/\/[^']+)'/i)?.[1];
+
+    if (!directMatch) {
+      continue;
+    }
+
+    const directUrl = directMatch.startsWith("//")
+      ? `https:${directMatch}`
+      : directMatch;
+
+    if (!isHttpUrl(directUrl)) {
+      continue;
+    }
+
+    return [
+      buildStream("Gnula", `${label} Mixdrop`.trim(), decodeHtmlEntities(directUrl), buildPlaybackHeaders(candidate))
+    ];
+  }
+
+  return [];
+}
+
+async function extractEmturbovid(url, label) {
+  const html = await fetchText(url, {
+    Referer: url
+  }).catch(() => null);
+
+  if (!html) {
+    return [];
+  }
+
+  const playlistUrl =
+    html.match(/data-hash="([^"]+\.m3u8[^"]*)"/i)?.[1] ||
+    html.match(/["'](https?:\/\/[^"']+\.m3u8[^"']*)["']/i)?.[1];
+
+  if (!playlistUrl) {
+    return [];
+  }
+
+  return [
+    buildStream("Gnula", `${label} Emturbovid`.trim(), decodeHtmlEntities(playlistUrl), buildPlaybackHeaders(url))
+  ];
+}
+
+async function extractCuevanaPlayer(url, label) {
+  const html = await fetchText(url, {
+    Referer: url
+  }).catch(() => null);
+
+  if (!html) {
+    return [];
+  }
+
+  const target =
+    html.match(/var\s+url\s*=\s*'([^']+)'/i)?.[1] ||
+    html.match(/var\s+url\s*=\s*"([^"]+)"/i)?.[1] ||
+    html.match(/<iframe[^>]+src="([^"]+)"/i)?.[1] ||
+    html.match(/<iframe[^>]+src='([^']+)'/i)?.[1];
+
+  if (!target) {
+    return [];
+  }
+
+  const resolvedUrl = target.startsWith("http")
+    ? target
+    : new URL(target, url).href;
+
+  return resolveExtractorStream(resolvedUrl, label);
+}
+
+async function extractStrp2p(url, label) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return [];
+  }
+
+  if (!parsed.hash || parsed.hash.length < 2) {
+    return [];
+  }
+
+  const apiUrl = `${parsed.origin}/api/v1/video?id=${encodeURIComponent(parsed.hash.slice(1))}`;
+  const hexData = await fetchText(apiUrl, {
+    Origin: parsed.origin,
+    Referer: `${parsed.origin}/`
+  }).catch(() => null);
+
+  if (!hexData) {
+    return [];
+  }
+
+  try {
+    const encrypted = Buffer.from(String(hexData).trim().slice(0, -1), "hex");
+    const key = Buffer.from("6b69656d7469656e6d75613931316361", "hex");
+    const iv = Buffer.from("313233343536373839306f6975797472", "hex");
+    const decipher = crypto.createDecipheriv("aes-128-cbc", key, iv);
+    const decrypted = Buffer.concat([
+      decipher.update(encrypted),
+      decipher.final()
+    ]).toString("utf8");
+    const parsedJson = JSON.parse(decrypted);
+    const streamUrl = String(parsedJson?.source || "").trim();
+
+    if (!isHttpUrl(streamUrl)) {
+      return [];
+    }
+
+    return [
+      buildStream("Gnula", `${label} StrP2P`.trim(), streamUrl, {
+        Origin: parsed.origin,
+        Referer: `${parsed.origin}/`
+      })
+    ];
+  } catch {
+    return [];
+  }
+}
+
+async function extractStreamEmbed(url, label) {
+  const html = await fetchText(url, {
+    Referer: url
+  }).catch(() => null);
+
+  if (!html || /Video is not ready/i.test(html)) {
+    return [];
+  }
+
+  const videoJson = html.match(/video ?= ?(.*);/i)?.[1];
+  if (!videoJson) {
+    return [];
+  }
+
+  try {
+    const video = JSON.parse(videoJson);
+    const parsed = new URL(url);
+    const playlistUrl = `${parsed.origin}/m3u8/${video.uid}/${video.md5}/master.txt?s=1&id=${video.id}&cache=${video.status}`;
+
+    return [
+      buildStream("Gnula", `${label} StreamEmbed`.trim(), playlistUrl, buildPlaybackHeaders(url))
+    ];
+  } catch {
+    return [];
+  }
+}
+
+async function extractVidSrc(url, label) {
+  const html = await fetchText(url, {
+    Referer: url
+  }).catch(() => null);
+
+  if (!html) {
+    return [];
+  }
+
+  const token = html.match(/['"]token['"]:\s*['"]([^'"]+)['"]/i)?.[1];
+  const expires = html.match(/['"]expires['"]:\s*['"]([^'"]+)['"]/i)?.[1];
+  const rawUrl = html.match(/url:\s*['"]([^'"]+)['"]/i)?.[1];
+
+  if (!token || !expires || !rawUrl) {
+    return [];
+  }
+
+  const baseUrl = new URL(rawUrl);
+  const playlistUrl = new URL(`${baseUrl.origin}${baseUrl.pathname}.m3u8?${baseUrl.searchParams.toString()}`);
+  playlistUrl.searchParams.set("token", token);
+  playlistUrl.searchParams.set("expires", expires);
+  playlistUrl.searchParams.set("h", "1");
+
+  return [
+    buildStream("Gnula", `${label} VidSrc`.trim(), playlistUrl.href, buildPlaybackHeaders(url))
+  ];
+}
+
+async function extractDropload(url, label) {
+  const normalized = url
+    .replace("/d/", "/")
+    .replace("/e/", "/")
+    .replace("/embed-", "/");
+  const html = await fetchText(normalized, {
+    Referer: normalized
+  }).catch(() => null);
+
+  if (!html || /File Not Found|Pending in queue|no longer available|expired or has been deleted/i.test(html)) {
+    return [];
+  }
+
+  const unpacked = getAndUnpack(html);
+  const fileUrl =
+    unpacked.match(/sources\s*:\s*\[\{\s*file\s*:\s*["']([^"']+)/i)?.[1] ||
+    unpacked.match(/file\s*:\s*["'](https?:\/\/[^"']+\.m3u8[^"']*)/i)?.[1] ||
+    html.match(/sources\s*:\s*\[\{\s*file\s*:\s*["']([^"']+)/i)?.[1] ||
+    html.match(/file\s*:\s*["'](https?:\/\/[^"']+\.m3u8[^"']*)/i)?.[1];
+
+  if (!fileUrl || !isHttpUrl(fileUrl)) {
+    return [];
+  }
+
+  return [
+    buildStream("Gnula", `${label} Dropload`.trim(), decodeHtmlEntities(fileUrl), buildPlaybackHeaders(normalized))
+  ];
+}
+
+async function extractVidora(url, label) {
+  const candidates = Array.from(new Set([
+    url.replace("/embed/", "/").replace("/f/", "/e/"),
+    url.replace("/embed/", "/"),
+    url
+  ]));
+
+  for (const candidate of candidates) {
+    const html = await fetchText(candidate, {
+      Referer: candidate
+    }).catch(() => null);
+
+    if (!html) {
+      continue;
+    }
+
+    const unpacked = getAndUnpack(html);
+    const fileUrl =
+      unpacked.match(/file:\s*"(.*?)"/i)?.[1] ||
+      unpacked.match(/file:\s*'(.*?)'/i)?.[1] ||
+      html.match(/src:\s*['"](https?:\/\/[^'"]+\.m3u8[^'"]*)/i)?.[1];
+
+    if (!fileUrl || !isHttpUrl(fileUrl)) {
+      continue;
+    }
+
+    return [
+      buildStream("Gnula", `${label} Vidora`.trim(), decodeHtmlEntities(fileUrl), buildPlaybackHeaders(candidate))
+    ];
+  }
+
+  return [];
+}
+
 async function extractLamovieEmbed(url, label) {
   const parsedUrl = new URL(url);
   const origin = `${parsedUrl.protocol}//${parsedUrl.host}`;
@@ -1052,6 +1472,60 @@ const extractorRegistry = [
     source: "northstar-inspired",
     aliases: ["goodstream"],
     resolve: extractGoodstream
+  },
+  {
+    id: "mixdrop",
+    source: "northstar-inspired",
+    aliases: ["mixdrop", "mixdrp", "mixdroop", "m1xdrop"],
+    resolve: extractMixdrop
+  },
+  {
+    id: "emturbovid",
+    source: "northstar-inspired",
+    aliases: ["emturbovid", "turbovidhls", "turboviplay"],
+    resolve: extractEmturbovid
+  },
+  {
+    id: "cuevana-player",
+    source: "northstar-inspired",
+    aliases: ["player.cuevana3.eu"],
+    resolve: extractCuevanaPlayer
+  },
+  {
+    id: "strp2p",
+    source: "northstar-inspired",
+    aliases: ["strp2p", "4meplayer", "upns.pro", "p2pplay"],
+    resolve: extractStrp2p
+  },
+  {
+    id: "streamembed",
+    source: "northstar-inspired",
+    aliases: ["bullstream", "mp4player", "watch.gxplayer"],
+    resolve: extractStreamEmbed
+  },
+  {
+    id: "vidsrc",
+    source: "northstar-inspired",
+    aliases: ["vidsrc", "vsrc"],
+    resolve: extractVidSrc
+  },
+  {
+    id: "dropload",
+    source: "northstar-inspired",
+    aliases: ["dropload", "dr0pstream"],
+    resolve: extractDropload
+  },
+  {
+    id: "vidora",
+    source: "northstar-inspired",
+    aliases: ["vidora", "waaw"],
+    resolve: extractVidora
+  },
+  {
+    id: "fastream",
+    source: "northstar-inspired",
+    aliases: ["fastream"],
+    resolve: extractFastream
   },
   {
     id: "lamovie",

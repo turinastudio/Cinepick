@@ -4,7 +4,8 @@ import { buildStream, resolveExtractorStream } from "../lib/extractors.js";
 import { markSourceFailure, markSourceSuccess } from "../lib/penalty-reliability.js";
 import { analyzeScoredStreams, scoreAndSelectStreams } from "../lib/stream-scoring.js";
 import { scoreAndSelectTorrents } from "../lib/torrent-scoring.js";
-import { Provider } from "./base.js";
+import { fetchJson as sharedFetchJson, fetchText as sharedFetchText } from "../lib/webstreamer/http.js";
+import { WebstreamBaseProvider } from "./webstreambase.js";
 
 const DEFAULT_TRACKERS = [
   "udp://tracker.opentrackr.org:1337/announce",
@@ -14,7 +15,7 @@ const DEFAULT_TRACKERS = [
   "udp://exodus.desync.com:6969/announce"
 ];
 
-export class CinecalidadProvider extends Provider {
+export class CinecalidadProvider extends WebstreamBaseProvider {
   constructor() {
     super({
       id: "cinecalidad",
@@ -335,34 +336,11 @@ export class CinecalidadProvider extends Provider {
   }
 
   async searchWithFallbackQueries({ type, externalMeta }) {
-    const queries = this.buildSearchQueries(externalMeta);
-    const deduped = new Map();
-
-    for (const query of queries) {
-      const results = await this.search({ type, query });
-
-      for (const result of results) {
-        if (!deduped.has(result.id)) {
-          deduped.set(result.id, result);
-        }
-      }
-    }
-
-    return Array.from(deduped.values());
+    return super.searchWithFallbackQueries({ type, externalMeta });
   }
 
   buildSearchQueries(externalMeta) {
-    const baseName = String(externalMeta?.name || "").trim();
-    const queries = [];
-
-    if (baseName) {
-      queries.push(baseName);
-      queries.push(baseName.replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim());
-      queries.push(baseName.split(":")[0].trim());
-      queries.push(baseName.replace(/\b(the|a|an)\b/gi, " ").replace(/\s+/g, " ").trim());
-    }
-
-    return [...new Set(queries.filter((query) => query && query.length >= 2))];
+    return super.buildSearchQueries(externalMeta);
   }
 
   extractSearchItems(html, requestedType) {
@@ -1121,80 +1099,11 @@ export class CinecalidadProvider extends Provider {
   }
 
   parseExternalStremioId(type, externalId) {
-    if (type === "series") {
-      const match = String(externalId).match(/^(tt\d+):(\d+):(\d+)$/);
-
-      if (match) {
-        return {
-          baseId: match[1],
-          season: Number(match[2]),
-          episode: Number(match[3])
-        };
-      }
-    }
-
-    return {
-      baseId: externalId,
-      season: null,
-      episode: null
-    };
+    return super.parseExternalStremioId(type, externalId);
   }
 
   pickBestCandidate(candidates, externalMeta) {
-    const targetTitle = this.normalizeTitle(externalMeta.name);
-    const targetYear = this.extractYear(externalMeta.releaseInfo || externalMeta.year || "");
-
-    const scored = candidates.map((candidate) => {
-      const candidateTitle = this.normalizeTitle(candidate.name);
-      const candidateYear = this.extractYear(candidate.releaseInfo || "");
-      const titleSimilarity = this.stringSimilarity(candidateTitle, targetTitle);
-      const candidateWords = candidateTitle.split(/\s+/).filter(Boolean);
-      const targetWords = targetTitle.split(/\s+/).filter(Boolean);
-      const wordDelta = Math.abs(candidateWords.length - targetWords.length);
-
-      let score = 0;
-
-      if (candidateTitle === targetTitle) {
-        score += 100;
-      } else if (candidateTitle.includes(targetTitle) || targetTitle.includes(candidateTitle)) {
-        score += wordDelta <= 1 ? 50 : 12;
-      }
-
-      if (titleSimilarity >= 0.92) {
-        score += 65;
-      } else if (titleSimilarity >= 0.84) {
-        score += 40;
-      }
-
-      const relaxedCandidateTitle = this.relaxTitle(candidateTitle);
-      const relaxedTargetTitle = this.relaxTitle(targetTitle);
-      const relaxedSimilarity = this.stringSimilarity(relaxedCandidateTitle, relaxedTargetTitle);
-      const relaxedCandidateWords = relaxedCandidateTitle.split(/\s+/).filter(Boolean);
-      const relaxedTargetWords = relaxedTargetTitle.split(/\s+/).filter(Boolean);
-      const relaxedWordDelta = Math.abs(relaxedCandidateWords.length - relaxedTargetWords.length);
-
-      if (relaxedCandidateTitle === relaxedTargetTitle) {
-        score += 35;
-      } else if (
-        relaxedCandidateTitle.includes(relaxedTargetTitle) ||
-        relaxedTargetTitle.includes(relaxedCandidateTitle)
-      ) {
-        score += relaxedWordDelta <= 1 ? 20 : 5;
-      }
-
-      if (relaxedSimilarity > 0.75) {
-        score += Math.floor(relaxedSimilarity * 30);
-      }
-
-      if (targetYear && candidateYear && targetYear === candidateYear) {
-        score += 25;
-      }
-
-      return { candidate, score };
-    });
-
-    scored.sort((a, b) => b.score - a.score);
-    return scored[0]?.score > 0 ? scored[0].candidate : candidates[0];
+    return super.pickBestCandidate(candidates, externalMeta);
   }
 
   normalizeTitle(value) {
@@ -1367,13 +1276,11 @@ export class CinecalidadProvider extends Provider {
   }
 
   async fetchText(url) {
-    let response;
-
     try {
-      response = await fetch(url, {
+      return await sharedFetchText(url, {
         headers: {
-          "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-          accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+          Referer: this.baseUrl,
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
         }
       });
     } catch (error) {
@@ -1382,22 +1289,14 @@ export class CinecalidadProvider extends Provider {
         : String(error);
       throw new Error(`No se pudo conectar con CineCalidad en ${url}. ${details}`);
     }
-
-    if (!response.ok) {
-      throw new Error(`CineCalidad respondio ${response.status} para ${url}`);
-    }
-
-    return response.text();
   }
 
   async fetchJson(url) {
-    let response;
-
     try {
-      response = await fetch(url, {
+      return await sharedFetchJson(url, {
         headers: {
-          "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-          accept: "application/json,text/plain;q=0.9,*/*;q=0.8"
+          Referer: this.baseUrl,
+          Accept: "application/json,text/plain;q=0.9,*/*;q=0.8"
         }
       });
     } catch (error) {
@@ -1406,22 +1305,9 @@ export class CinecalidadProvider extends Provider {
         : String(error);
       throw new Error(`No se pudo obtener JSON desde ${url}. ${details}`);
     }
-
-    if (!response.ok) {
-      throw new Error(`JSON endpoint respondio ${response.status} para ${url}`);
-    }
-
-    return response.json();
   }
 
   async fetchCinemetaMeta(type, externalId) {
-    const url = `https://v3-cinemeta.strem.io/meta/${type}/${externalId}.json`;
-
-    try {
-      const payload = await this.fetchJson(url);
-      return payload?.meta || null;
-    } catch {
-      return null;
-    }
+    return super.fetchCinemetaMeta(type, externalId);
   }
 }

@@ -9,6 +9,7 @@ Addon de Stremio orientado a providers web estilo Aniyomi/Cloudstream, con selec
   - `cinecalidad`
   - `mhdflix`
   - `verseriesonline`
+  - `cineplus123`
 - Recursos:
   - `/manifest.json`
   - `/catalog/:type/:id.json`
@@ -51,12 +52,14 @@ $env:CINECALIDAD_BASE_URL='https://www.cinecalidad.ec'
 $env:MHDFLIX_BASE_URL='https://ww1.mhdflix.com'
 $env:MHDFLIX_API_URL='https://core.mhdflix.com'
 $env:VERSERIESONLINE_BASE_URL='https://www.verseriesonline.net'
+$env:CINEPLUS123_BASE_URL='https://cineplus123.org'
 $env:STREAM_SELECTION_MODE='global'
 $env:STREAM_MAX_RESULTS='1'
 $env:GNULA_DISABLED_SOURCES='streamwish,doodstream'
 $env:CINECALIDAD_DISABLED_SOURCES='goodstream,streamwish'
 $env:MHDFLIX_DISABLED_SOURCES='mixdrop,lulu'
 $env:VERSERIESONLINE_DISABLED_SOURCES='doodstream,uqload'
+$env:CINEPLUS123_DISABLED_SOURCES='uqload,cvid'
 $env:ADDON_URL='http://127.0.0.1:3000'
 npm start
 ```
@@ -126,6 +129,7 @@ Sin `ADDON_URL`, los streams proxyeados pueden quedar mal armados.
 - usa la API `core.mhdflix.com`
 - soporta meta, episodios y streams
 - matching por `tt...`
+- para titulos cortos/ambiguos ahora prioriza no inventar matches
 
 ### VerSeriesOnline
 
@@ -137,6 +141,23 @@ Sin `ADDON_URL`, los streams proxyeados pueden quedar mal armados.
 - busqueda por URL directa
 - fallback de busqueda por slug
 - `csrf + cookies + POST /hashembedlink`
+- parser de players ajustado a `play-option`
+- titulos de stream mas limpios en debug y seleccion global
+
+### Cineplus123
+
+- peliculas y series
+- soporte DooPlay con `POST /wp-admin/admin-ajax.php`
+- series:
+  - busqueda
+  - meta
+  - episodios tipo `/capitulo/<slug>-1x1/`
+  - streams
+- peliculas:
+  - meta y players funcionando
+  - resolucion parcial de hosts
+  - `hanerix/streamwish` validado
+  - `cvid` y `uqload` siguen siendo mas irregulares
 
 ## Probar rapido
 
@@ -145,7 +166,9 @@ Busqueda:
 - `http://127.0.0.1:3000/catalog/movie/gnula-movies.json?search=matrix`
 - `http://127.0.0.1:3000/catalog/movie/cinecalidad-movies.json?search=matrix`
 - `http://127.0.0.1:3000/catalog/movie/mhdflix-movies.json?search=matrix`
+- `http://127.0.0.1:3000/catalog/movie/cineplus123-movies.json?search=matrix`
 - `http://127.0.0.1:3000/catalog/series/verseriesonline-series.json?search=the%20madison`
+- `http://127.0.0.1:3000/catalog/series/cineplus123-series.json?search=breaking`
 
 Debug externo:
 
@@ -191,6 +214,7 @@ Si el servicio todavia no existe:
 - `MHDFLIX_BASE_URL=https://ww1.mhdflix.com`
 - `MHDFLIX_API_URL=https://core.mhdflix.com`
 - `VERSERIESONLINE_BASE_URL=https://www.verseriesonline.net`
+- `CINEPLUS123_BASE_URL=https://cineplus123.org`
 
 ### 4. Verificar deploy
 
@@ -208,5 +232,65 @@ La URL de instalacion en Stremio es:
 - Los problemas actuales suelen ser por host concreto, no por provider base.
 - `goodstream` sigue siendo irregular en Stremio.
 - `vimeos` resulto util para `cinecalidad`.
+- Las mejoras en extractores compartidos si pegaron en providers pesados:
+  - `cinecalidad` levanto mas hosts en peliculas como `Zootopia`
+  - `cineplus123` y `verseriesonline` sumaron mejores resultados en series como `From`
 - `verseriesonline` cambio bastante respecto de la extension original; la estructura nueva es `/series/...`.
 - `mhdflix` funciona bien a nivel API, pero la reproduccion final depende de los hosts que devuelva cada item.
+- `mhdflix` antes inventaba matches en titulos ambiguos como `From`; ahora se aparta cuando no hay coincidencia razonable.
+- `cineplus123` ya quedo bien encaminado en series.
+- `cineplus123` peliculas dependen mas de mirrors concretos:
+  - `hanerix` respondio bien
+  - `cvid` y `uqload` siguen siendo incompletos
+
+## Guia rapida para actualizar Render
+
+### 1. Verificar y subir cambios
+
+```powershell
+git status
+git add .
+git commit -m "Update providers, extractors and matching"
+git push origin main
+```
+
+### 2. Confirmar `render.yaml`
+
+Render toma estas variables desde [render.yaml](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/render.yaml):
+
+- `NODE_VERSION`
+- `STREAM_SELECTION_MODE`
+- `STREAM_MAX_RESULTS`
+- `GNULA_BASE_URL`
+- `CINECALIDAD_BASE_URL`
+- `MHDFLIX_BASE_URL`
+- `MHDFLIX_API_URL`
+- `VERSERIESONLINE_BASE_URL`
+- `CINEPLUS123_BASE_URL`
+- `ADDON_URL`
+
+Si cambias la URL publica del servicio, actualiza tambien `ADDON_URL`.
+
+### 3. Redeploy
+
+Si tenes auto deploy:
+
+- con `git push` normalmente alcanza
+
+Si queres forzarlo:
+
+1. Abri el servicio en Render.
+2. Entra a `Manual Deploy`.
+3. Elegi `Deploy latest commit`.
+
+### 4. Verificar despues del deploy
+
+Proba:
+
+- [health](https://stremio-web-scraper-addon.onrender.com/)
+- [manifest](https://stremio-web-scraper-addon.onrender.com/manifest.json)
+
+Y si queres validar streams:
+
+- [Zootopia debug](https://stremio-web-scraper-addon.onrender.com/_debug/stream/movie/tt2948356.json)
+- [From 3x1 debug](https://stremio-web-scraper-addon.onrender.com/_debug/stream/series/tt9813792:3:1.json)

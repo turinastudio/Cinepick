@@ -13,6 +13,10 @@ function decodeHtmlEntities(value) {
     .replaceAll("&gt;", ">");
 }
 
+function isHttpUrl(value) {
+  return /^https?:\/\//i.test(String(value || "").trim());
+}
+
 function getHost(url) {
   try {
     return new URL(url).hostname.toLowerCase();
@@ -458,8 +462,8 @@ async function extractStreamWish(url, label) {
   })();
   const refererHost = new URL(rewritten).host;
   let html = await fetchText(rewritten, {
-    Origin: `https://${refererHost}`,
-    Referer: `https://${refererHost}/`
+    Origin: rewritten,
+    Referer: rewritten
   });
   const directFileMatch = html.match(/file\s*:\s*["']([^"']+)["']/i)?.[1];
 
@@ -487,7 +491,7 @@ async function extractStreamWish(url, label) {
       }
     }
 
-    if (/\.m3u8(\?|$)/i.test(resolvedUrl)) {
+    if (isHttpUrl(resolvedUrl) && /\.m3u8(\?|$)/i.test(resolvedUrl)) {
       return [
         buildStream("Gnula", `${label} StreamWish HLS`.trim(), resolvedUrl, `https://${refererHost}/`)
       ];
@@ -505,15 +509,17 @@ async function extractStreamWish(url, label) {
 
   const combined = [html, ...processedScripts].join("\n");
   const m3u8 =
-    combined.match(/https[^"'\\]+m3u8[^"'\\]*/i)?.[0] ||
+    combined.match(/https:\/\/[^"'\\\s]+\.m3u8(?:\?[^"'\\\s]*)?/i)?.[0] ||
     combined.match(/file\s*:\s*"([^"]+\.m3u8[^"]*)"/i)?.[1] ||
     combined.match(/file\s*:\s*'([^']+\.m3u8[^']*)'/i)?.[1];
 
-  if (!m3u8) {
+  const normalizedM3u8 = decodeHtmlEntities(m3u8 || "");
+
+  if (!normalizedM3u8 || !isHttpUrl(normalizedM3u8)) {
     return [];
   }
 
-  return [buildStream("Gnula", `${label} StreamWish HLS`.trim(), decodeHtmlEntities(m3u8), `https://${refererHost}/`)];
+  return [buildStream("Gnula", `${label} StreamWish HLS`.trim(), normalizedM3u8, `https://${refererHost}/`)];
 }
 
 function unpackWithDictionary(payload, radix, dictionary) {
@@ -593,7 +599,20 @@ function decryptFilemoonPlayback(playback) {
 }
 
 async function extractFilemoon(url, label) {
-  const parsed = new URL(url);
+  let workingUrl = url;
+  let parsed = new URL(workingUrl);
+  const initialHtml = await fetchText(workingUrl, {
+    Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.5",
+    Priority: "u=0, i",
+    Origin: workingUrl,
+    Referer: workingUrl
+  });
+  const iframeMatch = initialHtml.match(/<iframe\s+[^>]*src=["'](https?:\/\/[^"']+)["'][^>]*>/i);
+  if (iframeMatch?.[1]) {
+    workingUrl = iframeMatch[1];
+    parsed = new URL(workingUrl);
+  }
   const segments = parsed.pathname.split("/").filter(Boolean);
   const mediaId = segments[0] === "e" ? segments[1] : segments.at(-1);
 
@@ -612,8 +631,8 @@ async function extractFilemoon(url, label) {
   const playbackText = await fetchText(`https://${embedHost}/api/videos/${mediaId}/embed/playback`, {
     Referer: embedUrl,
     "X-Embed-Origin": parsed.host,
-    "X-Embed-Parent": url,
-    "X-Embed-Referer": url,
+    "X-Embed-Parent": workingUrl,
+    "X-Embed-Referer": workingUrl,
     Accept: "*/*",
     "Accept-Language": "es-ES,es;q=0.9,en-US;q=0.8,en;q=0.7",
     "Cache-Control": "no-cache",
@@ -666,11 +685,43 @@ async function extractVidHide(url, label) {
     return url;
   })();
 
-  const html = await fetchText(normalized);
+  const html = await fetchText(normalized, {
+    Origin: normalized,
+    Referer: normalized
+  });
   const scriptBodies = Array.from(
     html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi),
     (match) => match[1]
   ).filter(Boolean);
+
+  const packedScript = scriptBodies.find((script) => script.includes("eval(function(p,a,c,k,e,d)"));
+  if (packedScript) {
+    const unpackedPackedScript = getAndUnpack(packedScript);
+    const directPackedMatch = unpackedPackedScript.match(/"(https?:\/\/[^"]*?m3u8[^"]*?)"/i)?.[1];
+    if (directPackedMatch) {
+      return [
+        buildStream("Gnula", `${label} VidHide HLS`.trim(), decodeHtmlEntities(directPackedMatch), normalized)
+      ];
+    }
+  }
+
+  const simpleScript = scriptBodies.find((script) => /m3u8/i.test(script));
+  if (simpleScript) {
+    const unpackedSimple = simpleScript.includes("eval(function(p,a,c")
+      ? getAndUnpack(simpleScript)
+      : simpleScript;
+    const simpleMatch =
+      unpackedSimple.match(/file\s*:\s*"([^"]+\.m3u8[^"]*)"/i)?.[1] ||
+      unpackedSimple.match(/file\s*:\s*'([^']+\.m3u8[^']*)'/i)?.[1] ||
+      unpackedSimple.match(/source[\s\S]*?file\s*:\s*"([^"]+\.m3u8[^"]*)"/i)?.[1] ||
+      unpackedSimple.match(/source[\s\S]*?file\s*:\s*'([^']+\.m3u8[^']*)'/i)?.[1];
+
+    if (simpleMatch) {
+      return [
+        buildStream("Gnula", `${label} VidHide HLS`.trim(), decodeHtmlEntities(simpleMatch), normalized)
+      ];
+    }
+  }
 
   const unpackedScripts = scriptBodies.map((script) =>
     script.includes("eval(function(p,a,c") ? getAndUnpack(script) : script
@@ -772,7 +823,25 @@ async function extractJWPlayer(url, label) {
 }
 
 async function extractNetuHqq(url, label) {
-  const html = await fetchText(url, { Referer: url });
+  const normalizedUrl = (() => {
+    if (/\/f\//i.test(url)) {
+      return url.replace(/\/f\//i, "/e/");
+    }
+    return url;
+  })();
+
+  let html = await fetchText(normalizedUrl, { Referer: normalizedUrl });
+  const iframeUrl =
+    html.match(/<iframe[^>]+src=["']([^"']+)["']/i)?.[1] ||
+    html.match(/location\.href\s*=\s*["']([^"']+)["']/i)?.[1];
+
+  if (iframeUrl) {
+    const resolvedIframeUrl = iframeUrl.startsWith("http")
+      ? iframeUrl
+      : new URL(iframeUrl, normalizedUrl).href;
+    html = await fetchText(resolvedIframeUrl, { Referer: normalizedUrl });
+  }
+
   const directMatches = Array.from(
     html.matchAll(/https?[^"'\\\s]+(?:master\.m3u8|\.m3u8)[^"'\\\s]*/gi),
     (match) => decodeHtmlEntities(match[0])
@@ -780,16 +849,43 @@ async function extractNetuHqq(url, label) {
 
   if (directMatches.length) {
     return [...new Set(directMatches)].map((streamUrl) =>
-      buildStream("Gnula", `${label} Netu HLS`.trim(), streamUrl, url)
+      buildStream("Gnula", `${label} Netu HLS`.trim(), streamUrl, normalizedUrl)
     );
   }
 
   const cfMatch = html.match(/https?:\/\/[^"'\\\s]*cfglobalcdn\.com[^"'\\\s]*\.m3u8[^"'\\\s]*/i);
   if (cfMatch) {
-    return [buildStream("Gnula", `${label} Netu HLS`.trim(), decodeHtmlEntities(cfMatch[0]), url)];
+    return [buildStream("Gnula", `${label} Netu HLS`.trim(), decodeHtmlEntities(cfMatch[0]), normalizedUrl)];
   }
 
   return [];
+}
+
+async function extractUqload(url, label) {
+  const normalizedUrl = (() => {
+    if (/uqload\.(is|co|ws)\//i.test(url) && !/^https?:\/\/www\./i.test(url)) {
+      return url.replace(/^(https?:\/\/)(?!www\.)/i, "$1www.");
+    }
+    return url;
+  })();
+  const html = await fetchText(normalizedUrl, {
+    Referer: normalizedUrl,
+    Origin: normalizedUrl
+  });
+  const scriptMatch =
+    html.match(/sources:\s*\[\s*"([^"]+)"/i) ||
+    html.match(/sources:\s*\[\s*'([^']+)'/i) ||
+    html.match(/sources\s*:\s*\[\s*\{\s*file\s*:\s*"([^"]+)"/i) ||
+    html.match(/sources\s*:\s*\[\s*\{\s*file\s*:\s*'([^']+)'/i) ||
+    html.match(/file:\s*"([^"]+)"/i) ||
+    html.match(/file:\s*'([^']+)'/i);
+
+  const videoUrl = decodeHtmlEntities(scriptMatch?.[1] || "").trim();
+  if (!isHttpUrl(videoUrl)) {
+    return [];
+  }
+
+  return [buildStream("Gnula", `${label} Uqload`.trim(), videoUrl, "https://uqload.ws/")];
 }
 
 async function extractGoodstream(url, label) {
@@ -877,7 +973,7 @@ const extractorRegistry = [
     aliases: [
       "wishembed", "streamwish", "strwish", "streamgg", "kswplayer",
       "swhoi", "multimovies", "uqloads", "neko-stream", "swdyu", "iplayerhls",
-      "hlswish"
+      "hlswish", "hanerix"
     ],
     resolve: extractStreamWish
   },
@@ -899,7 +995,7 @@ const extractorRegistry = [
     aliases: [
       "ahvsh", "streamhide", "guccihide", "streamvid", "vidhide", "kinoger",
       "smoothpre", "dhtpre", "peytonepre", "earnvids", "ryderjet", "vidhidehub",
-      "filelions", "vidhidevip", "vidhidepre"
+      "filelions", "vidhidevip", "vidhidepre", "cvid"
     ],
     resolve: extractVidHide
   },
@@ -908,6 +1004,12 @@ const extractorRegistry = [
     source: "project-local",
     aliases: ["hqq", "netu", "waaw", "waaw.tv"],
     resolve: extractNetuHqq
+  },
+  {
+    id: "uqload",
+    source: "project-local",
+    aliases: ["uqload", "uqload.is"],
+    resolve: extractUqload
   },
   {
     id: "goodstream",

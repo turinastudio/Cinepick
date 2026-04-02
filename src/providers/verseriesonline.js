@@ -573,29 +573,20 @@ export class VerSeriesOnlineProvider extends Provider {
     const players = [];
     const seen = new Set();
     const source = String(html || "");
-    const hashPattern = /data-hash="([^"]+)"/gi;
+    const optionPattern = /<a[^>]+class=["'][^"']*\bplay-option\b[^"']*["'][^>]+data-hash=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
     let match;
 
-    while ((match = hashPattern.exec(source))) {
+    while ((match = optionPattern.exec(source))) {
       const dataHash = match[1];
       if (!dataHash || seen.has(dataHash)) {
         continue;
       }
 
       seen.add(dataHash);
-
-      const index = match.index ?? 0;
-      const start = Math.max(0, index - 600);
-      const end = Math.min(source.length, index + 600);
-      const block = source.slice(start, end);
-
-      const serverText = this.cleanText(
-        this.extractFirstMatch(block, /<span[^>]+class="[^"]*\bserv\b[^"]*"[^>]*>([\s\S]*?)<\/span>/i)
-        || this.extractFirstMatch(block, /<strong[^>]*>([\s\S]*?)<\/strong>/i)
-        || this.extractFirstMatch(block, /title="([^"]+)"/i)
-        || this.stripTags(block)
-      );
-      const imageSrc = String(this.extractFirstMatch(block, /<img[^>]+src="([^"]+)"/i) || "").toLowerCase();
+      const optionHtml = match[0];
+      const labelHtml = match[2] || "";
+      const serverText = this.cleanText(labelHtml || optionHtml);
+      const imageSrc = String(this.extractFirstMatch(optionHtml, /<img[^>]+src=["']([^"']+)["']/i) || "").toLowerCase();
       const language = this.detectLanguage(serverText, imageSrc);
 
       players.push({
@@ -692,11 +683,16 @@ export class VerSeriesOnlineProvider extends Provider {
 
   cleanStreamTitle(title) {
     return String(title || "")
+      .replace(/^\d+\.\s*[^-]+-\s*HD\s*/i, "")
+      .replace(/^servidor\s+/i, "")
       .replace(/\s+/g, " ")
       .replace(/\bStreamWish HLS\b/gi, "StreamWish")
       .replace(/\bVoe HLS\b/gi, "Voe")
       .replace(/\bVoe MP4\b/gi, "Voe")
       .replace(/\bNetu HLS\b/gi, "Netu")
+      .replace(/\bVidHide HLS\b/gi, "VidHide")
+      .replace(/\bVimeos\b/gi, "Vimeos")
+      .replace(/\bDoodstream 0000p\b/gi, "Doodstream")
       .trim();
   }
 

@@ -620,21 +620,56 @@ export class MhdflixProvider extends Provider {
   pickBestCandidate(candidates, externalMeta) {
     const targetTitle = this.normalizeTitle(externalMeta.name);
     const targetYear = this.extractYear(externalMeta.releaseInfo || externalMeta.year || "");
+    const targetWords = targetTitle.split(/\s+/).filter(Boolean);
+    const isShortTarget = targetWords.length <= 2 && targetTitle.length <= 12;
+    const strictShortCandidates = isShortTarget
+      ? candidates.filter((candidate) => {
+          const candidateTitle = this.normalizeTitle(candidate.name);
+          const candidateWords = candidateTitle.split(/\s+/).filter(Boolean);
+          const relaxedCandidateTitle = this.relaxTitle(candidateTitle);
+          const relaxedTargetTitle = this.relaxTitle(targetTitle);
 
-    const scored = candidates.map((candidate) => {
+          if (candidateTitle === targetTitle || relaxedCandidateTitle === relaxedTargetTitle) {
+            return true;
+          }
+
+          if (candidateTitle.startsWith(`${targetTitle} `) && candidateWords.length <= targetWords.length + 1) {
+            return true;
+          }
+
+          return false;
+        })
+      : candidates;
+
+    if (isShortTarget && strictShortCandidates.length === 0) {
+      return null;
+    }
+
+    const scored = strictShortCandidates.map((candidate) => {
       const candidateTitle = this.normalizeTitle(candidate.name);
       const candidateYear = this.extractYear(candidate.releaseInfo || "");
       const titleSimilarity = this.stringSimilarity(candidateTitle, targetTitle);
       const candidateWords = candidateTitle.split(/\s+/).filter(Boolean);
-      const targetWords = targetTitle.split(/\s+/).filter(Boolean);
       const wordDelta = Math.abs(candidateWords.length - targetWords.length);
 
       let score = 0;
+      const hasWholeWordMatch = targetWords.every((word) => candidateWords.includes(word));
+      const candidateStartsWithTarget = candidateTitle.startsWith(`${targetTitle} `) || candidateTitle === targetTitle;
 
       if (candidateTitle === targetTitle) {
         score += 100;
       } else if (candidateTitle.includes(targetTitle) || targetTitle.includes(candidateTitle)) {
-        score += wordDelta <= 1 ? 50 : 12;
+        if (isShortTarget) {
+          score += candidateStartsWithTarget && wordDelta <= 1 ? 22 : -20;
+        } else {
+          score += wordDelta <= 1 ? 50 : 12;
+        }
+      }
+
+      if (hasWholeWordMatch) {
+        score += isShortTarget ? 12 : 25;
+      } else if (isShortTarget) {
+        score -= 25;
       }
 
       if (titleSimilarity >= 0.92) {
@@ -649,6 +684,7 @@ export class MhdflixProvider extends Provider {
       const relaxedCandidateWords = relaxedCandidateTitle.split(/\s+/).filter(Boolean);
       const relaxedTargetWords = relaxedTargetTitle.split(/\s+/).filter(Boolean);
       const relaxedWordDelta = Math.abs(relaxedCandidateWords.length - relaxedTargetWords.length);
+      const relaxedWholeWordMatch = relaxedTargetWords.every((word) => relaxedCandidateWords.includes(word));
 
       if (relaxedCandidateTitle === relaxedTargetTitle) {
         score += 35;
@@ -656,7 +692,15 @@ export class MhdflixProvider extends Provider {
         relaxedCandidateTitle.includes(relaxedTargetTitle) ||
         relaxedTargetTitle.includes(relaxedCandidateTitle)
       ) {
-        score += relaxedWordDelta <= 1 ? 20 : 5;
+        if (isShortTarget) {
+          score += relaxedWordDelta <= 1 ? 8 : -10;
+        } else {
+          score += relaxedWordDelta <= 1 ? 20 : 5;
+        }
+      }
+
+      if (relaxedWholeWordMatch) {
+        score += isShortTarget ? 8 : 15;
       }
 
       if (relaxedSimilarity > 0.75) {

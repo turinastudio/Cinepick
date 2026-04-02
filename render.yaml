@@ -23,5 +23,7 @@ services:
         value: https://core.mhdflix.com
       - key: VERSERIESONLINE_BASE_URL
         value: https://www.verseriesonline.net
+      - key: CINEPLUS123_BASE_URL
+        value: https://cineplus123.org
       - key: ADDON_URL
         value: https://stremio-web-scraper-addon.onrender.com

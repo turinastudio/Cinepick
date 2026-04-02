@@ -27,6 +27,7 @@
   - `CINECALIDAD_DISABLED_SOURCES`
   - `MHDFLIX_DISABLED_SOURCES`
   - `VERSERIESONLINE_DISABLED_SOURCES`
+  - `CINEPLUS123_DISABLED_SOURCES`
 
 ### Providers
 
@@ -49,6 +50,9 @@
     - matching por IDs externos `tt...`
   - usa la API de `core.mhdflix.com`
   - usa scoring, penalidades y proxy
+  - se endurecio el matching para titulos cortos y ambiguos:
+    - ahora evita elegir cualquier serie que solo contenga una palabra como `From`
+    - si no hay match razonable, devuelve `no_best_match`
 - `verseriesonline`
   - nuevo provider en `src/providers/verseriesonline.js`
   - soporta series
@@ -65,6 +69,23 @@
     - `/series/<slug>/temporada-1/episodio-1/`
   - usa `csrf + cookies + POST /hashembedlink`
   - usa scoring, penalidades y proxy
+  - se limpio el parser de `play-option`:
+    - ahora toma el `<a>` real de cada player en vez de bloques enormes alrededor de `data-hash`
+    - eso evita titulos ofuscados en streams y mejora la legibilidad del score/debug
+- `cineplus123`
+  - nuevo provider en `src/providers/cineplus123.js`
+  - soporta peliculas y series
+  - soporta:
+    - busqueda
+    - meta
+    - episodios de series
+    - streams via `doo_player_ajax`
+    - matching por IDs externos `tt...`
+  - series quedo bien encaminado con episodios tipo `/capitulo/<slug>-1x1/`
+  - peliculas quedaron parcialmente resueltas:
+    - `hanerix/streamwish` validado
+    - `cvid` y `uqload` todavia incompletos
+  - usa scoring, penalidades y proxy
 
 ### Debug y DX
 
@@ -75,6 +96,11 @@
   - `rawHashCount`
   - `playerCount`
   - `streamCount`
+- `cineplus123` expone debug interno para:
+  - fichas de serie/pelicula
+  - deteccion de episodios
+  - players
+  - respuesta de `doo_player_ajax`
 - Se agrego `start-local.bat` para lanzar localmente con:
   - `ADDON_URL=http://127.0.0.1:3000`
   - `STREAM_SELECTION_MODE=per_provider`
@@ -84,11 +110,19 @@
 - El problema principal ya no esta en busqueda/meta base, sino en compatibilidad por host.
 - `goodstream` sigue siendo un host irregular en Stremio.
 - `vimeos` resulto ser un host util en `cinecalidad`.
+- Las mejoras compartidas de extractores si impactaron a providers pesados:
+  - `cinecalidad` ahora resuelve mejor `streamwish`, `voe` y `vimeos` en casos como `Zootopia`
+  - `cineplus123` empezo a aportar `netu` y `uqload` en series como `From`
 - `verseriesonline` cambio bastante respecto de la extension original:
   - la busqueda publica no coincide con las rutas viejas
   - las URLs actuales usan `/series/...`
   - la pagina de episodio sigue exponiendo `data-hash` y `csrf`
 - `mhdflix` funciona bien con su API, pero la calidad final depende de los hosts concretos que devuelva cada item.
+- `mhdflix` tenia una debilidad fuerte con titulos ambiguos y cortos:
+  - ya no inventa matches para `From`
+  - ahora se aparta si no encuentra un candidato realmente razonable
+- `cineplus123` no estaba roto en provider: los bloqueos reales estuvieron en extractores por host.
+- En `cineplus123` peliculas, el primer host validado fue `hanerix`.
 
 ### Deploy
 

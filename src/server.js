@@ -171,10 +171,6 @@ async function handleDebug(res, pathname) {
     id: decodedId,
     selectionMode: debug.selectionMode || "global",
     results: debug.results || [],
-    globalScoredHttpStreams: debug.globalScoredHttpStreams || [],
-    globalScoredTorrentStreams: debug.globalScoredTorrentStreams || [],
-    globalSelectedHttpStreams: debug.globalSelectedHttpStreams || [],
-    globalSelectedTorrentStreams: debug.globalSelectedTorrentStreams || [],
     globalScoredStreams: debug.globalScoredStreams || [],
     globalSelectedStreams: debug.globalSelectedStreams || []
   });

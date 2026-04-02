@@ -1,19 +1,9 @@
-import crypto from "node:crypto";
 import { buildStremioId } from "../lib/ids.js";
 import { buildStream, resolveExtractorStream } from "../lib/extractors.js";
 import { markSourceFailure, markSourceSuccess } from "../lib/penalty-reliability.js";
 import { analyzeScoredStreams, scoreAndSelectStreams } from "../lib/stream-scoring.js";
-import { scoreAndSelectTorrents } from "../lib/torrent-scoring.js";
 import { fetchJson as sharedFetchJson, fetchText as sharedFetchText } from "../lib/webstreamer/http.js";
 import { WebstreamBaseProvider } from "./webstreambase.js";
-
-const DEFAULT_TRACKERS = [
-  "udp://tracker.opentrackr.org:1337/announce",
-  "udp://open.stealth.si:80/announce",
-  "udp://tracker.torrent.eu.org:451/announce",
-  "udp://tracker.cyberia.is:6969/announce",
-  "udp://exodus.desync.com:6969/announce"
-];
 
 export class CinecalidadProvider extends WebstreamBaseProvider {
   constructor() {
@@ -70,12 +60,6 @@ export class CinecalidadProvider extends WebstreamBaseProvider {
   async getStreams({ type, slug }) {
     const target = this.parseSlugPayload(type, slug);
     const html = await this.fetchText(target.url);
-    const torrentStreams = await this.extractTorrentStreams(html, {
-      type,
-      name: this.extractOgValue(html, "og:title")
-        || this.extractFirstMatch(html, /<title>([^<]+)<\/title>/i)
-        || this.unslugify(target.primarySlug)
-    });
     const players = this.extractPlayerLinks(html)
       .filter((player) => this.isSourceEnabled(player.server));
 
@@ -88,7 +72,7 @@ export class CinecalidadProvider extends WebstreamBaseProvider {
       httpStreams = this.sortStreams(streamGroups.flat().filter(Boolean));
     }
 
-    return [...torrentStreams, ...httpStreams];
+    return httpStreams;
   }
 
   async getStreamsFromExternalId({ type, externalId }) {
@@ -277,23 +261,8 @@ export class CinecalidadProvider extends WebstreamBaseProvider {
     debug.targetUrl = target.url;
 
     const html = await this.fetchText(target.url);
-    const torrentStreams = await this.extractTorrentStreams(html, {
-      type: type === "series" ? "series" : bestMatch.type,
-      name: bestMatch.name
-    });
     const players = this.extractPlayerLinks(html)
       .filter((player) => this.isSourceEnabled(player.server));
-    debug.torrentCount = torrentStreams.length;
-    debug.torrents = torrentStreams.map((stream) => ({
-      title: stream.title,
-      infoHash: stream.infoHash,
-      fileIdx: stream.fileIdx ?? null,
-      seeders: stream.seeders ?? null,
-      peers: stream.peers ?? null,
-      size: stream.size || "",
-      sources: stream.sources || []
-    }));
-    debug.torrentDebug = this.buildTorrentDebug(html);
     debug.playerCount = players.length;
     debug.players = players.map((player) => ({
       server: player.server,
@@ -301,7 +270,7 @@ export class CinecalidadProvider extends WebstreamBaseProvider {
       pageUrl: player.pageUrl
     }));
 
-    if (!players.length && torrentStreams.length === 0) {
+    if (!players.length) {
       debug.status = "no_players";
       return debug;
     }
@@ -310,7 +279,7 @@ export class CinecalidadProvider extends WebstreamBaseProvider {
       ? await Promise.all(players.map((player) => this.resolvePlayerStream(player)))
       : [];
 
-    const rawStreams = [...torrentStreams, ...streamGroups.flat().filter(Boolean)];
+    const rawStreams = streamGroups.flat().filter(Boolean);
     const scoredStreams = analyzeScoredStreams(this.id, rawStreams, {
       cleanTitle: (title) => this.cleanStreamTitle(title)
     });
@@ -497,284 +466,10 @@ export class CinecalidadProvider extends WebstreamBaseProvider {
 
     return players;
   }
-
-  async extractTorrentStreams(html, context) {
-    const entries = this.extractTorrentEntries(html);
-    if (entries.length === 0) {
-      return [];
-    }
-
-    const torrents = [];
-    for (const entry of entries) {
-      const rawUrl = await this.resolveTorrentEntryUrl(entry);
-      const torrent = this.buildTorrentStream(rawUrl, {
-        baseTitle: context?.name || "CineCalidad",
-        quality: entry.quality,
-        language: entry.language,
-        size: entry.size
-      });
-      if (torrent) {
-        torrents.push(torrent);
-      }
-    }
-
-    return scoreAndSelectTorrents(this.id, this.dedupeTorrentStreams(torrents), {
-      maxResults: 5
-    });
-  }
-
-  extractTorrentEntries(html) {
-    const entries = [];
-    const seen = new Set();
-    const buttonPattern = /<a[^>]*class=["'][^"']*\bbtn\b[^"']*["'][^>]*>([\s\S]*?)<\/a>/gi;
-
-    for (const match of html.matchAll(buttonPattern)) {
-      const buttonHtml = match[0];
-      const text = this.cleanText(match[1]);
-      if (!/\b(?:torrent|bittorrent)\b/i.test(text)) {
-        continue;
-      }
-
-      const dataUrl = this.decodeHtmlEntities(
-        this.extractFirstMatch(buttonHtml, /\bdata-url=["']([^"']+)["']/i)
-      ).trim();
-      const href = this.decodeHtmlEntities(
-        this.extractFirstMatch(buttonHtml, /\bhref=["']([^"']+)["']/i)
-      ).trim();
-      const parentBlock = this.extractSurroundingBlock(html, buttonHtml);
-      const quality = this.extractTorrentQuality(parentBlock);
-      const language = this.extractTorrentLanguage(parentBlock);
-      const size = this.extractTorrentSize(parentBlock);
-      const source = dataUrl || href;
-
-      if (!source || seen.has(source)) {
-        continue;
-      }
-
-      seen.add(source);
-      entries.push({
-        source,
-        quality,
-        language,
-        size
-      });
-    }
-
-    return entries;
-  }
-
-  extractSurroundingBlock(html, snippet) {
-    const index = String(html || "").indexOf(snippet);
-    if (index === -1) {
-      return snippet;
-    }
-
-    const start = Math.max(0, index - 600);
-    const end = Math.min(String(html || "").length, index + snippet.length + 600);
-    return String(html || "").slice(start, end);
-  }
-
-  extractTorrentQuality(text) {
-    const lower = String(text || "").toLowerCase();
-    if (lower.includes("2160p") || lower.includes("4k")) return "2160p";
-    if (lower.includes("1080p")) return "1080p";
-    if (lower.includes("720p")) return "720p";
-    if (lower.includes("480p")) return "480p";
-    return "";
-  }
-
-  extractTorrentLanguage(text) {
-    const lower = String(text || "").toLowerCase();
-    if (lower.includes("dual")) return "Dual";
-    if (lower.includes("latino")) return "Latino";
-    if (/\bingl[eé]s\b|\bingles\b/i.test(String(text || ""))) return "English";
-    return "";
-  }
-
-  extractTorrentSize(text) {
-    const match = String(text || "").match(/\b(\d+(?:[.,]\d+)?)\s*(tb|gb|mb)\b/i);
-    if (!match) {
-      return "";
-    }
-
-    return `${match[1].replace(",", ".")} ${match[2].toUpperCase()}`;
-  }
-
-  async resolveTorrentEntryUrl(entry) {
-    const source = String(entry?.source || "").trim();
-    if (!source) {
-      return "";
-    }
-
-    if (/^magnet:/i.test(source)) {
-      return source;
-    }
-
-    const decodedDataUrl = this.tryDecodeBase64Url(source);
-    if (decodedDataUrl) {
-      const direct = await this.extractMagnetFromIntermediate(decodedDataUrl);
-      return direct || decodedDataUrl;
-    }
-
-    if (/^https?:\/\//i.test(source)) {
-      const direct = await this.extractMagnetFromIntermediate(source);
-      return direct || source;
-    }
-
-    return "";
-  }
-
-  tryDecodeBase64Url(value) {
-    const trimmed = String(value || "").trim();
-    if (!trimmed || /^https?:\/\//i.test(trimmed) || /^magnet:/i.test(trimmed)) {
-      return "";
-    }
-
-    try {
-      const decoded = Buffer.from(trimmed, "base64").toString("utf8").trim();
-      return /^https?:\/\//i.test(decoded) ? decoded : "";
-    } catch {
-      return "";
-    }
-  }
-
-  async extractMagnetFromIntermediate(url) {
-    try {
-      const html = await this.fetchText(url);
-      return this.extractMagnetFromHtml(html);
-    } catch {
-      return "";
-    }
-  }
-
-  extractMagnetFromHtml(html) {
-    const magnetHref = this.decodeHtmlEntities(
-      this.extractFirstMatch(html, /\bhref=["'](magnet:\?xt=urn:btih:[^"']+)["']/i)
-    ).trim();
-    if (magnetHref) {
-      return magnetHref;
-    }
-
-    const magnetInput = this.decodeHtmlEntities(
-      this.extractFirstMatch(html, /\bvalue=["'](magnet:\?xt=urn:btih:[^"']+)["']/i)
-    ).trim();
-    if (magnetInput) {
-      return magnetInput;
-    }
-
-    return "";
-  }
-
-  buildTorrentStream(rawUrl, context = {}) {
-    const decodedUrl = this.decodeHtmlEntities(String(rawUrl || "").trim());
-    const infoHash = this.extractTorrentInfoHash(decodedUrl);
-    if (!infoHash) {
-      return null;
-    }
-
-    const parsedMagnet = /^magnet:/i.test(decodedUrl) ? this.parseMagnet(decodedUrl) : null;
-    const displayName = this.cleanText(parsedMagnet?.dn || context.baseTitle || "CineCalidad");
-    const detailParts = [displayName, context.quality, context.language, context.size].filter(Boolean);
-    const title = `[TORRENT][LAT] ${detailParts.join(" ")}`.replace(/\s+/g, " ").trim();
-    const infoText = title.toLowerCase();
-    const trackers = this.normalizeTrackers(parsedMagnet?.tr?.length ? parsedMagnet.tr : DEFAULT_TRACKERS);
-
-    return {
-      name: "CineCalidad",
-      title,
-      infoHash,
-      fileIdx: 0,
-      sources: trackers.map((tracker) => `tracker:${tracker}`),
-      seeders: this.extractFirstNumber(infoText, /\b(\d+)\s*(?:seed|seeder|semillas)\b/i),
-      peers: this.extractFirstNumber(infoText, /\b(\d+)\s*(?:peer|leech|leecher)\b/i),
-      size: context.size || this.extractSizeLabel(infoText),
-      behaviorHints: {
-        bingeGroup: "torrent"
-      }
-    };
-  }
-
-  parseMagnet(url) {
-    const query = url.split("?")[1] || "";
-    const params = new URLSearchParams(query);
-    return {
-      dn: params.get("dn") || "",
-      tr: params.getAll("tr")
-    };
-  }
-
-  normalizeTrackers(trackers) {
-    const values = Array.isArray(trackers) ? trackers : [];
-    const normalized = new Set();
-
-    for (const tracker of values) {
-      const value = decodeURIComponent(String(tracker || "").trim());
-      if (!value) {
-        continue;
-      }
-
-      if (!/^(?:udp|https?):\/\/.+\/announce$/i.test(value)) {
-        continue;
-      }
-
-      normalized.add(value);
-    }
-
-    if (normalized.size === 0) {
-      for (const tracker of DEFAULT_TRACKERS) {
-        normalized.add(tracker);
-      }
-    }
-
-    return Array.from(normalized);
-  }
-
-  extractTorrentInfoHash(url) {
-    const magnetMatch = String(url || "").match(/xt=urn:btih:([a-f0-9]{40}|[a-z2-7]{32})/i);
-    if (magnetMatch) {
-      return magnetMatch[1].toUpperCase();
-    }
-
-    if (/\.torrent(\?|$)/i.test(String(url || ""))) {
-      return crypto.createHash("sha1").update(String(url)).digest("hex").toUpperCase();
-    }
-
-    return "";
-  }
-
-  dedupeTorrentStreams(streams) {
-    const seen = new Set();
-    return streams.filter((stream) => {
-      const key = `${stream.infoHash || ""}:${stream.fileIdx ?? ""}:${stream.title || ""}`;
-      if (seen.has(key)) {
-        return false;
-      }
-
-      seen.add(key);
-      return true;
-    });
-  }
-
-  buildTorrentDebug(html) {
-    const entries = this.extractTorrentEntries(html);
-    return {
-      entryCount: entries.length,
-      entrySample: entries.slice(0, 10),
-      dataUrlCount: (html.match(/\bdata-url=["']/gi) || []).length,
-      magnetCount: (html.match(/magnet:\?xt=urn:btih:/gi) || []).length
-    };
-  }
-
   extractFirstNumber(text, regex) {
     const match = String(text || "").match(regex);
     return match ? Number(match[1]) || 0 : 0;
   }
-
-  extractSizeLabel(text) {
-    const match = String(text || "").match(/\b(\d+(?:[.,]\d+)?)\s*(tb|gb|mb)\b/i);
-    return match ? `${match[1].replace(",", ".")} ${match[2].toUpperCase()}` : "";
-  }
-
   detectServer(url) {
     const lower = String(url || "").toLowerCase();
 
@@ -1311,3 +1006,4 @@ export class CinecalidadProvider extends WebstreamBaseProvider {
     return super.fetchCinemetaMeta(type, externalId);
   }
 }
+

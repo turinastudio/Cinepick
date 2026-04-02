@@ -5,7 +5,6 @@
 Construir un addon de Stremio que combine:
 
 - scrapers HTTP latinos/castellanos
-- providers torrent
 - ranking global consistente
 - debug real por provider
 - proxy interno de medios
@@ -21,7 +20,6 @@ Se eligio una arquitectura hibrida:
   - manifest
   - debug
   - ranking
-  - torrents
 - reemplazar/mejorar la capa HTTP con runtime y extractors inspirados en `Northstar`
 
 ## Estado de la migracion HTTP
@@ -44,19 +42,6 @@ Se eligio una arquitectura hibrida:
 
 - [src/providers/verhdlink.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/verhdlink.js)
 - [src/providers/cinehdplus.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/cinehdplus.js)
-
-## Estado de torrent
-
-### Funcionales
-
-- [src/providers/pelispanda.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/pelispanda.js)
-- [src/providers/dontorrent.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/dontorrent.js)
-
-### Experimentales o incompletos
-
-- [src/providers/mitorrent.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/mitorrent.js)
-- [src/providers/elitetorrent.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/elitetorrent.js)
-- [src/providers/mejortorrent.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/mejortorrent.js)
 
 ## Extractors
 
@@ -114,17 +99,13 @@ Ese archivo quedo conceptualmente reemplazado por providers individuales.
 ### Revisar antes de deployar sin mirar
 
 - [data/source-penalties.json](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/data/source-penalties.json)
-- [src/providers/mejortorrent.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/mejortorrent.js)
+- providers locales todavia no integrados al flujo final
 
 ## Orden recomendado para seguir
 
 1. Validar `verhdlink` y `cinehdplus`
 2. Limpiar o retirar `webstreamerlatino.js`
 3. Revisar `streamwish` con casos concretos
-4. Decidir si `elitetorrent` queda activo o solo como experimento
-5. Si se vuelve a insistir con `MiTorrent` o `CineCalidad` torrent:
-   - tratarlo como scraping separado o cacheado
-   - no como scraping simple dentro del request
 
 ## Endpoints utiles para continuidad
 
@@ -139,8 +120,3 @@ Ese archivo quedo conceptualmente reemplazado por providers individuales.
 - [Cuevana Matrix](http://127.0.0.1:3000/_debug/provider/cuevana/stream/movie/tt0133093.json)
 - [HomeCine Enredados](http://127.0.0.1:3000/_debug/provider/homecine/stream/movie/tt0398286.json)
 - [TioPlus Hamnet](http://127.0.0.1:3000/_debug/provider/tioplus/stream/movie/tt14905854.json)
-
-### Torrent
-
-- [PelisPanda Zootopia 2](http://127.0.0.1:3000/_debug/provider/pelispanda/stream/movie/tt26443597.json)
-- [DonTorrent Interstellar](http://127.0.0.1:3000/_debug/provider/dontorrent/stream/movie/tt0816692.json)

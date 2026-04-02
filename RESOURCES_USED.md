@@ -29,50 +29,13 @@ Ruta:
 
 Nos sirvio para:
 
-- encontrar providers torrent hispanos
-- ver la forma antigua de `mitorrent`, `cinecalidad`, `mejortorrent`, `wolfmax4k`, `elitetorrent`, etc.
+- encontrar fuentes hispanas y caminos de scraping alternativos
+- ver la forma antigua de varias fuentes hispanas, incluido `cinecalidad`
 - detectar que providers parecian mas faciles de portar
 
 Partes utiles:
 
-- [src/torrent](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/yarr-stremio/src/torrent)
-
-## torrentia
-
-Ruta:
-
-- [Recursos/torrentia](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/torrentia)
-
-Nos sirvio para:
-
-- portar `DonTorrent`
-- entender su flujo de:
-  - busqueda
-  - `.protected-download`
-  - `api_validate_pow.php`
-  - proof-of-work
-  - descarga de `.torrent`
-  - calculo de `infoHash`
-
-Archivo clave:
-
-- [src/services/Scraper.ts](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/torrentia/src/services/Scraper.ts)
-
-## pelispanda-stremio-addon
-
-Ruta:
-
-- [Recursos/pelispanda-stremio-addon](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/pelispanda-stremio-addon)
-
-Nos sirvio para:
-
-- descubrir la API real de `PelisPanda`
-- migrar de scraping HTML a API-first
-- dejar `PelisPanda` funcionando de verdad como provider torrent
-
-Archivo clave:
-
-- [pelis-panda-api.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/pelispanda-stremio-addon/pelis-panda-api.js)
+- carpeta de scrapers hispanos dentro de `yarr-stremio`
 
 ## cinecalidad-python-torznab
 
@@ -82,13 +45,13 @@ Ruta:
 
 Nos sirvio para:
 
-- entender una via vieja de extraccion torrent en `CineCalidad`
+- entender una via vieja de extraccion alternativa en `CineCalidad`
 - probar el camino:
-  - boton torrent
+  - boton de descarga
   - `data-url`
   - base64
   - link intermedio
-  - magnet
+  - enlace final
 
 Conclusion practica:
 
@@ -98,22 +61,6 @@ Conclusion practica:
 Archivo clave:
 
 - [cinecalidad_scraper.py](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/cinecalidad-python-torznab/cinecalidad_scraper.py)
-
-## torrentio-scraper
-
-Ruta:
-
-- [Recursos/torrentio-scraper](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/torrentio-scraper)
-
-Nos sirvio para:
-
-- confirmar naming de algunos providers
-- entender una arquitectura mas separada entre scraping y addon
-
-Conclusion practica:
-
-- como inspiracion general, si
-- como fuente directa de extractors latinos o bypasses, no tanto
 
 ## hackstoshort
 

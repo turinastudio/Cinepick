@@ -1,6 +1,5 @@
 import { parseStremioId } from "../lib/ids.js";
 import { analyzeScoredStreams, scoreAndSelectStreams } from "../lib/stream-scoring.js";
-import { analyzeScoredTorrents, scoreAndSelectTorrents } from "../lib/torrent-scoring.js";
 import { CinecalidadProvider } from "./cinecalidad.js";
 import { CineHdPlusProvider } from "./cinehdplus.js";
 import { Cineplus123Provider } from "./cineplus123.js";
@@ -31,49 +30,6 @@ const providers = [
 const streamSelectionMode = String(process.env.STREAM_SELECTION_MODE || "global").trim().toLowerCase();
 const providerTimeoutMs = Math.max(1000, Number(process.env.PROVIDER_TIMEOUT_MS || 12000) || 12000);
 const providerDebugTimeoutMs = Math.max(providerTimeoutMs, Number(process.env.PROVIDER_DEBUG_TIMEOUT_MS || 18000) || 18000);
-
-function isTorrentStream(stream) {
-  if (!stream || typeof stream !== "object") {
-    return false;
-  }
-
-  if (stream.infoHash || stream.fileIdx !== undefined) {
-    return true;
-  }
-
-  if (Array.isArray(stream.sources) && stream.sources.some((source) => /^tracker:/i.test(String(source || "")))) {
-    return true;
-  }
-
-  if (/^magnet:/i.test(String(stream.url || stream.externalUrl || ""))) {
-    return true;
-  }
-
-  return false;
-}
-
-function classifyStreams(streams) {
-  const httpStreams = [];
-  const torrentStreams = [];
-
-  for (const stream of streams) {
-    if (isTorrentStream(stream)) {
-      torrentStreams.push(stream);
-      continue;
-    }
-
-    httpStreams.push(stream);
-  }
-
-  return { httpStreams, torrentStreams };
-}
-
-function selectCombinedStreams(streams) {
-  const { httpStreams, torrentStreams } = classifyStreams(streams);
-  const selectedHttpStreams = scoreAndSelectStreams("global", httpStreams);
-  const selectedTorrentStreams = scoreAndSelectTorrents("global", torrentStreams);
-  return [...selectedHttpStreams, ...selectedTorrentStreams];
-}
 
 export function getProviderByCatalog(catalogId) {
   if (catalogId.startsWith("gnula-")) {
@@ -170,7 +126,7 @@ export async function resolveStreamsFromExternalId(type, id) {
     });
   }
 
-  return selectCombinedStreams(collected);
+  return scoreAndSelectStreams("global", collected);
 }
 
 export async function debugStreamsFromExternalId(type, id) {
@@ -210,8 +166,7 @@ export async function debugStreamsFromExternalId(type, id) {
     return debug;
   });
 
-  const { httpStreams, torrentStreams } = classifyStreams(collected);
-  const globalScoredHttpStreams = analyzeScoredStreams("global", httpStreams).map((item) => ({
+  const globalScoredStreams = analyzeScoredStreams("global", collected).map((item) => ({
     title: item.stream.title,
     url: item.stream.url || null,
     providerId: item.stream._providerId || null,
@@ -220,27 +175,13 @@ export async function debugStreamsFromExternalId(type, id) {
     score: item.score,
     components: item.components
   }));
-  const globalScoredTorrentStreams = analyzeScoredTorrents("global", torrentStreams).map((item) => ({
-    title: item.stream.title,
-    infoHash: item.stream.infoHash || null,
-    providerId: item.stream._providerId || null,
-    score: item.score,
-    components: item.components
-  }));
-  const globalSelectedHttpStreams = scoreAndSelectStreams("global", httpStreams);
-  const globalSelectedTorrentStreams = scoreAndSelectTorrents("global", torrentStreams);
-  const globalSelectedStreams = [...globalSelectedHttpStreams, ...globalSelectedTorrentStreams];
-  const globalScoredStreams = [...globalScoredHttpStreams, ...globalScoredTorrentStreams];
+  const globalSelectedStreams = scoreAndSelectStreams("global", collected);
 
   return {
     results,
     selectionMode: streamSelectionMode,
     providerTimeoutMs,
     providerDebugTimeoutMs,
-    globalScoredHttpStreams,
-    globalScoredTorrentStreams,
-    globalSelectedHttpStreams,
-    globalSelectedTorrentStreams,
     globalScoredStreams,
     globalSelectedStreams
   };

@@ -84,7 +84,6 @@ export const manifest = {
       id: "cineplus123-series",
       name: "Cineplus123 Series",
       extra: [{ name: "search", isRequired: true }]
-    },
-    
+    }
   ]
 };

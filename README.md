@@ -3,7 +3,6 @@
 Addon de Stremio para combinar:
 
 - providers HTTP latinos/castellanos
-- providers torrent
 - ranking global
 - proxy interno para HLS/MP4
 - debug por provider y debug global
@@ -32,17 +31,6 @@ La arquitectura actual mezcla lo mejor de dos mundos:
 
 - `verhdlink`
 - `cinehdplus`
-
-### Providers torrent funcionando
-
-- `pelispanda`
-- `dontorrent`
-
-### Providers torrent experimentales o inestables
-
-- `mitorrent`
-- `elitetorrent`
-- `mejortorrent` todavia no esta integrado al flujo final
 
 ## Arquitectura
 
@@ -73,12 +61,8 @@ Hoy mezcla extractors previos del proyecto con ports/adaptaciones inspiradas en 
 
 ### Ranking y formato
 
-- HTTP:
-  - [src/lib/stream-scoring.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/stream-scoring.js)
-  - [src/lib/stream-format.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/stream-format.js)
-- Torrent:
-  - [src/lib/torrent-scoring.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/torrent-scoring.js)
-  - [src/lib/torrent-format.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/torrent-format.js)
+- [src/lib/stream-scoring.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/stream-scoring.js)
+- [src/lib/stream-format.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/stream-format.js)
 
 ## Ejecutar en local
 
@@ -131,13 +115,6 @@ Healthcheck:
 - `CINEPLUS123_BASE_URL`
 - `SERIESKAO_BASE_URL`
 
-### Torrent providers
-
-- `MITORRENT_BASE_URL`
-- `PELISPANDA_BASE_URL`
-- `DONTORRENT_BASE_URL`
-- `ELITETORRENT_BASE_URL`
-
 ## Debug util
 
 ### Debug global
@@ -151,8 +128,6 @@ Healthcheck:
 - [Cuevana Matrix](http://127.0.0.1:3000/_debug/provider/cuevana/stream/movie/tt0133093.json)
 - [HomeCine Enredados](http://127.0.0.1:3000/_debug/provider/homecine/stream/movie/tt0398286.json)
 - [TioPlus Hamnet](http://127.0.0.1:3000/_debug/provider/tioplus/stream/movie/tt14905854.json)
-- [PelisPanda Zootopia 2](http://127.0.0.1:3000/_debug/provider/pelispanda/stream/movie/tt26443597.json)
-- [DonTorrent Interstellar](http://127.0.0.1:3000/_debug/provider/dontorrent/stream/movie/tt0816692.json)
 
 ## Deploy en Railway
 
@@ -173,7 +148,7 @@ Healthcheck:
 - `NODE_ENV=production`
 - `ADDON_URL=https://TU-SERVICIO.up.railway.app`
 - `STREAM_SELECTION_MODE=global`
-- `STREAM_MAX_RESULTS=1`
+- `STREAM_MAX_RESULTS=2`
 - `PROVIDER_TIMEOUT_MS=25000`
 - `PROVIDER_DEBUG_TIMEOUT_MS=40000`
 - `TMDB_API_KEY=439c478a771f35c05022f9feabcca01c`
@@ -186,8 +161,6 @@ Healthcheck:
 - `CINEHDPLUS_BASE_URL=https://cinehdplus.gratis`
 - `MHDFLIX_BASE_URL=https://ww1.mhdflix.com`
 - `MHDFLIX_API_URL=https://core.mhdflix.com`
-- `MITORRENT_BASE_URL=https://mitorrent.mx`
-- `PELISPANDA_BASE_URL=https://pelispanda.org`
 - `LAMOVIE_BASE_URL=https://la.movie`
 - `VERSERIESONLINE_BASE_URL=https://www.verseriesonline.net`
 - `CINEPLUS123_BASE_URL=https://cineplus123.org`

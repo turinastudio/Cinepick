@@ -4,7 +4,7 @@ export const manifest = {
   name: "Web Scraper Addon",
   description: "Addon base para Stremio con providers web reutilizables.",
   resources: ["catalog", "meta", "stream"],
-  types: ["movie", "series", "anime", "other"],
+  types: ["movie", "series"],
   idPrefixes: ["gnula:", "cinecalidad:", "mhdflix:", "verseriesonline:", "cineplus123:", "tt"],
   catalogs: [
     {
@@ -20,18 +20,6 @@ export const manifest = {
       extra: [{ name: "search", isRequired: true }]
     },
     {
-      type: "anime",
-      id: "gnula-anime",
-      name: "Gnula Anime",
-      extra: [{ name: "search", isRequired: true }]
-    },
-    {
-      type: "other",
-      id: "gnula-doramas",
-      name: "Gnula Doramas",
-      extra: [{ name: "search", isRequired: true }]
-    },
-    {
       type: "movie",
       id: "cinecalidad-movies",
       name: "CineCalidad Movies",
@@ -41,18 +29,6 @@ export const manifest = {
       type: "series",
       id: "cinecalidad-series",
       name: "CineCalidad Series",
-      extra: [{ name: "search", isRequired: true }]
-    },
-    {
-      type: "anime",
-      id: "cinecalidad-anime",
-      name: "CineCalidad Anime",
-      extra: [{ name: "search", isRequired: true }]
-    },
-    {
-      type: "other",
-      id: "cinecalidad-other",
-      name: "CineCalidad Other",
       extra: [{ name: "search", isRequired: true }]
     },
     {

@@ -30,11 +30,19 @@ function detectResolutionScore(stream) {
   return 0;
 }
 
-function detectLanguageScore(stream) {
+function detectLanguageTier(stream) {
   const text = `${stream.title || ""} ${stream.name || ""}`.toLowerCase();
-  if (text.includes("[lat]") || /\blatino\b|\blatam\b/.test(text)) return 30;
-  if (text.includes("[cast]") || /\bcastellano\b|\bespa[nñ]ol\b/.test(text)) return 18;
-  if (text.includes("[sub]") || /\bsubtitulado\b|\bvose\b/.test(text)) return 8;
+  if (text.includes("[lat]") || /\blatino\b|\blatam\b/.test(text)) return 3;
+  if (text.includes("[cast]") || /\bcastellano\b|\bespa(?:n|ñ)ol\b/.test(text)) return 2;
+  if (text.includes("[sub]") || /\bsubtitulado\b|\bvose\b/.test(text)) return 1;
+  return 0;
+}
+
+function detectLanguageScore(stream) {
+  const tier = detectLanguageTier(stream);
+  if (tier === 3) return 70;
+  if (tier === 2) return 20;
+  if (tier === 1) return 8;
   return 0;
 }
 
@@ -106,11 +114,63 @@ function dedupeStreams(streams) {
     if (seen.has(dedupeKey)) {
       continue;
     }
+
     seen.add(dedupeKey);
     deduped.push(stream);
   }
 
   return deduped;
+}
+
+function selectWithProviderDiversity(scoredItems, maxResults) {
+  const targetCount = Math.max(1, maxResults);
+  const selected = [];
+  const usedProviders = new Set();
+
+  for (const item of scoredItems) {
+    if (selected.length >= targetCount) {
+      break;
+    }
+
+    const providerId = String(item.stream._providerId || "").toLowerCase();
+    const languageTier = detectLanguageTier(item.stream);
+
+    if (!providerId || usedProviders.has(providerId)) {
+      continue;
+    }
+
+    const remainingLatinoAlternative = scoredItems.some((candidate) => {
+      const candidateProviderId = String(candidate.stream._providerId || "").toLowerCase();
+      if (!candidateProviderId || usedProviders.has(candidateProviderId) || candidateProviderId === providerId) {
+        return false;
+      }
+
+      return detectLanguageTier(candidate.stream) >= 3;
+    });
+
+    if (languageTier < 3 && remainingLatinoAlternative) {
+      continue;
+    }
+
+    selected.push(item);
+    usedProviders.add(providerId);
+  }
+
+  if (selected.length < targetCount) {
+    for (const item of scoredItems) {
+      if (selected.length >= targetCount) {
+        break;
+      }
+
+      if (selected.includes(item)) {
+        continue;
+      }
+
+      selected.push(item);
+    }
+  }
+
+  return selected;
 }
 
 export function analyzeScoredStreams(providerId, streams, options = {}) {
@@ -156,7 +216,8 @@ export function analyzeScoredStreams(providerId, streams, options = {}) {
           transportScore,
           providerAdjustment,
           complexityPenalty,
-          penalty
+          penalty,
+          languageTier: detectLanguageTier(stream)
         }
       };
     })
@@ -166,10 +227,12 @@ export function analyzeScoredStreams(providerId, streams, options = {}) {
 export function scoreAndSelectStreams(providerId, streams, options = {}) {
   const maxResults = Number.parseInt(process.env.STREAM_MAX_RESULTS || "", 10) || options.maxResults || DEFAULT_MAX_RESULTS;
   const cleaned = analyzeScoredStreams(providerId, streams, options);
-  return cleaned
-    .slice(0, Math.max(1, maxResults))
-    .map((item) => {
-      const { _sourceKey, _providerId, _proxyHeaders, _targetUrl, ...stream } = item.stream;
-      return stream;
-    });
+  const selected = providerId === "global"
+    ? selectWithProviderDiversity(cleaned, maxResults)
+    : cleaned.slice(0, Math.max(1, maxResults));
+
+  return selected.map((item) => {
+    const { _sourceKey, _providerId, _proxyHeaders, _targetUrl, ...stream } = item.stream;
+    return stream;
+  });
 }

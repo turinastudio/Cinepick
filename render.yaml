@@ -21,6 +21,8 @@ services:
         value: https://ww1.mhdflix.com
       - key: MHDFLIX_API_URL
         value: https://core.mhdflix.com
+      - key: LAMOVIE_BASE_URL
+        value: https://la.movie
       - key: VERSERIESONLINE_BASE_URL
         value: https://www.verseriesonline.net
       - key: CINEPLUS123_BASE_URL

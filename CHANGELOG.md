@@ -53,6 +53,21 @@
   - se endurecio el matching para titulos cortos y ambiguos:
     - ahora evita elegir cualquier serie que solo contenga una palabra como `From`
     - si no hay match razonable, devuelve `no_best_match`
+- `lamovie`
+  - nuevo provider en `src/providers/lamovie.js`
+  - soporta peliculas y series
+  - soporta:
+    - busqueda
+    - meta
+    - episodios
+    - streams
+    - matching por IDs externos `tt...`
+  - usa la API `wp-api/v1`
+  - usa scoring, penalidades y proxy
+  - se agrego extractor puntual para embeds `lamovie.link`
+  - validado con:
+    - `Matrix (1999)` en movie
+    - `Breaking Bad 1x1` en series
 - `verseriesonline`
   - nuevo provider en `src/providers/verseriesonline.js`
   - soporta series
@@ -112,7 +127,10 @@
 - `vimeos` resulto ser un host util en `cinecalidad`.
 - Las mejoras compartidas de extractores si impactaron a providers pesados:
   - `cinecalidad` ahora resuelve mejor `streamwish`, `voe` y `vimeos` en casos como `Zootopia`
-  - `cineplus123` empezo a aportar `netu` y `uqload` en series como `From`
+- `cineplus123` empezo a aportar `netu` y `uqload` en series como `From`
+- `lamovie` quedo funcional de punta a punta en primer pase:
+  - movie con `vimeos`
+  - series con `filemoon`
 - `verseriesonline` cambio bastante respecto de la extension original:
   - la busqueda publica no coincide con las rutas viejas
   - las URLs actuales usan `/series/...`
@@ -128,3 +146,4 @@
 
 - El deploy en Render debe incluir `ADDON_URL` con la URL publica real del servicio.
 - Si cambia la URL del servicio en Render, hay que actualizar `ADDON_URL`.
+- `render.yaml` ahora tambien incluye `LAMOVIE_BASE_URL`.

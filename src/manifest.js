@@ -5,7 +5,7 @@ export const manifest = {
   description: "Addon base para Stremio con providers web reutilizables.",
   resources: ["catalog", "meta", "stream"],
   types: ["movie", "series"],
-  idPrefixes: ["gnula:", "cinecalidad:", "mhdflix:", "verseriesonline:", "cineplus123:", "tt"],
+  idPrefixes: ["gnula:", "cinecalidad:", "mhdflix:", "lamovie:", "verseriesonline:", "cineplus123:", "tt"],
   catalogs: [
     {
       type: "movie",
@@ -41,6 +41,18 @@ export const manifest = {
       type: "series",
       id: "mhdflix-series",
       name: "MhdFlix Series",
+      extra: [{ name: "search", isRequired: true }]
+    },
+    {
+      type: "movie",
+      id: "lamovie-movies",
+      name: "LaMovie Movies",
+      extra: [{ name: "search", isRequired: true }]
+    },
+    {
+      type: "series",
+      id: "lamovie-series",
+      name: "LaMovie Series",
       extra: [{ name: "search", isRequired: true }]
     },
     {

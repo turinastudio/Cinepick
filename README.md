@@ -7,9 +7,10 @@ Addon de Stremio orientado a providers web estilo Aniyomi/Cloudstream, con selec
 - Providers integrados:
   - `gnula`
   - `cinecalidad`
-  - `mhdflix`
-  - `verseriesonline`
-  - `cineplus123`
+- `mhdflix`
+- `lamovie`
+- `verseriesonline`
+- `cineplus123`
 - Recursos:
   - `/manifest.json`
   - `/catalog/:type/:id.json`
@@ -51,6 +52,7 @@ $env:GNULA_BASE_URL='https://gnula.life'
 $env:CINECALIDAD_BASE_URL='https://www.cinecalidad.ec'
 $env:MHDFLIX_BASE_URL='https://ww1.mhdflix.com'
 $env:MHDFLIX_API_URL='https://core.mhdflix.com'
+$env:LAMOVIE_BASE_URL='https://la.movie'
 $env:VERSERIESONLINE_BASE_URL='https://www.verseriesonline.net'
 $env:CINEPLUS123_BASE_URL='https://cineplus123.org'
 $env:STREAM_SELECTION_MODE='global'
@@ -58,6 +60,7 @@ $env:STREAM_MAX_RESULTS='1'
 $env:GNULA_DISABLED_SOURCES='streamwish,doodstream'
 $env:CINECALIDAD_DISABLED_SOURCES='goodstream,streamwish'
 $env:MHDFLIX_DISABLED_SOURCES='mixdrop,lulu'
+$env:LAMOVIE_DISABLED_SOURCES='doodstream,goodstream'
 $env:VERSERIESONLINE_DISABLED_SOURCES='doodstream,uqload'
 $env:CINEPLUS123_DISABLED_SOURCES='uqload,cvid'
 $env:ADDON_URL='http://127.0.0.1:3000'
@@ -131,6 +134,22 @@ Sin `ADDON_URL`, los streams proxyeados pueden quedar mal armados.
 - matching por `tt...`
 - para titulos cortos/ambiguos ahora prioriza no inventar matches
 
+### LaMovie
+
+- peliculas y series
+- usa la API `wp-api/v1`
+- soporta:
+  - busqueda
+  - meta
+  - episodios
+  - streams
+  - matching por `tt...`
+- usa scoring, penalidades y proxy
+- trae extractor puntual para embeds `lamovie.link`
+- validado con:
+  - `Matrix (1999)` en movie
+  - `Breaking Bad 1x1` en series
+
 ### VerSeriesOnline
 
 - series
@@ -166,8 +185,10 @@ Busqueda:
 - `http://127.0.0.1:3000/catalog/movie/gnula-movies.json?search=matrix`
 - `http://127.0.0.1:3000/catalog/movie/cinecalidad-movies.json?search=matrix`
 - `http://127.0.0.1:3000/catalog/movie/mhdflix-movies.json?search=matrix`
+- `http://127.0.0.1:3000/catalog/movie/lamovie-movies.json?search=matrix`
 - `http://127.0.0.1:3000/catalog/movie/cineplus123-movies.json?search=matrix`
 - `http://127.0.0.1:3000/catalog/series/verseriesonline-series.json?search=the%20madison`
+- `http://127.0.0.1:3000/catalog/series/lamovie-series.json?search=breaking`
 - `http://127.0.0.1:3000/catalog/series/cineplus123-series.json?search=breaking`
 
 Debug externo:
@@ -213,6 +234,7 @@ Si el servicio todavia no existe:
 - `CINECALIDAD_BASE_URL=https://www.cinecalidad.ec`
 - `MHDFLIX_BASE_URL=https://ww1.mhdflix.com`
 - `MHDFLIX_API_URL=https://core.mhdflix.com`
+- `LAMOVIE_BASE_URL=https://la.movie`
 - `VERSERIESONLINE_BASE_URL=https://www.verseriesonline.net`
 - `CINEPLUS123_BASE_URL=https://cineplus123.org`
 
@@ -265,6 +287,7 @@ Render toma estas variables desde [render.yaml](/C:/Users/lautaroturina/Desktop/
 - `CINECALIDAD_BASE_URL`
 - `MHDFLIX_BASE_URL`
 - `MHDFLIX_API_URL`
+- `LAMOVIE_BASE_URL`
 - `VERSERIESONLINE_BASE_URL`
 - `CINEPLUS123_BASE_URL`
 - `ADDON_URL`

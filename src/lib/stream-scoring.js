@@ -76,6 +76,16 @@ function detectSourceLabel(stream) {
   return "generic";
 }
 
+function detectProviderAdjustment(providerId, sourceLabel, stream) {
+  const effectiveProviderId = String(stream._providerId || providerId || "").toLowerCase();
+
+  if (effectiveProviderId === "mhdflix" && sourceLabel === "netu") {
+    return -28;
+  }
+
+  return 0;
+}
+
 function buildSourceKey(providerId, stream) {
   const explicit = stream._sourceKey ? String(stream._sourceKey).toLowerCase() : null;
   if (explicit) {
@@ -112,11 +122,14 @@ export function analyzeScoredStreams(providerId, streams, options = {}) {
       const languageScore = detectLanguageScore(stream);
       const transportScore = detectTransportScore(stream);
       const complexityPenalty = detectComplexityPenalty(stream);
+      const providerAdjustment = detectProviderAdjustment(providerId, sourceLabel, stream);
       const score =
         (HOST_SCORES[sourceLabel] || 20) +
         resolutionScore +
         languageScore +
         transportScore -
+        Math.abs(Math.min(providerAdjustment, 0)) +
+        Math.max(providerAdjustment, 0) -
         complexityPenalty -
         penalty;
 
@@ -133,6 +146,7 @@ export function analyzeScoredStreams(providerId, streams, options = {}) {
           resolutionScore,
           languageScore,
           transportScore,
+          providerAdjustment,
           complexityPenalty,
           penalty
         }

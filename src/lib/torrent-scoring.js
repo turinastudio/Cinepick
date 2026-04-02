@@ -1,4 +1,5 @@
 const DEFAULT_TORRENT_MAX_RESULTS = 1;
+const DEFAULT_TORRENT_MAX_SIZE_BYTES = 4 * 1024 ** 3;
 
 function parseSizeInBytes(value) {
   if (typeof value === "number" && Number.isFinite(value)) {
@@ -71,10 +72,10 @@ function detectPeerScore(stream) {
 
 function detectSizeScore(stream) {
   const sizeBytes = parseSizeInBytes(stream.size ?? stream.behaviorHints?.videoSize);
-  if (sizeBytes >= 15 * 1024 ** 3) return 16;
-  if (sizeBytes >= 6 * 1024 ** 3) return 12;
-  if (sizeBytes >= 2 * 1024 ** 3) return 8;
-  if (sizeBytes >= 700 * 1024 ** 2) return 4;
+  if (sizeBytes >= 3 * 1024 ** 3 && sizeBytes <= 4 * 1024 ** 3) return 12;
+  if (sizeBytes >= 1500 * 1024 ** 2 && sizeBytes < 3 * 1024 ** 3) return 16;
+  if (sizeBytes >= 700 * 1024 ** 2 && sizeBytes < 1500 * 1024 ** 2) return 12;
+  if (sizeBytes >= 350 * 1024 ** 2 && sizeBytes < 700 * 1024 ** 2) return 6;
   return 0;
 }
 
@@ -112,6 +113,10 @@ function dedupeTorrents(streams) {
 
 export function analyzeScoredTorrents(providerId, streams) {
   return dedupeTorrents(streams)
+    .filter((stream) => {
+      const sizeBytes = parseSizeInBytes(stream.size ?? stream.behaviorHints?.videoSize);
+      return sizeBytes === 0 || sizeBytes <= DEFAULT_TORRENT_MAX_SIZE_BYTES;
+    })
     .map((stream) => {
       const resolutionScore = detectResolutionScore(stream);
       const languageScore = detectLanguageScore(stream);

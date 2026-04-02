@@ -3,6 +3,8 @@ import { analyzeScoredStreams, scoreAndSelectStreams } from "../lib/stream-scori
 import { analyzeScoredTorrents, scoreAndSelectTorrents } from "../lib/torrent-scoring.js";
 import { CinecalidadProvider } from "./cinecalidad.js";
 import { Cineplus123Provider } from "./cineplus123.js";
+import { DonTorrentProvider } from "./dontorrent.js";
+import { EliteTorrentProvider } from "./elitetorrent.js";
 import { GnulaProvider } from "./gnula.js";
 import { LaMovieProvider } from "./lamovie.js";
 import { MhdflixProvider } from "./mhdflix.js";
@@ -19,6 +21,8 @@ const providers = [
   new PelispandaProvider(),
   new VerSeriesOnlineProvider(),
   new Cineplus123Provider(),
+  new DonTorrentProvider(),
+  new EliteTorrentProvider(),
   new LaMovieProvider(),
   new SerieskaoProvider()
 ];
@@ -100,6 +104,14 @@ export function getProviderByCatalog(catalogId) {
 
   if (catalogId.startsWith("cineplus123-")) {
     return providers.find((provider) => provider.id === "cineplus123") ?? null;
+  }
+
+  if (catalogId.startsWith("dontorrent-")) {
+    return providers.find((provider) => provider.id === "dontorrent") ?? null;
+  }
+
+  if (catalogId.startsWith("elitetorrent-")) {
+    return providers.find((provider) => provider.id === "elitetorrent") ?? null;
   }
 
   if (catalogId.startsWith("serieskao-")) {

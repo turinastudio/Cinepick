@@ -30,10 +30,10 @@ function detectResolutionScore(stream) {
 }
 
 function detectLanguageScore(stream) {
-  const text = `${stream.title || ""}`.toLowerCase();
-  if (text.includes("[lat]")) return 6;
-  if (text.includes("[cast]")) return 4;
-  if (text.includes("[sub]")) return 2;
+  const text = `${stream.title || ""} ${stream.name || ""}`.toLowerCase();
+  if (text.includes("[lat]") || /\blatino\b|\blatam\b/.test(text)) return 30;
+  if (text.includes("[cast]") || /\bcastellano\b|\bespa[nñ]ol\b/.test(text)) return 18;
+  if (text.includes("[sub]") || /\bsubtitulado\b|\bvose\b/.test(text)) return 8;
   return 0;
 }
 

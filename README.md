@@ -18,6 +18,8 @@ La arquitectura actual mezcla lo mejor de dos mundos:
 
 - `gnula`
 - `cinecalidad`
+- `netmirror`
+- `castle`
 - `cuevana`
 - `homecine`
 - `tioplus`
@@ -28,10 +30,29 @@ La arquitectura actual mezcla lo mejor de dos mundos:
 - `cineplus123`
 - `serieskao`
 
+### Nota sobre providers multi-language
+
+- `netmirror`
+- `castle`
+
+Hoy se tratan como `MULTI` salvo que haya evidencia clara de idioma.
+
+Motivo:
+
+- los sitios/proveedores no exponen de forma confiable la pista de audio real en todos los casos
+- `NetMirror` suele devolver renditions y tracks auxiliares, pero no audio ES/LAT verificable
+- `Castle` puede tener metadata util, pero por ahora conviene ser conservadores en el deploy publico
+
 ### Providers HTTP preparados pero pendientes de validar mejor
 
 - `verhdlink`
 - `cinehdplus`
+
+### Providers explorados pero no activados para deploy
+
+- `cinemacity`
+  - en el repo de referencia y en este repo hoy no devuelve streams fiables
+  - queda fuera del flujo publico hasta nueva validacion
 
 ## Arquitectura
 
@@ -89,12 +110,13 @@ Tambien existe un tester de providers por terminal:
 npm run test:provider -- 550 movie null null cinecalidad
 npm run test:provider -- 1396 tv 1 1 lamovie
 npm run test:provider -- 1396 tv 1 1 seriesmetro
+npm run test:provider -- 1396 tv 1 1 netmirror advanced
 ```
 
 Formato:
 
 ```powershell
-node test.js <tmdbId> <movie|tv> [season] [episode] [provider]
+node test.js <tmdbId> <movie|tv> [season] [episode] [provider] [basic|advanced]
 ```
 
 Ejemplos utiles:
@@ -103,7 +125,15 @@ Ejemplos utiles:
 node test.js 550 movie null null cinecalidad
 node test.js 1396 tv 1 1 lamovie
 node test.js 1396 tv 1 1 seriesmetro
+node test.js 1396 tv 1 1 netmirror advanced
 ```
+
+Modos:
+
+- `basic`
+  - salida corta, como el tester original
+- `advanced`
+  - agrega `bestMatch`, `searchAttempts`, `players`, `trackSummary`, etc.
 
 Manifest local:
 
@@ -128,6 +158,9 @@ Healthcheck:
 
 - `GNULA_BASE_URL`
 - `CINECALIDAD_BASE_URL`
+- `NETMIRROR_BASE_URL`
+- `NETMIRROR_PLAY_URL`
+- `CASTLE_BASE_URL`
 - `CUEVANA_BASE_URL`
 - `HOMECINE_BASE_URL`
 - `TIOPLUS_BASE_URL`
@@ -154,6 +187,8 @@ Healthcheck:
 - [Cuevana Matrix](http://127.0.0.1:3000/_debug/provider/cuevana/stream/movie/tt0133093.json)
 - [HomeCine Enredados](http://127.0.0.1:3000/_debug/provider/homecine/stream/movie/tt0398286.json)
 - [TioPlus Hamnet](http://127.0.0.1:3000/_debug/provider/tioplus/stream/movie/tt14905854.json)
+- [NetMirror Breaking Bad S01E01](http://127.0.0.1:3000/_debug/provider/netmirror/stream/series/tt0903747:1:1.json)
+- [Castle Breaking Bad S01E01](http://127.0.0.1:3000/_debug/provider/castle/stream/series/tt0903747:1:1.json)
 - [SeriesMetro Breaking Bad S01E01](http://127.0.0.1:3000/_debug/provider/seriesmetro/stream/series/tt0903747:1:1.json)
 
 ## Deploy en Railway
@@ -181,6 +216,9 @@ Healthcheck:
 - `TMDB_API_KEY=439c478a771f35c05022f9feabcca01c`
 - `GNULA_BASE_URL=https://gnula.life`
 - `CINECALIDAD_BASE_URL=https://www.cinecalidad.ec`
+- `NETMIRROR_BASE_URL=https://net22.cc`
+- `NETMIRROR_PLAY_URL=https://net52.cc`
+- `CASTLE_BASE_URL=https://api.fstcy.com`
 - `CUEVANA_BASE_URL=https://ww1.cuevana3.is`
 - `HOMECINE_BASE_URL=https://homecine.to`
 - `TIOPLUS_BASE_URL=https://tioplus.app`

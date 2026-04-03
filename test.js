@@ -57,7 +57,12 @@ function printHeader(providerId, tmdbId, type, season, episode) {
   console.log(`TMDB: ${tmdbId} | Tipo: ${type}${seasonTag}\n`);
 }
 
-function printResult(result) {
+function normalizeMode(value) {
+  const mode = String(value || "").trim().toLowerCase();
+  return mode === "advanced" ? "advanced" : "basic";
+}
+
+function printResult(result, mode = "basic") {
   if (!result) {
     console.log("ERROR: No hubo resultado\n");
     return;
@@ -65,6 +70,32 @@ function printResult(result) {
 
   if (result.status !== "ok") {
     console.log(`ERROR: ${result.status}${result.error ? `: ${result.error}` : ""}\n`);
+
+    if (mode === "advanced") {
+      if (result.bestMatch) {
+        console.log(`bestMatch: ${JSON.stringify(result.bestMatch, null, 2)}`);
+      }
+      if (result.searchAttempts) {
+        console.log(`searchAttempts: ${JSON.stringify(result.searchAttempts, null, 2)}`);
+      }
+      if (result.searchDiagnostics) {
+        console.log(`searchDiagnostics: ${JSON.stringify(result.searchDiagnostics, null, 2)}`);
+      }
+      if (result.tmdbInfo) {
+        console.log(`tmdbInfo: ${JSON.stringify(result.tmdbInfo, null, 2)}`);
+      }
+      if (result.players) {
+        console.log(`players: ${JSON.stringify(result.players, null, 2)}`);
+      }
+      if (result.trackSummary) {
+        console.log(`trackSummary: ${JSON.stringify(result.trackSummary, null, 2)}`);
+      }
+      if (result.subtitleLanguages) {
+        console.log(`subtitleLanguages: ${JSON.stringify(result.subtitleLanguages, null, 2)}`);
+      }
+    }
+
+    console.log("");
     return;
   }
 
@@ -78,24 +109,42 @@ function printResult(result) {
     }
     console.log("");
   });
+
+  if (mode === "advanced") {
+    if (result.bestMatch) {
+      console.log(`bestMatch: ${JSON.stringify(result.bestMatch, null, 2)}`);
+    }
+    if (result.players) {
+      console.log(`players: ${JSON.stringify(result.players, null, 2)}`);
+    }
+    if (result.trackSummary) {
+      console.log(`trackSummary: ${JSON.stringify(result.trackSummary, null, 2)}`);
+    }
+    if (result.subtitleLanguages) {
+      console.log(`subtitleLanguages: ${JSON.stringify(result.subtitleLanguages, null, 2)}`);
+    }
+    console.log("");
+  }
 }
 
 async function run() {
-  const [, , tmdbId, rawType, rawSeason, rawEpisode, providerId] = process.argv;
+  const [, , tmdbId, rawType, rawSeason, rawEpisode, providerId, rawMode] = process.argv;
 
   if (!tmdbId || !rawType) {
     console.log("Uso:");
-    console.log("  node test.js <tmdbId> <movie|tv> [season] [episode] [provider]");
+    console.log("  node test.js <tmdbId> <movie|tv> [season] [episode] [provider] [basic|advanced]");
     console.log("");
     console.log("Ejemplos:");
     console.log("  node test.js 550 movie null null cinecalidad");
     console.log("  node test.js 1396 tv 1 1 lamovie");
+    console.log("  node test.js 1396 tv 1 1 netmirror advanced");
     process.exit(1);
   }
 
   const type = normalizeType(rawType);
   const season = isNullishArg(rawSeason) ? null : Number(rawSeason);
   const episode = isNullishArg(rawEpisode) ? null : Number(rawEpisode);
+  const mode = normalizeMode(rawMode);
   const imdbId = await resolveImdbId(tmdbId, type);
 
   if (!imdbId) {
@@ -109,7 +158,7 @@ async function run() {
 
   const providerIds = targetProviders.length > 0
     ? targetProviders
-    : ["lamovie", "cinecalidad", "seriesmetro"];
+    : ["lamovie", "cinecalidad", "seriesmetro", "netmirror", "castle"];
 
   for (const id of providerIds) {
     const provider = getProviderById(id);
@@ -120,7 +169,7 @@ async function run() {
 
     printHeader(id, tmdbId, type, season, episode);
     const result = await debugProviderStreamsFromExternalId(id, type, externalId);
-    printResult(result);
+    printResult(result, mode);
   }
 }
 

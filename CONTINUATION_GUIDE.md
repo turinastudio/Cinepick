@@ -39,6 +39,20 @@ Se eligio una arquitectura hibrida:
 - [src/providers/tioplus.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/tioplus.js)
 - [src/providers/lamovie.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/lamovie.js)
 - [src/providers/seriesmetro.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/seriesmetro.js)
+- [src/providers/netmirror.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/netmirror.js)
+- [src/providers/castle.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/castle.js)
+
+### Estado actual de idioma para providers multi-language
+
+- `netmirror`
+- `castle`
+
+En el estado actual del proyecto se muestran como `MULTI` por defecto, salvo evidencia fuerte de idioma.
+
+Razon:
+
+- en `NetMirror` las `tracks` observadas no probaron audio ES/LAT de forma confiable
+- en `Castle` conviene no sobreprometer idioma hasta revisar mejor pistas/metadata por stream
 
 ### Providers agregados para futuro, todavia con validacion pendiente
 
@@ -103,6 +117,12 @@ Ese archivo quedo conceptualmente reemplazado por providers individuales.
 - [data/source-penalties.json](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/data/source-penalties.json)
 - providers locales todavia no integrados al flujo final
 
+### Providers explorados pero no activos para deploy
+
+- [src/providers/cinemacity.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/cinemacity.js)
+  - el repo de referencia tambien devuelve `[]` en los casos probados
+  - queda fuera de `index.js` y `manifest.js` hasta nueva validacion
+
 ## Orden recomendado para seguir
 
 1. Validar `verhdlink` y `cinehdplus`
@@ -118,7 +138,7 @@ Quedo agregado un tester local para validar providers por TMDB sin depender del 
 Uso:
 
 ```powershell
-node test.js <tmdbId> <movie|tv> [season] [episode] [provider]
+node test.js <tmdbId> <movie|tv> [season] [episode] [provider] [basic|advanced]
 ```
 
 Ejemplos:
@@ -127,6 +147,7 @@ Ejemplos:
 node test.js 550 movie null null cinecalidad
 node test.js 1396 tv 1 1 lamovie
 node test.js 1396 tv 1 1 seriesmetro
+node test.js 1396 tv 1 1 netmirror advanced
 ```
 
 Atajo por npm:
@@ -140,6 +161,8 @@ Notas:
 - usa TMDB para convertir a IMDb
 - llama el debug real del provider desde [src/providers/index.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/index.js)
 - sirve para comparar rapido coverage con repos de referencia como Nuvio
+- `basic` mantiene la salida corta original
+- `advanced` agrega `bestMatch`, `searchAttempts`, `players`, `trackSummary`, `subtitleLanguages`
 
 ## Endpoints utiles para continuidad
 
@@ -155,4 +178,6 @@ Notas:
 - [HomeCine Enredados](http://127.0.0.1:3000/_debug/provider/homecine/stream/movie/tt0398286.json)
 - [TioPlus Hamnet](http://127.0.0.1:3000/_debug/provider/tioplus/stream/movie/tt14905854.json)
 - [LaMovie Breaking Bad S01E01](http://127.0.0.1:3000/_debug/provider/lamovie/stream/series/tt0903747:1:1.json)
+- [NetMirror Breaking Bad S01E01](http://127.0.0.1:3000/_debug/provider/netmirror/stream/series/tt0903747:1:1.json)
+- [Castle Breaking Bad S01E01](http://127.0.0.1:3000/_debug/provider/castle/stream/series/tt0903747:1:1.json)
 - [SeriesMetro Breaking Bad S01E01](http://127.0.0.1:3000/_debug/provider/seriesmetro/stream/series/tt0903747:1:1.json)

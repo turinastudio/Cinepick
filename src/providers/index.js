@@ -3,20 +3,24 @@ import { analyzeScoredStreams, scoreAndSelectStreams } from "../lib/stream-scori
 import { CinecalidadProvider } from "./cinecalidad.js";
 import { CineHdPlusProvider } from "./cinehdplus.js";
 import { Cineplus123Provider } from "./cineplus123.js";
+import { CastleProvider } from "./castle.js";
 import { CuevanaProvider } from "./cuevana.js";
 import { GnulaProvider } from "./gnula.js";
 import { HomeCineProvider } from "./homecine.js";
 import { LaMovieProvider } from "./lamovie.js";
 import { MhdflixProvider } from "./mhdflix.js";
+import { NetMirrorProvider } from "./netmirror.js";
 import { SeriesMetroProvider } from "./seriesmetro.js";
 import { SerieskaoProvider } from "./serieskao.js";
 import { TioPlusProvider } from "./tioplus.js";
 import { VerHdLinkProvider } from "./verhdlink.js";
 import { VerSeriesOnlineProvider } from "./verseriesonline.js";
 
-const providers = [
+const baseProviders = [
   new GnulaProvider(),
   new CinecalidadProvider(),
+  new NetMirrorProvider(),
+  new CastleProvider(),
   new CuevanaProvider(),
   new HomeCineProvider(),
   new TioPlusProvider(),
@@ -29,6 +33,17 @@ const providers = [
   new LaMovieProvider(),
   new SerieskaoProvider()
 ];
+const activeProviderFilter = String(
+  process.env.ACTIVE_PROVIDERS ||
+  process.env.ENABLED_PROVIDERS ||
+  ""
+)
+  .split(",")
+  .map((value) => value.trim().toLowerCase())
+  .filter(Boolean);
+const providers = activeProviderFilter.length > 0
+  ? baseProviders.filter((provider) => activeProviderFilter.includes(provider.id))
+  : baseProviders;
 const streamSelectionMode = String(process.env.STREAM_SELECTION_MODE || "global").trim().toLowerCase();
 const providerTimeoutMs = Math.max(1000, Number(process.env.PROVIDER_TIMEOUT_MS || 12000) || 12000);
 const providerDebugTimeoutMs = Math.max(providerTimeoutMs, Number(process.env.PROVIDER_DEBUG_TIMEOUT_MS || 18000) || 18000);

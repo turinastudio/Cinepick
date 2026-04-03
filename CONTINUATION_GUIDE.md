@@ -22,6 +22,12 @@ Se eligio una arquitectura hibrida:
   - ranking
 - reemplazar/mejorar la capa HTTP con runtime y extractors inspirados en `Northstar`
 
+## Defaults de deploy relevantes
+
+- `CineCalidad` quedo con default en `https://www.cinecalidad.vg`
+- Render toma variables automaticamente desde [render.yaml](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/render.yaml)
+- Railway usa [railway.json](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/railway.json) para build/start/healthcheck, pero las variables se cargan manualmente
+
 ## Estado de la migracion HTTP
 
 ### Base nueva compartida

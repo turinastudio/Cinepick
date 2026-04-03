@@ -207,6 +207,9 @@ Healthcheck:
 
 ### Variables recomendadas en Railway
 
+- `render.yaml` ya deja precargadas estas variables para Render.
+- En Railway, `railway.json` no autoinyecta `envVars`, asi que estas se cargan manualmente en `Variables`.
+
 - `NODE_ENV=production`
 - `ADDON_URL=https://TU-SERVICIO.up.railway.app`
 - `STREAM_SELECTION_MODE=global`
@@ -215,7 +218,7 @@ Healthcheck:
 - `PROVIDER_DEBUG_TIMEOUT_MS=40000`
 - `TMDB_API_KEY=439c478a771f35c05022f9feabcca01c`
 - `GNULA_BASE_URL=https://gnula.life`
-- `CINECALIDAD_BASE_URL=https://www.cinecalidad.ec`
+- `CINECALIDAD_BASE_URL=https://www.cinecalidad.vg`
 - `NETMIRROR_BASE_URL=https://net22.cc`
 - `NETMIRROR_PLAY_URL=https://net52.cc`
 - `CASTLE_BASE_URL=https://api.fstcy.com`

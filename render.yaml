@@ -22,7 +22,13 @@ services:
       - key: GNULA_BASE_URL
         value: https://gnula.life
       - key: CINECALIDAD_BASE_URL
-        value: https://www.cinecalidad.ec
+        value: https://www.cinecalidad.vg
+      - key: NETMIRROR_BASE_URL
+        value: https://net22.cc
+      - key: NETMIRROR_PLAY_URL
+        value: https://net52.cc
+      - key: CASTLE_BASE_URL
+        value: https://api.fstcy.com
       - key: CUEVANA_BASE_URL
         value: https://ww1.cuevana3.is
       - key: HOMECINE_BASE_URL
@@ -39,6 +45,8 @@ services:
         value: https://core.mhdflix.com
       - key: LAMOVIE_BASE_URL
         value: https://la.movie
+      - key: SERIESMETRO_BASE_URL
+        value: https://www3.seriesmetro.net
       - key: VERSERIESONLINE_BASE_URL
         value: https://www.verseriesonline.net
       - key: CINEPLUS123_BASE_URL

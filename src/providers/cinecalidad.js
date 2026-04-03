@@ -13,7 +13,7 @@ export class CinecalidadProvider extends WebstreamBaseProvider {
       supportedTypes: ["movie", "series", "anime", "other"]
     });
 
-    this.baseUrl = process.env.CINECALIDAD_BASE_URL || "https://www.cinecalidad.ec";
+    this.baseUrl = process.env.CINECALIDAD_BASE_URL || "https://www.cinecalidad.vg";
   }
 
   async search({ type, query }) {

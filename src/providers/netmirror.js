@@ -194,8 +194,10 @@ export class NetMirrorProvider extends Provider {
 
     let targetContentId = String(selected.id);
     let episodeData = null;
+    const availableEpisodes = Array.isArray(contentData.episodes) ? contentData.episodes.filter(Boolean) : [];
+    const looksEpisodeBased = availableEpisodes.length > 0;
 
-    if (type === "series" && parsedExternal.season && parsedExternal.episode) {
+    if (type === "series" && parsedExternal.season && parsedExternal.episode && looksEpisodeBased) {
       episodeData = this.findEpisode(contentData.episodes || [], parsedExternal.season, parsedExternal.episode);
       debug.matchingEpisode = episodeData ? {
         id: episodeData.id,

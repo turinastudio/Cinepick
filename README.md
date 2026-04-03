@@ -243,6 +243,7 @@ Healthcheck:
 ## Documentacion adicional
 
 - [CONTINUATION_GUIDE.md](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/CONTINUATION_GUIDE.md)
+- [ANTIGRAVITY_HANDOFF.md](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/ANTIGRAVITY_HANDOFF.md)
 - [RESOURCES_USED.md](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/RESOURCES_USED.md)
 - [CLOUDSTREAM_EXTRACTORS_STATUS.md](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/CLOUDSTREAM_EXTRACTORS_STATUS.md)
 - [PORTING_GUIDE_ANIYOMI_TO_STREMIO.md](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/PORTING_GUIDE_ANIYOMI_TO_STREMIO.md)

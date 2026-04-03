@@ -9,6 +9,10 @@ Construir un addon de Stremio que combine:
 - debug real por provider
 - proxy interno de medios
 
+Si el trabajo va a continuarse desde otro agente externo, arrancar por:
+
+- [ANTIGRAVITY_HANDOFF.md](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/ANTIGRAVITY_HANDOFF.md)
+
 ## Decision arquitectonica tomada
 
 No se reinicio desde cero.

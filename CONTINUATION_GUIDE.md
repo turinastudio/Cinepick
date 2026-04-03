@@ -37,6 +37,8 @@ Se eligio una arquitectura hibrida:
 - [src/providers/cuevana.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/cuevana.js)
 - [src/providers/homecine.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/homecine.js)
 - [src/providers/tioplus.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/tioplus.js)
+- [src/providers/lamovie.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/lamovie.js)
+- [src/providers/seriesmetro.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/seriesmetro.js)
 
 ### Providers agregados para futuro, todavia con validacion pendiente
 
@@ -107,6 +109,38 @@ Ese archivo quedo conceptualmente reemplazado por providers individuales.
 2. Limpiar o retirar `webstreamerlatino.js`
 3. Revisar `streamwish` con casos concretos
 
+## Tester CLI
+
+Quedo agregado un tester local para validar providers por TMDB sin depender del navegador:
+
+- [test.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/test.js)
+
+Uso:
+
+```powershell
+node test.js <tmdbId> <movie|tv> [season] [episode] [provider]
+```
+
+Ejemplos:
+
+```powershell
+node test.js 550 movie null null cinecalidad
+node test.js 1396 tv 1 1 lamovie
+node test.js 1396 tv 1 1 seriesmetro
+```
+
+Atajo por npm:
+
+```powershell
+npm run test:provider -- 1396 tv 1 1 lamovie
+```
+
+Notas:
+
+- usa TMDB para convertir a IMDb
+- llama el debug real del provider desde [src/providers/index.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/index.js)
+- sirve para comparar rapido coverage con repos de referencia como Nuvio
+
 ## Endpoints utiles para continuidad
 
 ### Global
@@ -120,3 +154,5 @@ Ese archivo quedo conceptualmente reemplazado por providers individuales.
 - [Cuevana Matrix](http://127.0.0.1:3000/_debug/provider/cuevana/stream/movie/tt0133093.json)
 - [HomeCine Enredados](http://127.0.0.1:3000/_debug/provider/homecine/stream/movie/tt0398286.json)
 - [TioPlus Hamnet](http://127.0.0.1:3000/_debug/provider/tioplus/stream/movie/tt14905854.json)
+- [LaMovie Breaking Bad S01E01](http://127.0.0.1:3000/_debug/provider/lamovie/stream/series/tt0903747:1:1.json)
+- [SeriesMetro Breaking Bad S01E01](http://127.0.0.1:3000/_debug/provider/seriesmetro/stream/series/tt0903747:1:1.json)

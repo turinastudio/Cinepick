@@ -23,6 +23,7 @@ La arquitectura actual mezcla lo mejor de dos mundos:
 - `tioplus`
 - `mhdflix`
 - `lamovie`
+- `seriesmetro`
 - `verseriesonline`
 - `cineplus123`
 - `serieskao`
@@ -80,6 +81,30 @@ $env:STREAM_SELECTION_MODE='global'
 npm start
 ```
 
+### Tester CLI rapido
+
+Tambien existe un tester de providers por terminal:
+
+```powershell
+npm run test:provider -- 550 movie null null cinecalidad
+npm run test:provider -- 1396 tv 1 1 lamovie
+npm run test:provider -- 1396 tv 1 1 seriesmetro
+```
+
+Formato:
+
+```powershell
+node test.js <tmdbId> <movie|tv> [season] [episode] [provider]
+```
+
+Ejemplos utiles:
+
+```powershell
+node test.js 550 movie null null cinecalidad
+node test.js 1396 tv 1 1 lamovie
+node test.js 1396 tv 1 1 seriesmetro
+```
+
 Manifest local:
 
 - [manifest local](http://127.0.0.1:3000/manifest.json)
@@ -114,6 +139,7 @@ Healthcheck:
 - `VERSERIESONLINE_BASE_URL`
 - `CINEPLUS123_BASE_URL`
 - `SERIESKAO_BASE_URL`
+- `SERIESMETRO_BASE_URL`
 
 ## Debug util
 
@@ -128,6 +154,7 @@ Healthcheck:
 - [Cuevana Matrix](http://127.0.0.1:3000/_debug/provider/cuevana/stream/movie/tt0133093.json)
 - [HomeCine Enredados](http://127.0.0.1:3000/_debug/provider/homecine/stream/movie/tt0398286.json)
 - [TioPlus Hamnet](http://127.0.0.1:3000/_debug/provider/tioplus/stream/movie/tt14905854.json)
+- [SeriesMetro Breaking Bad S01E01](http://127.0.0.1:3000/_debug/provider/seriesmetro/stream/series/tt0903747:1:1.json)
 
 ## Deploy en Railway
 
@@ -165,6 +192,7 @@ Healthcheck:
 - `VERSERIESONLINE_BASE_URL=https://www.verseriesonline.net`
 - `CINEPLUS123_BASE_URL=https://cineplus123.org`
 - `SERIESKAO_BASE_URL=https://serieskao.top`
+- `SERIESMETRO_BASE_URL=https://www3.seriesmetro.net`
 
 ### Verificacion despues del deploy
 

@@ -96,3 +96,83 @@ Conclusion practica:
 
 - muy util para scoring y formato
 - no para scrapers o extractores
+
+## Nuvio-Providers-Latino
+
+Ruta:
+
+- [Recursos/Nuvio-Providers-Latino](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/Nuvio-Providers-Latino)
+
+Nos sirvio para:
+
+- comparar providers latinos contra nuestro port
+- validar cobertura real de `lamovie` y `cinecalidad`
+- revisar providers nuevos como:
+  - `seriesmetro`
+  - `xupalace`
+  - `embed69`
+- confirmar que `cinecalidad` en esa referencia no era una base fuerte para series
+
+Conclusion practica:
+
+- fue una referencia muy util para peliculas
+- fue clave para terminar de cerrar `lamovie`
+- `seriesmetro` surgio de ahi como provider interesante para series
+
+## nuvio-providers
+
+Ruta:
+
+- [Recursos/nuvio-providers](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/nuvio-providers)
+
+Nos sirvio para:
+
+- comparar el comportamiento real de:
+  - `netmirror`
+  - `castle`
+  - `cinemacity`
+- confirmar si nuestros problemas eran del port o del provider fuente
+
+Conclusion practica:
+
+- `netmirror` funciona tambien en la referencia
+- `castle` funciona tambien en la referencia
+- `cinemacity` tambien falla ahi en los casos probados
+
+## cloudstream-extensions-phisher
+
+Ruta:
+
+- [Recursos/cloudstream-extensions-phisher](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/cloudstream-extensions-phisher)
+
+Nos sirvio para:
+
+- revisar implementaciones de Cloudstream mas robustas
+- especialmente el modulo `Cinemacity`
+- entender mejor:
+  - PlayerJS
+  - extraccion con `atob`
+  - metadata de idioma
+
+Conclusion practica:
+
+- fue mas util como referencia tecnica que el repo Nuvio para `CinemaCity`
+- no alcanzo para justificar reactivarlo en deploy
+
+## NetMirror-Extension
+
+Ruta:
+
+- [Recursos/NetMirror-Extension](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/NetMirror-Extension)
+
+Nos sirvio para:
+
+- entender la estructura real de `NetMirror`
+- confirmar como manejan `tracks`
+- verificar si esas pistas representaban audio o captions
+
+Conclusion practica:
+
+- confirmo que `NetMirror` trata `tracks` principalmente como captions
+- reforzo la decision de no etiquetar `LAT` o `CAST` alegremente
+- sirvio como respaldo para dejar `netmirror` como `MULTI` por defecto

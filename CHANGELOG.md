@@ -1,5 +1,50 @@
 # Changelog
 
+## [Unreleased] - 2026-04-03
+
+### Providers y coverage
+
+- Se agregaron `netmirror`, `castle` y `seriesmetro` al flujo HTTP activo.
+- `lamovie` quedo validado como provider fuerte tanto para peliculas como para series.
+- `cinecalidad` quedo reforzado para peliculas usando matching por slug y extraccion de embeds mas alineada con el sitio real.
+- `cinecalidad` ahora usa por defecto `https://www.cinecalidad.vg`.
+- `cinemacity` fue explorado, comparado contra su repo de referencia y dejado fuera del deploy por no devolver streams fiables.
+
+### Matching y testing
+
+- Se agrego [test.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/test.js) como tester CLI por TMDB.
+- El tester ahora soporta:
+  - modo `basic`
+  - modo `advanced`
+- `lamovie` y `cinecalidad` mejoraron fuertemente su descubrimiento usando:
+  - aliases de TMDB
+  - probing por slug
+  - matching mas tolerante para titulos en espanol y original
+- `netmirror` mejoro su matching de titulos y su fallback para series tipo PrimeVideo.
+
+### Idioma y providers multi-language
+
+- `netmirror` y `castle` quedaron etiquetados de forma conservadora como `MULTI` por defecto.
+- Se dejo de asumir `CAST` o `LAT` cuando el provider no expone evidencia confiable de audio.
+- En `netmirror` ahora se exponen mejor:
+  - `tracks`
+  - `subtitleLanguages`
+  - `trackSummary`
+- El trabajo sobre `NetMirror` confirmo que en varios casos las `tracks` observadas eran captions o thumbnails, no audio ES verificable.
+
+### Deploy y documentacion
+
+- `render.yaml` fue actualizado para incluir:
+  - `CINECALIDAD_BASE_URL=https://www.cinecalidad.vg`
+  - `NETMIRROR_BASE_URL`
+  - `NETMIRROR_PLAY_URL`
+  - `CASTLE_BASE_URL`
+  - `SERIESMETRO_BASE_URL`
+- Se dejo documentado que:
+  - Render toma variables desde `render.yaml`
+  - Railway usa `railway.json` para build/start/healthcheck, pero las variables se cargan manualmente
+- Se agrego [ANTIGRAVITY_HANDOFF.md](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/ANTIGRAVITY_HANDOFF.md) como guia de continuidad para trabajar desde otros agentes como Gemini o Claude.
+
 ## [Unreleased] - 2026-04-01
 
 ### Proxy y reproduccion

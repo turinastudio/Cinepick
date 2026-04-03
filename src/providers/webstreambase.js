@@ -54,6 +54,26 @@ export class WebstreamBaseProvider extends Provider {
       item.original_name
     ];
 
+    const itemId = item.id;
+    if (itemId) {
+      for (const language of ["es-MX", "es-ES", "en-US"]) {
+        const details = await fetchJson(
+          `https://api.themoviedb.org/3/${mediaType}/${itemId}?api_key=${this.tmdbApiKey}&language=${language}`
+        ).catch(() => null);
+
+        if (!details) {
+          continue;
+        }
+
+        values.push(
+          details.title,
+          details.name,
+          details.original_title,
+          details.original_name
+        );
+      }
+    }
+
     return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))];
   }
 

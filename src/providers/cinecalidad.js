@@ -29,7 +29,8 @@ export class CinecalidadProvider extends WebstreamBaseProvider {
 
   async getMeta({ type, slug }) {
     const target = this.parseSlugPayload(type, slug);
-    const html = await this.fetchText(target.url);
+    const page = await this.fetchResolvedPage(target);
+    const html = page.html;
 
     const title = this.extractOgValue(html, "og:title")
       || this.extractFirstMatch(html, /<title>([^<]+)<\/title>/i)
@@ -59,8 +60,9 @@ export class CinecalidadProvider extends WebstreamBaseProvider {
 
   async getStreams({ type, slug }) {
     const target = this.parseSlugPayload(type, slug);
-    const html = await this.fetchText(target.url);
-    const players = this.extractPlayerLinks(html)
+    const page = await this.fetchResolvedPage(target);
+    const html = page.html;
+    const players = (await this.extractPlayerLinksFromHtml(html))
       .filter((player) => this.isSourceEnabled(player.server));
 
     let httpStreams = [];
@@ -98,6 +100,10 @@ export class CinecalidadProvider extends WebstreamBaseProvider {
 
     if (!bestMatch) {
       return [];
+    }
+
+    if (bestMatch._resolvedUrl) {
+      return this.getStreamsFromResolvedUrl(bestMatch.type, bestMatch._resolvedUrl);
     }
 
     let slug = bestMatch.id.split(":").slice(2).join(":");
@@ -187,7 +193,8 @@ export class CinecalidadProvider extends WebstreamBaseProvider {
           id: bestMatch.id,
           type: bestMatch.type,
           name: bestMatch.name,
-          releaseInfo: bestMatch.releaseInfo || ""
+          releaseInfo: bestMatch.releaseInfo || "",
+          resolvedUrl: bestMatch._resolvedUrl || null
         }
       : null;
 
@@ -196,19 +203,63 @@ export class CinecalidadProvider extends WebstreamBaseProvider {
       return debug;
     }
 
+    if (bestMatch._resolvedUrl) {
+      debug.targetUrl = bestMatch._resolvedUrl;
+
+      const html = await this.fetchText(bestMatch._resolvedUrl);
+      const players = (await this.extractPlayerLinksFromHtml(html))
+        .filter((player) => this.isSourceEnabled(player.server));
+      debug.playerCount = players.length;
+      debug.players = players.map((player) => ({
+        server: player.server,
+        quality: player.quality,
+        pageUrl: player.pageUrl
+      }));
+
+      if (!players.length) {
+        debug.status = "no_players";
+        return debug;
+      }
+
+      const streamGroups = await Promise.all(players.map((player) => this.resolvePlayerStream(player)));
+      const rawStreams = streamGroups.flat().filter(Boolean);
+      const scoredStreams = analyzeScoredStreams(this.id, rawStreams, {
+        cleanTitle: (title) => this.cleanStreamTitle(title)
+      });
+      const streams = scoredStreams.map((item) => item.stream);
+      debug.streamCount = streams.length;
+      debug.scoredStreams = scoredStreams.map((item) => ({
+        title: item.stream.title,
+        url: item.stream.url || null,
+        sourceKey: item.sourceKey,
+        sourceLabel: item.sourceLabel,
+        score: item.score,
+        components: item.components
+      }));
+      debug.streams = streams.map((stream) => ({
+        name: stream.name,
+        title: stream.title,
+        url: stream.url || null,
+        behaviorHints: stream.behaviorHints || null
+      }));
+      debug.status = streams.length > 0 ? "ok" : "no_streams";
+      return debug;
+    }
+
     let slug = bestMatch.id.split(":").slice(2).join(":");
     debug.seriesSlug = slug;
 
     if (type === "series" && parsedExternal.season && parsedExternal.episode) {
       const seriesTarget = this.parseSlugPayload("series", slug);
-      const seriesHtml = await this.fetchText(seriesTarget.url);
+      const seriesPage = await this.fetchResolvedPage(seriesTarget);
+      const seriesHtml = seriesPage.html;
       const seriesMeta = await this.getMeta({
         type: "series",
         slug
       });
 
       debug.episodePatternDebug = {
-        targetUrl: seriesTarget.url,
+        targetUrl: seriesPage.url,
         mark1Count: (seriesHtml.match(/class=['"][^'"]*\bmark-1\b/gi) || []).length,
         numerandoCount: (seriesHtml.match(/class=['"][^'"]*\bnumerando\b/gi) || []).length,
         episodioTitleCount: (seriesHtml.match(/class=['"][^'"]*\bepisodiotitle\b/gi) || []).length,
@@ -258,10 +309,11 @@ export class CinecalidadProvider extends WebstreamBaseProvider {
     }
 
     const target = this.parseSlugPayload(type === "series" ? "series" : bestMatch.type, slug);
-    debug.targetUrl = target.url;
+    const page = await this.fetchResolvedPage(target);
+    debug.targetUrl = page.url;
 
-    const html = await this.fetchText(target.url);
-    const players = this.extractPlayerLinks(html)
+    const html = page.html;
+    const players = (await this.extractPlayerLinksFromHtml(html))
       .filter((player) => this.isSourceEnabled(player.server));
     debug.playerCount = players.length;
     debug.players = players.map((player) => ({
@@ -305,7 +357,25 @@ export class CinecalidadProvider extends WebstreamBaseProvider {
   }
 
   async searchWithFallbackQueries({ type, externalMeta }) {
-    return super.searchWithFallbackQueries({ type, externalMeta });
+    const extraTitles = await this.fetchTmdbSearchTitles(type, externalMeta.id || "").catch(() => []);
+    externalMeta._searchTitles = extraTitles;
+    const deduped = new Map();
+    const directCandidates = await this.probeDirectCandidates(type, externalMeta, extraTitles);
+
+    for (const candidate of directCandidates) {
+      if (!deduped.has(candidate.id)) {
+        deduped.set(candidate.id, candidate);
+      }
+    }
+
+    const searched = await super.searchWithFallbackQueries({ type, externalMeta });
+    for (const candidate of searched) {
+      if (!deduped.has(candidate.id)) {
+        deduped.set(candidate.id, candidate);
+      }
+    }
+
+    return Array.from(deduped.values());
   }
 
   buildSearchQueries(externalMeta) {
@@ -421,13 +491,60 @@ export class CinecalidadProvider extends WebstreamBaseProvider {
       };
     }
 
-    const section = type === "series" ? "ver-serie" : "ver-pelicula";
     return {
       id: buildStremioId(this.id, type, slug),
       type,
       primarySlug: slug,
-      url: `${this.baseUrl}/${section}/${slug}/`
+      url: this.buildContentPageUrls(type, slug)[0],
+      candidateUrls: this.buildContentPageUrls(type, slug)
     };
+  }
+
+  buildContentPageUrls(type, slug) {
+    const normalizedSlug = String(slug || "").trim();
+    if (type === "series") {
+      return [
+        `${this.baseUrl}/ver-serie/${normalizedSlug}/`,
+        `${this.baseUrl}/serie/${normalizedSlug}/`
+      ];
+    }
+
+    return [
+      `${this.baseUrl}/ver-pelicula/${normalizedSlug}/`,
+      `${this.baseUrl}/pelicula/${normalizedSlug}/`
+    ];
+  }
+
+  async fetchResolvedPage(target) {
+    const urls = Array.isArray(target?.candidateUrls) && target.candidateUrls.length > 0
+      ? target.candidateUrls
+      : [target.url].filter(Boolean);
+
+    let lastError = null;
+    for (const url of urls) {
+      try {
+        const html = await this.fetchText(url);
+        return { url, html };
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    throw lastError || new Error(`No se pudo resolver la pagina para ${target?.primarySlug || "desconocido"}`);
+  }
+
+  async getStreamsFromResolvedUrl(type, url) {
+    const html = await this.fetchText(url);
+    const players = (await this.extractPlayerLinksFromHtml(html))
+      .filter((player) => this.isSourceEnabled(player.server));
+
+    if (!players.length) {
+      return [];
+    }
+
+    const streamGroups = await Promise.all(players.map((player) => this.resolvePlayerStream(player)));
+    const rawStreams = streamGroups.flat().filter(Boolean);
+    return this.sortStreams(rawStreams);
   }
 
   buildEpisodePageUrl(token, seasonNumber, episodeNumber) {
@@ -465,6 +582,117 @@ export class CinecalidadProvider extends WebstreamBaseProvider {
     }
 
     return players;
+  }
+
+  async extractPlayerLinksFromHtml(html) {
+    const inlinePlayers = this.extractPlayerLinks(html);
+    const base64Players = await this.extractBase64EmbedPlayers(html);
+    return this.dedupePlayers([...inlinePlayers, ...base64Players]);
+  }
+
+  async extractBase64EmbedPlayers(html) {
+    const encodedValues = Array.from(
+      html.matchAll(/data-src="([A-Za-z0-9+/=]{20,})"/gi),
+      (match) => match[1]
+    );
+
+    if (encodedValues.length === 0) {
+      return [];
+    }
+
+    const decodedUrls = [...new Set(
+      encodedValues
+        .map((value) => this.decodeBase64(value))
+        .filter((value) => value && /^https?:\/\//i.test(value))
+    )];
+
+    const players = [];
+    const directUrls = decodedUrls.filter((url) => this.isKnownEmbedUrl(url));
+    const intermediateUrls = decodedUrls.filter((url) => !this.isKnownEmbedUrl(url));
+
+    for (const pageUrl of directUrls) {
+      players.push({
+        server: this.detectServer(pageUrl),
+        quality: "",
+        pageUrl
+      });
+    }
+
+    if (intermediateUrls.length > 0) {
+      const resolved = await Promise.all(intermediateUrls.map((url) => this.resolveIntermediateEmbedUrl(url)));
+      for (const pageUrl of resolved.filter(Boolean)) {
+        players.push({
+          server: this.detectServer(pageUrl),
+          quality: "",
+          pageUrl
+        });
+      }
+    }
+
+    return players;
+  }
+
+  async resolveIntermediateEmbedUrl(url) {
+    try {
+      const html = await this.fetchText(url);
+      const buttonHref = this.decodeHtmlEntities(
+        this.extractFirstMatch(html, /id="btn_enlace"[^>]*>[\s\S]*?href="([^"]+)"/i)
+      );
+      if (buttonHref && /^https?:\/\//i.test(buttonHref)) {
+        return buttonHref;
+      }
+
+      const iframeUrl = this.decodeHtmlEntities(
+        this.extractFirstMatch(html, /<iframe[^>]+src="([^"]+)"/i)
+      );
+      if (iframeUrl && /^https?:\/\//i.test(iframeUrl)) {
+        return iframeUrl;
+      }
+
+      if (/\/e\//i.test(url)) {
+        return url;
+      }
+    } catch {
+      return null;
+    }
+
+    return null;
+  }
+
+  isKnownEmbedUrl(url) {
+    const lower = String(url || "").toLowerCase();
+    return [
+      "goodstream.one",
+      "voe.sx",
+      "filemoon.sx",
+      "filemoon.to",
+      "hlswish.com",
+      "streamwish.com",
+      "streamwish.to",
+      "strwish.com",
+      "vimeos.net"
+    ].some((domain) => lower.includes(domain));
+  }
+
+  decodeBase64(value) {
+    try {
+      return Buffer.from(String(value || ""), "base64").toString("utf8");
+    } catch {
+      return "";
+    }
+  }
+
+  dedupePlayers(players) {
+    const seen = new Set();
+    return players.filter((player) => {
+      const key = `${player.server}:${player.pageUrl}`;
+      if (seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    });
   }
   extractFirstNumber(text, regex) {
     const match = String(text || "").match(regex);
@@ -798,7 +1026,86 @@ export class CinecalidadProvider extends WebstreamBaseProvider {
   }
 
   pickBestCandidate(candidates, externalMeta) {
+    const directMatches = candidates.filter((candidate) => candidate?._directPathMatch);
+    if (directMatches.length === 1) {
+      return directMatches[0];
+    }
+
+    if (directMatches.length > 0) {
+      const directBest = super.pickBestCandidate(directMatches, externalMeta);
+      if (directBest) {
+        return directBest;
+      }
+    }
+
     return super.pickBestCandidate(candidates, externalMeta);
+  }
+
+  async probeDirectCandidates(type, externalMeta, extraTitles = []) {
+    const year = this.extractYear(externalMeta.releaseInfo || externalMeta.year || "");
+    const sections = type === "series"
+      ? ["serie", "ver-serie"]
+      : ["pelicula", "ver-pelicula"];
+    const titleCandidates = [
+      externalMeta.name,
+      ...(Array.isArray(extraTitles) ? extraTitles : [])
+    ];
+    const slugCandidates = [];
+    const directMatches = [];
+
+    for (const title of titleCandidates) {
+      const slug = this.slugifyTitle(title);
+      if (!slug) {
+        continue;
+      }
+
+      slugCandidates.push(slug);
+      slugCandidates.push(this.stripLeadingArticleSlug(slug));
+
+      if (year) {
+        slugCandidates.push(`${slug}-${year}`);
+        slugCandidates.push(`${this.stripLeadingArticleSlug(slug)}-${year}`);
+      }
+    }
+
+    for (const slug of [...new Set(slugCandidates.filter(Boolean))]) {
+      for (const section of sections) {
+        const targetUrl = `${this.baseUrl}/${section}/${slug}/`;
+
+        try {
+          const html = await this.fetchText(targetUrl);
+          const pageTitle = this.cleanTitle(
+            this.extractOgValue(html, "og:title")
+            || this.extractFirstMatch(html, /<title>([^<]+)<\/title>/i)
+          );
+
+          if (!pageTitle) {
+            continue;
+          }
+
+          const mapped = {
+            id: buildStremioId(this.id, type, slug),
+            type,
+            name: pageTitle,
+            poster: this.extractImageFromSingleLeft(html) || this.extractOgValue(html, "og:image") || null,
+            posterShape: "poster",
+            description: this.extractDescription(html),
+            genres: [],
+            releaseInfo: this.extractYear(pageTitle) || this.extractYear(
+              this.extractFirstMatch(html, /<title>([^<]+)<\/title>/i)
+            ) || "",
+            _directPathMatch: true,
+            _resolvedUrl: targetUrl
+          };
+
+          directMatches.push(mapped);
+        } catch {
+          // Ignore direct slug misses.
+        }
+      }
+    }
+
+    return this.dedupeById(directMatches);
   }
 
   normalizeTitle(value) {
@@ -921,12 +1228,33 @@ export class CinecalidadProvider extends WebstreamBaseProvider {
   cleanTitle(value) {
     return this.cleanText(
       String(value || "")
+        .replace(/^\s*o\s+descargar\s+/i, "")
+        .replace(/^\s*descargar\s+/i, "")
         .replace(/\s*[\|\-]\s*CineCalidad.*$/i, "")
         .replace(/^ver\s+/i, "")
         .replace(/\s+online(?:\s+gratis)?(?:\s+hd)?$/i, "")
         .replace(/\s+gratis(?:\s+hd)?$/i, "")
         .replace(/\s+hd$/i, "")
     );
+  }
+
+  slugifyTitle(value) {
+    return this.cleanText(value)
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, " ")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
+  }
+
+  stripLeadingArticleSlug(value) {
+    return String(value || "").replace(/^(el|la|los|las|un|una)-/i, "");
+  }
+
+  extractYear(value) {
+    return String(value || "").match(/\b(19|20)\d{2}\b/)?.[0] || "";
   }
 
   decodeHtmlEntities(value) {

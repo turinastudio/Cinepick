@@ -8,6 +8,7 @@ import { GnulaProvider } from "./gnula.js";
 import { HomeCineProvider } from "./homecine.js";
 import { LaMovieProvider } from "./lamovie.js";
 import { MhdflixProvider } from "./mhdflix.js";
+import { SeriesMetroProvider } from "./seriesmetro.js";
 import { SerieskaoProvider } from "./serieskao.js";
 import { TioPlusProvider } from "./tioplus.js";
 import { VerHdLinkProvider } from "./verhdlink.js";
@@ -22,6 +23,7 @@ const providers = [
   new VerHdLinkProvider(),
   new CineHdPlusProvider(),
   new MhdflixProvider(),
+  new SeriesMetroProvider(),
   new VerSeriesOnlineProvider(),
   new Cineplus123Provider(),
   new LaMovieProvider(),
@@ -58,6 +60,10 @@ export function getProviderByCatalog(catalogId) {
 
   if (catalogId.startsWith("serieskao-")) {
     return providers.find((provider) => provider.id === "serieskao") ?? null;
+  }
+
+  if (catalogId.startsWith("seriesmetro-")) {
+    return providers.find((provider) => provider.id === "seriesmetro") ?? null;
   }
 
   return null;

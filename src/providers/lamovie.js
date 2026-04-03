@@ -2,6 +2,7 @@ import { buildStremioId } from "../lib/ids.js";
 import { buildStream, resolveExtractorStream } from "../lib/extractors.js";
 import { markSourceFailure, markSourceSuccess } from "../lib/penalty-reliability.js";
 import { analyzeScoredStreams, scoreAndSelectStreams } from "../lib/stream-scoring.js";
+import { fetchJson as sharedFetchJson, fetchText as sharedFetchText } from "../lib/webstreamer/http.js";
 import { Provider } from "./base.js";
 
 export class LaMovieProvider extends Provider {
@@ -14,6 +15,7 @@ export class LaMovieProvider extends Provider {
 
     this.baseUrl = process.env.LAMOVIE_BASE_URL || "https://la.movie";
     this.apiBase = `${this.baseUrl}/wp-api/v1`;
+    this.tmdbApiKey = process.env.TMDB_API_KEY || "439c478a771f35c05022f9feabcca01c";
   }
 
   async search({ type, query }) {
@@ -664,8 +666,10 @@ export class LaMovieProvider extends Provider {
   }
 
   async searchWithFallbackQueries(type, externalMeta) {
+    const extraTitles = await this.fetchTmdbSearchTitles(type, externalMeta.id || "").catch(() => []);
+    externalMeta._searchTitles = extraTitles;
     const deduped = new Map();
-    const directCandidates = await this.probeDirectCandidates(type, externalMeta);
+    const directCandidates = await this.probeDirectCandidates(type, externalMeta, extraTitles);
 
     for (const result of directCandidates) {
       if (!deduped.has(result.id)) {
@@ -673,7 +677,7 @@ export class LaMovieProvider extends Provider {
       }
     }
 
-    for (const query of this.buildSearchQueries(externalMeta)) {
+    for (const query of this.buildSearchQueries(externalMeta, extraTitles)) {
       const results = await this.search({ type, query }).catch(() => []);
       for (const result of results) {
         if (!deduped.has(result.id)) {
@@ -684,74 +688,141 @@ export class LaMovieProvider extends Provider {
     return Array.from(deduped.values());
   }
 
-  async probeDirectCandidates(type, externalMeta) {
+  async probeDirectCandidates(type, externalMeta, extraTitles = []) {
     const postType = type === "movie" ? "movies" : "tvshows";
-    const publicType = type === "movie" ? "movies" : "series";
+    const publicTypes = type === "movie"
+      ? ["peliculas", "movies"]
+      : ["series", "animes", "tvshows"];
     const year = this.extractYear(externalMeta.releaseInfo || externalMeta.year || "");
-    const slugBase = this.slugify(externalMeta.name);
-    const slugCandidates = [
-      year ? `${slugBase}-${year}` : "",
-      slugBase
-    ].filter(Boolean);
+    const slugBases = [
+      externalMeta.name,
+      ...(Array.isArray(extraTitles) ? extraTitles : [])
+    ]
+      .map((value) => this.slugify(value))
+      .filter(Boolean);
+    const slugCandidates = [];
+
+    for (const slugBase of [...new Set(slugBases)]) {
+      slugCandidates.push(slugBase);
+      if (year) {
+        slugCandidates.push(`${slugBase}-${year}`);
+      }
+    }
+
     const directMatches = [];
 
     for (const slug of [...new Set(slugCandidates)]) {
-      try {
-        const exists = await this.probePublicPath(`/${publicType}/${slug}`);
-        if (!exists) {
-          continue;
-        }
+      for (const publicType of publicTypes) {
+        try {
+          const exists = await this.probePublicPath(`/${publicType}/${slug}`);
+          if (!exists) {
+            continue;
+          }
 
-        const payload = await this.fetchApiJson(`single/${postType}`, {
-          slug,
-          postType
-        });
-        const mapped = this.mapSearchItem(payload);
-        if (mapped && mapped.type === type) {
-          mapped._directPathMatch = true;
-          directMatches.push(mapped);
+          const payload = await this.fetchApiJson(`single/${postType}`, {
+            slug,
+            postType
+          });
+          const mapped = this.mapSearchItem(payload);
+          if (mapped && mapped.type === type) {
+            mapped._directPathMatch = true;
+            directMatches.push(mapped);
+          }
+        } catch {
+          // Ignore direct slug misses.
         }
-      } catch {
-        // Ignore direct slug misses.
       }
     }
 
     return directMatches;
   }
 
-  async probePublicPath(path) {
-    const headers = {
-      "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      referer: `${this.baseUrl}/`
-    };
-
-    let response = await fetch(`${this.baseUrl}${path}`, {
-      method: "HEAD",
-      redirect: "manual",
-      headers
-    }).catch(() => null);
-
-    if (!response || response.status >= 400 || response.status === 405) {
-      response = await fetch(`${this.baseUrl}${path}`, {
-        method: "GET",
-        redirect: "manual",
-        headers
-      }).catch(() => null);
+  async fetchTmdbSearchTitles(type, externalId) {
+    if (!externalId?.startsWith("tt")) {
+      return [];
     }
 
-    if (!response) {
-      return false;
-    }
+    const mediaType = type === "series" ? "tv" : "movie";
+    const resultKey = type === "series" ? "tv_results" : "movie_results";
+    const url = `https://api.themoviedb.org/3/find/${externalId}?api_key=${this.tmdbApiKey}&external_source=imdb_id&language=es-ES`;
 
-    return response.status >= 200 && response.status < 400;
+    try {
+      const payload = await sharedFetchJson(url, {
+        headers: {
+          Accept: "application/json"
+        }
+      });
+      const item = Array.isArray(payload?.[resultKey]) ? payload[resultKey][0] : null;
+      if (!item) {
+        return [];
+      }
+
+      const values = [
+        item.title,
+        item.name,
+        item.original_title,
+        item.original_name
+      ];
+
+      if (item.id) {
+        for (const language of ["es-MX", "es-ES", "en-US"]) {
+          const details = await sharedFetchJson(
+            `https://api.themoviedb.org/3/${mediaType}/${item.id}?api_key=${this.tmdbApiKey}&language=${language}`,
+            {
+              headers: {
+                Accept: "application/json"
+              }
+            }
+          ).catch(() => null);
+
+          if (!details) {
+            continue;
+          }
+
+          values.push(
+            details.title,
+            details.name,
+            details.original_title,
+            details.original_name
+          );
+        }
+      }
+
+      return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))];
+    } catch {
+      return [];
+    }
   }
 
-  buildSearchQueries(externalMeta) {
-    const baseName = String(externalMeta?.name || "").trim();
+  async probePublicPath(path) {
+    try {
+      const html = await sharedFetchText(`${this.baseUrl}${path}`, {
+        headers: {
+          Referer: `${this.baseUrl}/`,
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "es-MX,es;q=0.9"
+        }
+      });
+
+      return /rel=['"]shortlink['"][^>]+href=['"][^'"]*\?p=\d+/i.test(html);
+    } catch {
+      return false;
+    }
+  }
+
+  buildSearchQueries(externalMeta, extraTitles = []) {
+    const baseNames = [
+      String(externalMeta?.name || "").trim(),
+      ...(Array.isArray(extraTitles) ? extraTitles : [])
+    ];
     const queries = [];
 
-    if (baseName) {
+    for (const rawName of baseNames) {
+      const baseName = String(rawName || "").trim();
+      if (!baseName) {
+        continue;
+      }
+
       queries.push(baseName);
       queries.push(baseName.replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim());
       queries.push(baseName.split(":")[0].trim());
@@ -788,23 +859,30 @@ export class LaMovieProvider extends Provider {
   }
 
   pickBestCandidate(candidates, externalMeta) {
-    const targetTitle = this.normalizeTitle(externalMeta.name);
+    const titleCandidates = [
+      externalMeta.name,
+      ...(Array.isArray(externalMeta?._searchTitles) ? externalMeta._searchTitles : [])
+    ].map((value) => this.normalizeTitle(value)).filter(Boolean);
+    const targetTitle = titleCandidates[0] || "";
     const targetYear = this.extractYear(externalMeta.releaseInfo || externalMeta.year || "");
     const targetWords = targetTitle.split(/\s+/).filter(Boolean);
     const isShortTarget = targetWords.length <= 2 && targetTitle.length <= 12;
     const strictShortCandidates = isShortTarget
       ? candidates.filter((candidate) => {
-          const candidateTitle = this.normalizeTitle(candidate.name);
-          const candidateWords = candidateTitle.split(/\s+/).filter(Boolean);
-          const relaxedCandidateTitle = this.relaxTitle(candidateTitle);
-          const relaxedTargetTitle = this.relaxTitle(targetTitle);
+          for (const candidateTargetTitle of titleCandidates) {
+            const candidateTitle = this.normalizeTitle(candidate.name);
+            const candidateWords = candidateTitle.split(/\s+/).filter(Boolean);
+            const referenceWords = candidateTargetTitle.split(/\s+/).filter(Boolean);
+            const relaxedCandidateTitle = this.relaxTitle(candidateTitle);
+            const relaxedTargetTitle = this.relaxTitle(candidateTargetTitle);
 
-          if (candidateTitle === targetTitle || relaxedCandidateTitle === relaxedTargetTitle) {
-            return true;
-          }
+            if (candidateTitle === candidateTargetTitle || relaxedCandidateTitle === relaxedTargetTitle) {
+              return true;
+            }
 
-          if (candidateTitle.startsWith(`${targetTitle} `) && candidateWords.length <= targetWords.length + 1) {
-            return true;
+            if (candidateTitle.startsWith(`${candidateTargetTitle} `) && candidateWords.length <= referenceWords.length + 1) {
+              return true;
+            }
           }
 
           return false;
@@ -820,57 +898,70 @@ export class LaMovieProvider extends Provider {
       const candidateYear = this.extractYear(candidate.releaseInfo || "");
       const candidatePostType = String(candidate._postType || "").toLowerCase();
       const isAnimeCandidate = candidatePostType === "animes" || candidatePostType === "anime";
-      const titleSimilarity = this.stringSimilarity(candidateTitle, targetTitle);
       const candidateWords = candidateTitle.split(/\s+/).filter(Boolean);
-      const wordDelta = Math.abs(candidateWords.length - targetWords.length);
-      const hasWholeWordMatch = targetWords.every((word) => candidateWords.includes(word));
-      const candidateStartsWithTarget = candidateTitle.startsWith(`${targetTitle} `) || candidateTitle === targetTitle;
-      const relaxedCandidateTitle = this.relaxTitle(candidateTitle);
-      const relaxedTargetTitle = this.relaxTitle(targetTitle);
-      const relaxedSimilarity = this.stringSimilarity(relaxedCandidateTitle, relaxedTargetTitle);
-      const relaxedCandidateWords = relaxedCandidateTitle.split(/\s+/).filter(Boolean);
-      const relaxedTargetWords = relaxedTargetTitle.split(/\s+/).filter(Boolean);
-      const relaxedWordDelta = Math.abs(relaxedCandidateWords.length - relaxedTargetWords.length);
-      const relaxedWholeWordMatch = relaxedTargetWords.every((word) => relaxedCandidateWords.includes(word));
-
       let score = 0;
-      if (candidateTitle === targetTitle) score += 100;
-      else if (candidateTitle.includes(targetTitle) || targetTitle.includes(candidateTitle)) {
-        if (isShortTarget) {
-          score += candidateStartsWithTarget && wordDelta <= 1 ? 22 : -20;
-        } else {
-          score += wordDelta <= 1 ? 30 : 12;
+
+      for (const candidateTargetTitle of titleCandidates) {
+        const referenceWords = candidateTargetTitle.split(/\s+/).filter(Boolean);
+        const wordDelta = Math.abs(candidateWords.length - referenceWords.length);
+        const hasWholeWordMatch = referenceWords.every((word) => candidateWords.includes(word));
+        const candidateStartsWithTarget = candidateTitle.startsWith(`${candidateTargetTitle} `) || candidateTitle === candidateTargetTitle;
+        const relaxedCandidateTitle = this.relaxTitle(candidateTitle);
+        const relaxedTargetTitle = this.relaxTitle(candidateTargetTitle);
+        const titleSimilarity = this.stringSimilarity(candidateTitle, candidateTargetTitle);
+        const relaxedSimilarity = this.stringSimilarity(relaxedCandidateTitle, relaxedTargetTitle);
+        const relaxedCandidateWords = relaxedCandidateTitle.split(/\s+/).filter(Boolean);
+        const relaxedTargetWords = relaxedTargetTitle.split(/\s+/).filter(Boolean);
+        const relaxedWordDelta = Math.abs(relaxedCandidateWords.length - relaxedTargetWords.length);
+        const relaxedWholeWordMatch = relaxedTargetWords.every((word) => relaxedCandidateWords.includes(word));
+
+        let localScore = 0;
+        if (candidateTitle === candidateTargetTitle) localScore += 100;
+        else if (candidateTitle.includes(candidateTargetTitle) || candidateTargetTitle.includes(candidateTitle)) {
+          if (isShortTarget) {
+            localScore += candidateStartsWithTarget && wordDelta <= 1 ? 22 : -20;
+          } else {
+            localScore += wordDelta <= 1 ? 30 : 12;
+          }
         }
-      }
 
-      if (hasWholeWordMatch) {
-        score += isShortTarget ? 12 : 20;
-      } else if (isShortTarget) {
-        score -= 25;
-      }
-
-      if (titleSimilarity >= 0.92) score += 65;
-      else if (titleSimilarity >= 0.84) score += 40;
-
-      if (relaxedCandidateTitle === relaxedTargetTitle) score += 35;
-      else if (relaxedCandidateTitle.includes(relaxedTargetTitle) || relaxedTargetTitle.includes(relaxedCandidateTitle)) {
-        if (isShortTarget) {
-          score += relaxedWordDelta <= 1 ? 8 : -10;
-        } else {
-          score += 20;
+        if (hasWholeWordMatch) {
+          localScore += isShortTarget ? 12 : 20;
+        } else if (isShortTarget) {
+          localScore -= 25;
         }
+
+        if (titleSimilarity >= 0.92) localScore += 65;
+        else if (titleSimilarity >= 0.84) localScore += 40;
+
+        if (relaxedCandidateTitle === relaxedTargetTitle) localScore += 35;
+        else if (relaxedCandidateTitle.includes(relaxedTargetTitle) || relaxedTargetTitle.includes(relaxedCandidateTitle)) {
+          if (isShortTarget) {
+            localScore += relaxedWordDelta <= 1 ? 8 : -10;
+          } else {
+            localScore += 20;
+          }
+        }
+
+        if (relaxedWholeWordMatch) {
+          localScore += isShortTarget ? 8 : 15;
+        }
+
+        if (relaxedSimilarity > 0.75) localScore += Math.floor(relaxedSimilarity * 30);
+        score = Math.max(score, localScore);
       }
 
-      if (relaxedWholeWordMatch) {
-        score += isShortTarget ? 8 : 15;
-      }
-
-      if (relaxedSimilarity > 0.75) score += Math.floor(relaxedSimilarity * 30);
       if (targetYear && candidateYear && targetYear === candidateYear) score += 25;
       if (candidate._directPathMatch) score += 120;
 
       if (isAnimeCandidate) {
-        if (candidateTitle === targetTitle || relaxedCandidateTitle === relaxedTargetTitle) {
+        const animeMatch = titleCandidates.some((candidateTargetTitle) => {
+          const relaxedCandidateTitle = this.relaxTitle(candidateTitle);
+          const relaxedTargetTitle = this.relaxTitle(candidateTargetTitle);
+          return candidateTitle === candidateTargetTitle || relaxedCandidateTitle === relaxedTargetTitle;
+        });
+
+        if (animeMatch) {
           score += 5;
         } else {
           score -= isShortTarget ? 180 : 90;
@@ -974,20 +1065,14 @@ export class LaMovieProvider extends Provider {
       }
     }
 
-    const response = await fetch(url, {
+    const payload = await sharedFetchJson(url.toString(), {
       headers: {
-        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        accept: "application/json, text/plain, */*",
-        origin: this.baseUrl,
-        referer: `${this.baseUrl}/`
+        Accept: "application/json, text/plain, */*",
+        Origin: this.baseUrl,
+        Referer: `${this.baseUrl}/`
       }
     });
 
-    if (!response.ok) {
-      throw new Error(`LaMovie respondio ${response.status} para ${url}`);
-    }
-
-    const payload = await response.json();
     if (payload?.error) {
       throw new Error(payload?.message || `LaMovie devolvio error para ${url}`);
     }

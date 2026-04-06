@@ -160,6 +160,12 @@ export class AnimeFlvProvider extends WebstreamBaseProvider {
     externalMeta._animeMapping = mapping;
     const otakuMapping = this.findOtakuMapping(externalMeta, mapping);
     externalMeta._otakuMapping = otakuMapping;
+    const eligible = await this.isAnimeEligible(externalMeta, mapping, otakuMapping);
+    externalMeta._animeEligible = eligible;
+    if (!eligible) {
+      externalMeta._searchTitles = [];
+      return [];
+    }
     const mappingTitles = getAnimeMappingTitles(mapping);
     const otakuTitles = getOtakuMappingTitles(otakuMapping);
     const fallbackTitles = mappingTitles.length > 0
@@ -685,6 +691,72 @@ export class AnimeFlvProvider extends WebstreamBaseProvider {
       .filter(Boolean);
 
     return findBestOtakuMappingByTitle(titles);
+  }
+
+  async isAnimeEligible(externalMeta, animeMapping = null, otakuMapping = null) {
+    if (animeMapping || otakuMapping) {
+      return true;
+    }
+
+    const tmdbSignals = await this.fetchTmdbAnimeSignals(externalMeta);
+    externalMeta._animeSignals = tmdbSignals;
+    return Boolean(tmdbSignals?.isAnime);
+  }
+
+  async fetchTmdbAnimeSignals(externalMeta) {
+    if (externalMeta?._animeSignals) {
+      return externalMeta._animeSignals;
+    }
+
+    const rawId = String(externalMeta?.id || "");
+    const mediaType = externalMeta?.type === "series" ? "tv" : "movie";
+    let itemId = "";
+
+    if (rawId.startsWith("tmdb:")) {
+      itemId = rawId.replace(/^tmdb:/, "").split(":")[0];
+    } else if (rawId.startsWith("tt")) {
+      const findPayload = await fetchJson(
+        `https://api.themoviedb.org/3/find/${rawId}?api_key=${this.tmdbApiKey}&external_source=imdb_id`
+      ).catch(() => null);
+      const results = mediaType === "tv" ? findPayload?.tv_results : findPayload?.movie_results;
+      itemId = Array.isArray(results) && results[0]?.id ? String(results[0].id) : "";
+    }
+
+    if (!itemId) {
+      return { isAnime: false };
+    }
+
+    const details = await fetchJson(
+      `https://api.themoviedb.org/3/${mediaType}/${itemId}?api_key=${this.tmdbApiKey}&language=en-US`
+    ).catch(() => null);
+
+    if (!details) {
+      return { isAnime: false };
+    }
+
+    const genreNames = Array.isArray(details.genres)
+      ? details.genres.map((genre) => String(genre?.name || "").toLowerCase())
+      : [];
+    const originalLanguage = String(details.original_language || "").toLowerCase();
+    const originCountries = Array.isArray(details.origin_country)
+      ? details.origin_country.map((country) => String(country || "").toUpperCase())
+      : [];
+    const titleBlob = [
+      details.name,
+      details.title,
+      details.original_name,
+      details.original_title
+    ].join(" ");
+    const hasJapaneseScript = /[\u3040-\u30ff\u3400-\u9fff]/.test(titleBlob);
+    const isAnimated = genreNames.includes("animation");
+    const isJapaneseOrigin = originalLanguage === "ja" || originCountries.includes("JP");
+
+    return {
+      isAnime: Boolean(isAnimated && (isJapaneseOrigin || hasJapaneseScript)),
+      isAnimated,
+      isJapaneseOrigin,
+      hasJapaneseScript
+    };
   }
 
   extractVideosScript(html) {

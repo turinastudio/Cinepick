@@ -40,6 +40,10 @@ async function resolveImdbId(tmdbId, type) {
   return payload?.imdb_id || null;
 }
 
+function providerSupportsTmdbFallback(providerId) {
+  return ["animeav1"].includes(String(providerId || "").trim().toLowerCase());
+}
+
 function buildExternalId(imdbId, type, season, episode) {
   if (type === "series" && season && episode) {
     return `${imdbId}:${season}:${episode}`;
@@ -72,6 +76,15 @@ function printResult(result, mode = "basic") {
     console.log(`ERROR: ${result.status}${result.error ? `: ${result.error}` : ""}\n`);
 
     if (mode === "advanced") {
+      if (result.externalMeta) {
+        console.log(`externalMeta: ${JSON.stringify(result.externalMeta, null, 2)}`);
+      }
+      if (result.queries) {
+        console.log(`queries: ${JSON.stringify(result.queries, null, 2)}`);
+      }
+      if (result.candidates) {
+        console.log(`candidates: ${JSON.stringify(result.candidates, null, 2)}`);
+      }
       if (result.bestMatch) {
         console.log(`bestMatch: ${JSON.stringify(result.bestMatch, null, 2)}`);
       }
@@ -111,8 +124,17 @@ function printResult(result, mode = "basic") {
   });
 
   if (mode === "advanced") {
+    if (result.externalMeta) {
+      console.log(`externalMeta: ${JSON.stringify(result.externalMeta, null, 2)}`);
+    }
+    if (result.queries) {
+      console.log(`queries: ${JSON.stringify(result.queries, null, 2)}`);
+    }
     if (result.bestMatch) {
       console.log(`bestMatch: ${JSON.stringify(result.bestMatch, null, 2)}`);
+    }
+    if (result.candidates) {
+      console.log(`candidates: ${JSON.stringify(result.candidates, null, 2)}`);
     }
     if (result.players) {
       console.log(`players: ${JSON.stringify(result.players, null, 2)}`);
@@ -145,25 +167,32 @@ async function run() {
   const season = isNullishArg(rawSeason) ? null : Number(rawSeason);
   const episode = isNullishArg(rawEpisode) ? null : Number(rawEpisode);
   const mode = normalizeMode(rawMode);
-  const imdbId = await resolveImdbId(tmdbId, type);
-
-  if (!imdbId) {
-    throw new Error(`No se pudo resolver IMDb desde TMDB ${tmdbId}`);
-  }
-
-  const externalId = buildExternalId(imdbId, type, season, episode);
   const targetProviders = providerId
     ? [String(providerId).trim().toLowerCase()]
     : [];
 
   const providerIds = targetProviders.length > 0
     ? targetProviders
-    : ["lamovie", "cinecalidad", "seriesmetro", "netmirror", "castle"];
+    : ["animeav1", "lamovie", "cinecalidad", "seriesmetro", "netmirror", "castle"];
 
   for (const id of providerIds) {
     const provider = getProviderById(id);
     if (!provider) {
       console.log(`ERROR: Provider no encontrado: ${id}\n`);
+      continue;
+    }
+
+    const imdbId = await resolveImdbId(tmdbId, type).catch(() => null);
+    const externalId = imdbId
+      ? buildExternalId(imdbId, type, season, episode)
+      : providerSupportsTmdbFallback(id)
+        ? (type === "series" && season && episode ? `tmdb:${tmdbId}:${season}:${episode}` : `tmdb:${tmdbId}`)
+        : null;
+
+    if (!externalId) {
+      console.log(`\nTesting ${id} provider...`);
+      console.log(`TMDB: ${tmdbId} | Tipo: ${type}${type === "series" && season && episode ? ` | S${season}E${episode}` : ""}\n`);
+      console.log(`ERROR: No se pudo resolver IMDb desde TMDB ${tmdbId}\n`);
       continue;
     }
 

@@ -176,3 +176,33 @@ Conclusion practica:
 - confirmo que `NetMirror` trata `tracks` principalmente como captions
 - reforzo la decision de no etiquetar `LAT` o `CAST` alegremente
 - sirvio como respaldo para dejar `netmirror` como `MULTI` por defecto
+
+## animestream-addon
+
+Ruta:
+
+- [Recursos/animestream-addon](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/animestream-addon)
+
+Nos sirvio para:
+
+- reforzar la parte anime del addon
+- usar mappings locales en vez de depender solo de TMDB o IMDb
+- mejorar matching de titulos anime con:
+  - `synonyms`
+  - `slug`
+  - puentes `tmdb`/`imdb`
+  - flag `dub`
+
+Partes especialmente utiles:
+
+- [data/catalog.json.gz](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/animestream-addon/data/catalog.json.gz)
+- [data/otaku-mappings.json](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/animestream-addon/data/otaku-mappings.json)
+- [src/utils/databaseLoader.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/animestream-addon/src/utils/databaseLoader.js)
+
+Conclusion practica:
+
+- fue clave para que `animeav1` pueda matchear mejor anime como:
+  - `Frieren`
+  - `Your Name.`
+- el addon completo de `animestream-addon` no se porto tal cual
+- lo mas reutilizable para nuestro caso fue la capa de mappings/catalogo, no su flujo de streams por `AllAnime`

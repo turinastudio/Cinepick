@@ -30,6 +30,13 @@ La arquitectura actual mezcla lo mejor de dos mundos:
 - `cineplus123`
 - `serieskao`
 
+### Providers anime funcionando
+
+- `animeav1`
+  - soporta series y peliculas anime
+  - separa `LAT SUB` y `LAT DUB`
+  - usa mappings locales desde `animestream-addon` para mejorar matching
+
 ### Nota sobre providers multi-language
 
 - `netmirror`
@@ -126,6 +133,8 @@ node test.js 550 movie null null cinecalidad
 node test.js 1396 tv 1 1 lamovie
 node test.js 1396 tv 1 1 seriesmetro
 node test.js 1396 tv 1 1 netmirror advanced
+node test.js 209867 tv 1 1 animeav1 advanced
+node test.js 372058 movie null null animeav1 advanced
 ```
 
 Modos:
@@ -174,6 +183,10 @@ Healthcheck:
 - `SERIESKAO_BASE_URL`
 - `SERIESMETRO_BASE_URL`
 
+### Anime providers
+
+- `ANIMEAV1_BASE_URL`
+
 ## Debug util
 
 ### Debug global
@@ -190,6 +203,8 @@ Healthcheck:
 - [NetMirror Breaking Bad S01E01](http://127.0.0.1:3000/_debug/provider/netmirror/stream/series/tt0903747:1:1.json)
 - [Castle Breaking Bad S01E01](http://127.0.0.1:3000/_debug/provider/castle/stream/series/tt0903747:1:1.json)
 - [SeriesMetro Breaking Bad S01E01](http://127.0.0.1:3000/_debug/provider/seriesmetro/stream/series/tt0903747:1:1.json)
+- [AnimeAV1 Frieren S01E01](http://127.0.0.1:3000/_debug/provider/animeav1/stream/series/tt22248376:1:1.json)
+- [AnimeAV1 Your Name](http://127.0.0.1:3000/_debug/provider/animeav1/stream/movie/tt5311514.json)
 
 ## Deploy en Railway
 

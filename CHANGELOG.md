@@ -1,5 +1,28 @@
 # Changelog
 
+## [Unreleased] - 2026-04-06
+
+### Anime
+
+- Se agrego `animeav1` como provider anime nuevo.
+- `animeav1` soporta:
+  - series
+  - peliculas
+  - separacion `LAT SUB` y `LAT DUB`
+- Se agrego [src/lib/anime-mappings.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/anime-mappings.js) para aprovechar mappings locales de anime.
+- El matching anime ahora usa datos locales de `animestream-addon`:
+  - `catalog.json.gz`
+  - `otaku-mappings.json`
+- Casos validados:
+  - `Frieren`
+  - `Your Name.`
+  - `Kimetsu no Yaiba: Infinity Castle`
+
+### Testing y debug
+
+- El tester CLI ahora sirve tambien para providers anime via fallback `tmdb:<id>` cuando no hay IMDb util.
+- Se agregaron casos reales de debug anime para validar matching y streams.
+
 ## [Unreleased] - 2026-04-03
 
 ### Providers y coverage

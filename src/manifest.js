@@ -5,8 +5,20 @@ export const manifest = {
   description: "Addon base para Stremio con providers web reutilizables.",
   resources: ["catalog", "meta", "stream"],
   types: ["movie", "series"],
-  idPrefixes: ["gnula:", "cinecalidad:", "netmirror:", "castle:", "cuevana:", "homecine:", "tioplus:", "verhdlink:", "cinehdplus:", "mhdflix:", "lamovie:", "verseriesonline:", "cineplus123:", "serieskao:", "seriesmetro:", "tt"],
+  idPrefixes: ["animeav1:", "gnula:", "cinecalidad:", "netmirror:", "castle:", "cuevana:", "homecine:", "tioplus:", "verhdlink:", "cinehdplus:", "mhdflix:", "lamovie:", "verseriesonline:", "cineplus123:", "serieskao:", "seriesmetro:", "tt"],
   catalogs: [
+    {
+      type: "movie",
+      id: "animeav1-movies",
+      name: "AnimeAV1 Movies",
+      extra: [{ name: "search", isRequired: true }]
+    },
+    {
+      type: "series",
+      id: "animeav1-series",
+      name: "AnimeAV1 Series",
+      extra: [{ name: "search", isRequired: true }]
+    },
     {
       type: "movie",
       id: "gnula-movies",

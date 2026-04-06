@@ -52,6 +52,17 @@ Se eligio una arquitectura hibrida:
 - [src/providers/netmirror.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/netmirror.js)
 - [src/providers/castle.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/castle.js)
 
+### Providers anime agregados
+
+- [src/providers/animeav1.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/animeav1.js)
+  - usa `catalog.json.gz` y `otaku-mappings.json` de `animestream-addon`
+  - mejora matching por `imdb`, `tmdb`, `slug` y aliases anime
+  - separa `LAT SUB` y `LAT DUB`
+  - validado con:
+    - `Frieren`
+    - `Your Name.`
+    - `Kimetsu no Yaiba: Infinity Castle`
+
 ### Estado actual de idioma para providers multi-language
 
 - `netmirror`
@@ -114,6 +125,23 @@ Esto fue clave para casos como:
 
 - `Tangled` -> `Enredados`
 
+## Matching anime
+
+La capa anime nueva usa:
+
+- [src/lib/anime-mappings.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/anime-mappings.js)
+
+Fuentes locales usadas:
+
+- [Recursos/animestream-addon/data/catalog.json.gz](/C:/Users/lautaroturina/Desktop/Codex%20Stremio%20Addon/Recursos/animestream-addon/data/catalog.json.gz)
+- [Recursos/animestream-addon/data/otaku-mappings.json](/C:/Users/lautaroturina/Desktop/Codex%20Stremio%20Addon/Recursos/animestream-addon/data/otaku-mappings.json)
+
+Motivo:
+
+- TMDB/IMDb solos fallan demasiado en anime
+- el catalogo local aporta `synonyms`, `slug` e `imdb_id`
+- `otaku-mappings.json` aporta puentes `tmdb/imdb/title` y flag `dub`
+
 ## Limpieza pendiente
 
 ### Revisar si se elimina o archiva
@@ -158,6 +186,8 @@ node test.js 550 movie null null cinecalidad
 node test.js 1396 tv 1 1 lamovie
 node test.js 1396 tv 1 1 seriesmetro
 node test.js 1396 tv 1 1 netmirror advanced
+node test.js 209867 tv 1 1 animeav1 advanced
+node test.js 372058 movie null null animeav1 advanced
 ```
 
 Atajo por npm:
@@ -191,3 +221,8 @@ Notas:
 - [NetMirror Breaking Bad S01E01](http://127.0.0.1:3000/_debug/provider/netmirror/stream/series/tt0903747:1:1.json)
 - [Castle Breaking Bad S01E01](http://127.0.0.1:3000/_debug/provider/castle/stream/series/tt0903747:1:1.json)
 - [SeriesMetro Breaking Bad S01E01](http://127.0.0.1:3000/_debug/provider/seriesmetro/stream/series/tt0903747:1:1.json)
+
+### Anime
+
+- [AnimeAV1 Frieren S01E01](http://127.0.0.1:3000/_debug/provider/animeav1/stream/series/tt22248376:1:1.json)
+- [AnimeAV1 Your Name](http://127.0.0.1:3000/_debug/provider/animeav1/stream/movie/tt5311514.json)

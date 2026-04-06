@@ -62,6 +62,13 @@ Se eligio una arquitectura hibrida:
     - `Frieren`
     - `Your Name.`
     - `Kimetsu no Yaiba: Infinity Castle`
+- [src/providers/animeflv.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/animeflv.js)
+  - usa la estructura `browse + anime_info + episodes + var videos`
+  - usa tambien `catalog.json.gz` y `otaku-mappings.json` para matching
+  - por ahora se trata como provider `LAT SUB`
+  - validado con:
+    - `Frieren`
+    - `Your Name.`
 
 ### Estado actual de idioma para providers multi-language
 
@@ -188,6 +195,8 @@ node test.js 1396 tv 1 1 seriesmetro
 node test.js 1396 tv 1 1 netmirror advanced
 node test.js 209867 tv 1 1 animeav1 advanced
 node test.js 372058 movie null null animeav1 advanced
+node test.js 209867 tv 1 1 animeflv advanced
+node test.js 372058 movie null null animeflv advanced
 ```
 
 Atajo por npm:
@@ -226,3 +235,5 @@ Notas:
 
 - [AnimeAV1 Frieren S01E01](http://127.0.0.1:3000/_debug/provider/animeav1/stream/series/tt22248376:1:1.json)
 - [AnimeAV1 Your Name](http://127.0.0.1:3000/_debug/provider/animeav1/stream/movie/tt5311514.json)
+- [AnimeFLV Frieren S01E01](http://127.0.0.1:3000/_debug/provider/animeflv/stream/series/tt22248376:1:1.json)
+- [AnimeFLV Your Name](http://127.0.0.1:3000/_debug/provider/animeflv/stream/movie/tt5311514.json)

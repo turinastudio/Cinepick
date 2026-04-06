@@ -9,6 +9,17 @@
   - series
   - peliculas
   - separacion `LAT SUB` y `LAT DUB`
+- Se agrego `animeflv` como segundo provider anime.
+- `animeflv` soporta:
+  - series
+  - peliculas
+  - contenido tratado como `LAT SUB`
+- `animeflv` ahora normaliza labels de servidores como:
+  - `YourUpload`
+  - `Okru`
+  - `Netu`
+  - `Mail.ru`
+  - `Fembed`
 - Se agrego [src/lib/anime-mappings.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/anime-mappings.js) para aprovechar mappings locales de anime.
 - El matching anime ahora usa datos locales de `animestream-addon`:
   - `catalog.json.gz`

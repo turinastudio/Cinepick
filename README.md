@@ -36,6 +36,10 @@ La arquitectura actual mezcla lo mejor de dos mundos:
   - soporta series y peliculas anime
   - separa `LAT SUB` y `LAT DUB`
   - usa mappings locales desde `animestream-addon` para mejorar matching
+- `animeflv`
+  - soporta series y peliculas anime
+  - actualmente se trata como provider `LAT SUB`
+  - usa mappings locales para mejorar matching anime
 
 ### Nota sobre providers multi-language
 
@@ -135,6 +139,8 @@ node test.js 1396 tv 1 1 seriesmetro
 node test.js 1396 tv 1 1 netmirror advanced
 node test.js 209867 tv 1 1 animeav1 advanced
 node test.js 372058 movie null null animeav1 advanced
+node test.js 209867 tv 1 1 animeflv advanced
+node test.js 372058 movie null null animeflv advanced
 ```
 
 Modos:
@@ -186,6 +192,7 @@ Healthcheck:
 ### Anime providers
 
 - `ANIMEAV1_BASE_URL`
+- `ANIMEFLV_BASE_URL`
 
 ## Debug util
 
@@ -205,6 +212,8 @@ Healthcheck:
 - [SeriesMetro Breaking Bad S01E01](http://127.0.0.1:3000/_debug/provider/seriesmetro/stream/series/tt0903747:1:1.json)
 - [AnimeAV1 Frieren S01E01](http://127.0.0.1:3000/_debug/provider/animeav1/stream/series/tt22248376:1:1.json)
 - [AnimeAV1 Your Name](http://127.0.0.1:3000/_debug/provider/animeav1/stream/movie/tt5311514.json)
+- [AnimeFLV Frieren S01E01](http://127.0.0.1:3000/_debug/provider/animeflv/stream/series/tt22248376:1:1.json)
+- [AnimeFLV Your Name](http://127.0.0.1:3000/_debug/provider/animeflv/stream/movie/tt5311514.json)
 
 ## Deploy en Railway
 

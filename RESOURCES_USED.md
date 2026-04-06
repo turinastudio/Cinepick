@@ -206,3 +206,28 @@ Conclusion practica:
   - `Your Name.`
 - el addon completo de `animestream-addon` no se porto tal cual
 - lo mas reutilizable para nuestro caso fue la capa de mappings/catalogo, no su flujo de streams por `AllAnime`
+
+## extensions-source
+
+Ruta:
+
+- [Recursos/extensions-source](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/extensions-source)
+
+Nos sirvio para:
+
+- portar providers anime desde extensiones Tachiyomi/Aniyomi
+- tomar la logica real de:
+  - busqueda
+  - episodios
+  - parsing de players
+
+Partes especialmente utiles:
+
+- [src/es/animeav1](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/extensions-source/src/es/animeav1)
+- [src/es/animeflv](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/extensions-source/src/es/animeflv)
+
+Conclusion practica:
+
+- `animeav1` y `animeflv` salieron de aca
+- la arquitectura original no se porto literal
+- se adapto la logica al runtime HTTP/extractors de este addon

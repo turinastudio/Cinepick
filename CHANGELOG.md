@@ -21,9 +21,20 @@
   - `Mail.ru`
   - `Fembed`
 - Se agrego [src/lib/anime-mappings.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/anime-mappings.js) para aprovechar mappings locales de anime.
+- Se agrego [src/lib/anime-relations.js](/C:/Users/lautaroturina/Desktop/Codex%20Stremio%20Addon/src/lib/anime-relations.js) para soportar IDs anime extra:
+  - `mal:`
+  - `anilist:`
+  - `kitsu:`
+  - `anidb:`
 - El matching anime ahora usa datos locales de `animestream-addon`:
   - `catalog.json.gz`
   - `otaku-mappings.json`
+- `animeav1` ahora suma metadata adicional cuando esta disponible:
+  - `releaseInfo`
+  - `runtime`
+  - `trailers`
+  - `links` relacionados
+- `animeflv` ahora suma metadata y thumbnails de episodios cuando se pueden inferir.
 - Casos validados:
   - `Frieren`
   - `Your Name.`
@@ -48,6 +59,14 @@
 
 - El tester CLI ahora sirve tambien para providers anime via fallback `tmdb:<id>` cuando no hay IMDb util.
 - Se agregaron casos reales de debug anime para validar matching y streams.
+
+### Ranking
+
+- Se ajusto el scoring global para priorizar `animeav1` y `animeflv` en contexto anime.
+- La prioridad anime ahora impacta:
+  - el bonus de score
+  - y la seleccion final global
+- Tambien se reforzo el filtro para que providers anime no participen en contenido no anime.
 
 ## [Unreleased] - 2026-04-03
 

@@ -204,6 +204,7 @@ Conclusion practica:
 - fue clave para que `animeav1` pueda matchear mejor anime como:
   - `Frieren`
   - `Your Name.`
+- tambien sirvio como base para reforzar soporte de `dub` y criterio de elegibilidad anime
 - el addon completo de `animestream-addon` no se porto tal cual
 - lo mas reutilizable para nuestro caso fue la capa de mappings/catalogo, no su flujo de streams por `AllAnime`
 
@@ -232,8 +233,43 @@ Conclusion practica:
 - `animeav1`, `animeflv` y `lacartoons` salieron de aca
 - la arquitectura original no se porto literal
 - se adapto la logica al runtime HTTP/extractors de este addon
+- la parte anime se beneficio especialmente de:
+  - parsing de `anime_info`
+  - parsing de `episodes`
+  - parsing de `videos`
+  - estructura `SUB/DUB`
 
 Ademas, `lacartoons` obligo a reforzar extractors:
 
 - se porto soporte real para `RpmVid`
 - fue validado con `Coraje, el perro cobarde` S02E01
+
+## animeflv-stremio-addon
+
+Ruta:
+
+- [Recursos/animeflv-stremio-addon](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/animeflv-stremio-addon)
+
+Nos sirvio para:
+
+- revisar una implementacion Stremio dedicada a anime
+- comparar nuestro `animeav1` y `animeflv` contra otro addon ya armado
+- detectar mejoras concretas para:
+  - metadata anime
+  - soporte de IDs anime alternativos
+  - parsing mas fino de `AnimeAV1`
+
+Partes especialmente utiles:
+
+- [routes/animeFLV.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/animeflv-stremio-addon/routes/animeFLV.js)
+- [routes/animeav1.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/animeflv-stremio-addon/routes/animeav1.js)
+- [routes/relations.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/animeflv-stremio-addon/routes/relations.js)
+
+Conclusion practica:
+
+- no convino portar su arquitectura express ni su capa de combinacion de streams
+- no convino reemplazar nuestros extractors
+- si convino reutilizar ideas para:
+  - metadata mas rica en `animeav1` y `animeflv`
+  - soporte de IDs `mal`, `anilist`, `kitsu` y `anidb`
+  - mejor parsing de `AnimeAV1` para `embeds` y `downloads`

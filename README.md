@@ -36,10 +36,26 @@ La arquitectura actual mezcla lo mejor de dos mundos:
   - soporta series y peliculas anime
   - separa `LAT SUB` y `LAT DUB`
   - usa mappings locales desde `animestream-addon` para mejorar matching
+  - soporta IDs anime extra:
+    - `mal:`
+    - `anilist:`
+    - `kitsu:`
+    - `anidb:`
+  - agrega metadata enriquecida:
+    - `releaseInfo`
+    - `runtime`
+    - `trailers`
+    - `links` relacionados
 - `animeflv`
   - soporta series y peliculas anime
   - actualmente se trata como provider `LAT SUB`
   - usa mappings locales para mejorar matching anime
+  - soporta IDs anime extra:
+    - `mal:`
+    - `anilist:`
+    - `kitsu:`
+    - `anidb:`
+  - agrega thumbnails y metadata extra cuando se pueden inferir
 
 ### Providers animacion retro funcionando
 
@@ -108,6 +124,11 @@ Hoy mezcla extractors previos del proyecto con ports/adaptaciones inspiradas en 
 
 - [src/lib/stream-scoring.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/stream-scoring.js)
 - [src/lib/stream-format.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/stream-format.js)
+
+Regla importante actual:
+
+- en seleccion global, si el item se detecta como anime real, `animeav1` y `animeflv` reciben prioridad por score y por seleccion final
+- esa preferencia no deberia activarse en series o peliculas normales
 
 ## Ejecutar en local
 

@@ -58,6 +58,16 @@ Se eligio una arquitectura hibrida:
   - usa `catalog.json.gz` y `otaku-mappings.json` de `animestream-addon`
   - mejora matching por `imdb`, `tmdb`, `slug` y aliases anime
   - separa `LAT SUB` y `LAT DUB`
+  - soporta tambien IDs:
+    - `mal:`
+    - `anilist:`
+    - `kitsu:`
+    - `anidb:`
+  - suma metadata mas rica:
+    - `releaseInfo`
+    - `runtime`
+    - `trailers`
+    - `links` relacionados
   - validado con:
     - `Frieren`
     - `Your Name.`
@@ -66,6 +76,12 @@ Se eligio una arquitectura hibrida:
   - usa la estructura `browse + anime_info + episodes + var videos`
   - usa tambien `catalog.json.gz` y `otaku-mappings.json` para matching
   - por ahora se trata como provider `LAT SUB`
+  - soporta tambien IDs:
+    - `mal:`
+    - `anilist:`
+    - `kitsu:`
+    - `anidb:`
+  - suma thumbnails de episodios y metadata extra cuando el HTML lo permite
   - validado con:
     - `Frieren`
     - `Your Name.`
@@ -149,6 +165,7 @@ Esto fue clave para casos como:
 La capa anime nueva usa:
 
 - [src/lib/anime-mappings.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/anime-mappings.js)
+- [src/lib/anime-relations.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/anime-relations.js)
 
 Fuentes locales usadas:
 
@@ -160,6 +177,24 @@ Motivo:
 - TMDB/IMDb solos fallan demasiado en anime
 - el catalogo local aporta `synonyms`, `slug` e `imdb_id`
 - `otaku-mappings.json` aporta puentes `tmdb/imdb/title` y flag `dub`
+- `anime-relations.js` agrega compatibilidad con IDs anime de:
+  - `MyAnimeList`
+  - `AniList`
+  - `Kitsu`
+  - `AniDB`
+  usando `relations.yuna.moe`
+
+## Ranking anime
+
+Se ajusto [src/lib/stream-scoring.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/stream-scoring.js) para que:
+
+- en contexto anime, `animeav1` y `animeflv` tengan bonus adicional
+- y la seleccion global intente reservar lugar primero para esos providers
+
+Objetivo:
+
+- que en anime real no ganen tan facil providers generales como `Gnula`, `Mhdflix` o `VerSeriesOnline`
+- sin activar esa prioridad en contenido normal
 
 ## Limpieza pendiente
 

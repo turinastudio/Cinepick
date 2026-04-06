@@ -9,6 +9,11 @@ import {
   getOtakuMappingTitles,
   hasOtakuDub
 } from "../lib/anime-mappings.js";
+import {
+  isSupportedAnimeExternalId,
+  parseAnimeExternalId,
+  resolveAnimeImdbId
+} from "../lib/anime-relations.js";
 import { buildStream, resolveExtractorStream } from "../lib/extractors.js";
 import { buildStremioId } from "../lib/ids.js";
 import { basicTitleSimilarity, normalizeMediaTitle } from "../lib/tmdb.js";
@@ -58,6 +63,10 @@ function buildEpisodeLabel(number) {
     return String(numeric);
   }
   return String(number || "").trim();
+}
+
+function extractYear(value) {
+  return String(value || "").match(/\b(19|20)\d{2}\b/)?.[0] || "";
 }
 
 function normalizeAnimeTitle(value) {
@@ -219,17 +228,27 @@ export class AnimeAv1Provider extends WebstreamBaseProvider {
     const pageUrl = absoluteUrl(path, this.baseUrl);
     const html = await fetchText(pageUrl).catch(() => "");
     const videos = type === "series" ? this.buildEpisodeVideos(pageUrl, html) : [];
+    const title = this.extractTitle(html) || this.unslugify(path);
+    const year = this.extractYear(html);
+    const runtime = this.extractRuntime(html);
+    const trailer = this.extractTrailer(html);
+    const links = this.extractRelatedLinks(html);
 
     return {
       id: buildStremioId(this.id, type, slug),
       type,
-      name: this.extractTitle(html) || this.unslugify(path),
+      name: title,
       poster: this.extractPoster(html),
       background: this.extractPoster(html),
       description: this.extractDescription(html),
       genres: this.extractGenres(html),
       cast: [],
-      videos
+      videos,
+      ...(year ? { releaseInfo: year } : {}),
+      ...(runtime ? { runtime } : {}),
+      ...(trailer ? { trailers: [{ source: trailer, type: "Trailer" }] } : {}),
+      ...(links.length > 0 ? { links } : {}),
+      ...(videos.length === 1 ? { behaviorHints: { defaultVideoId: videos[0].id } } : {})
     };
   }
 
@@ -265,25 +284,21 @@ export class AnimeAv1Provider extends WebstreamBaseProvider {
       provider: this.id,
       type,
       externalId,
-      supported: externalId?.startsWith("tt") || externalId?.startsWith("tmdb:") || false
+      supported: isSupportedAnimeExternalId(externalId)
     };
 
     if (!debug.supported) {
       return debug;
     }
 
-    const parsedExternal = externalId.startsWith("tmdb:")
-      ? {
-          baseId: externalId.replace(/^tmdb:/, "").split(":")[0],
-          season: type === "series" ? Number.parseInt(externalId.split(":")[1] || "0", 10) || null : null,
-          episode: type === "series" ? Number.parseInt(externalId.split(":")[2] || "0", 10) || null : null
-        }
-      : this.parseExternalStremioId(type, externalId);
+    const parsedExternal = parseAnimeExternalId(type, externalId);
     debug.parsedExternal = parsedExternal;
+    if (!parsedExternal?.baseId) {
+      debug.status = "invalid_external_id";
+      return debug;
+    }
 
-    const externalMeta = externalId.startsWith("tmdb:")
-      ? await this.buildMetaFromTmdb(type, parsedExternal.baseId)
-      : await this.fetchCinemetaMeta(type, parsedExternal.baseId);
+    const externalMeta = await this.resolveExternalMeta(type, externalId, parsedExternal);
     debug.externalMeta = externalMeta
       ? {
           id: externalMeta.id,
@@ -381,11 +396,13 @@ export class AnimeAv1Provider extends WebstreamBaseProvider {
 
   buildEpisodeVideos(pageUrl, html) {
     const episodes = this.extractEpisodeEntries(pageUrl, html);
+    const thumbnailBase = this.extractEpisodeThumbnailBase(html);
     return episodes.map((item) => ({
       id: buildStremioId(this.id, "series", this.encodePathToken(item.path)),
       title: `Episodio ${buildEpisodeLabel(item.number)}`,
       season: 1,
-      episode: Number.parseInt(String(item.number), 10) || 0
+      episode: Number.parseInt(String(item.number), 10) || 0,
+      ...(thumbnailBase ? { thumbnail: thumbnailBase.replace("{episode}", String(item.number)) } : {})
     }));
   }
 
@@ -459,34 +476,53 @@ export class AnimeAv1Provider extends WebstreamBaseProvider {
     return groups.flat().filter(Boolean);
   }
 
+  async resolveExternalMeta(type, externalId, parsedExternal) {
+    if (parsedExternal.kind === "tmdb") {
+      return this.buildMetaFromTmdb(type, parsedExternal.baseId);
+    }
+
+    if (parsedExternal.kind === "imdb") {
+      return this.fetchCinemetaMeta(type, parsedExternal.baseId);
+    }
+
+    const imdbId = await resolveAnimeImdbId(externalId).catch(() => null);
+    if (imdbId) {
+      return this.fetchCinemetaMeta(type, imdbId);
+    }
+
+    return null;
+  }
+
   extractRawPlayers(html, referer) {
     const script = this.extractNodeScript(html);
     const players = [];
     const hasKnownDub = hasOtakuDub(this._currentOtakuMapping);
 
     for (const language of ["SUB", "DUB"]) {
-      const sectionRegex = new RegExp(`${language}\\s*:\\s*\\[([\\s\\S]*?)\\]`, "i");
-      const sectionMatch = script.match(sectionRegex);
-      if (!sectionMatch) {
-        continue;
-      }
-
-      const itemRegex = /\{\s*server\s*:\s*"([^"]*)"\s*,\s*url\s*:\s*"([^"]*)"\s*\}/g;
-      let itemMatch;
-      while ((itemMatch = itemRegex.exec(sectionMatch[1]))) {
-        const server = normalizeServerName(itemMatch[1]);
-        const rawUrl = decodeJsString(itemMatch[2]).split("?embed")[0];
-        if (!rawUrl) {
+      for (const sectionType of ["embeds", "downloads"]) {
+        const sectionRegex = new RegExp(`${sectionType}\\s*:\\s*\\{[\\s\\S]*?${language}\\s*:\\s*\\[([\\s\\S]*?)\\]`, "i");
+        const sectionMatch = script.match(sectionRegex);
+        if (!sectionMatch) {
           continue;
         }
 
-        players.push({
-          language,
-          server,
-          url: rawUrl,
-          referer,
-          hasKnownDub
-        });
+        const itemRegex = /\{\s*server\s*:\s*"([^"]*)"\s*,\s*url\s*:\s*"([^"]*)"\s*\}/g;
+        let itemMatch;
+        while ((itemMatch = itemRegex.exec(sectionMatch[1]))) {
+          const server = normalizeServerName(itemMatch[1]);
+          const rawUrl = decodeJsString(itemMatch[2]).split("?embed")[0];
+          if (!rawUrl) {
+            continue;
+          }
+
+          players.push({
+            language,
+            server,
+            url: rawUrl,
+            referer,
+            hasKnownDub
+          });
+        }
       }
     }
 
@@ -830,6 +866,60 @@ export class AnimeAv1Provider extends WebstreamBaseProvider {
 
   extractNodeScript(html) {
     return String(html || "").match(/<script[^>]*>[\s\S]*?node_ids[\s\S]*?<\/script>/i)?.[0] || "";
+  }
+
+  extractYear(html) {
+    return extractYear(
+      html.match(/startDate:\s*"([^"]+)"/i)?.[1]
+      || html.match(/endDate:\s*"([^"]+)"/i)?.[1]
+      || html
+    );
+  }
+
+  extractRuntime(html) {
+    const runtime = html.match(/runtime:\s*([0-9]+)/i)?.[1];
+    return runtime ? `${runtime}m` : "";
+  }
+
+  extractTrailer(html) {
+    return cleanText(html.match(/trailer:\s*"([^"]+)"/i)?.[1] || "");
+  }
+
+  extractRelatedLinks(html) {
+    const $ = cheerio.load(String(html || ""));
+    const links = [];
+
+    $("a[href*='/media/']").each((_, element) => {
+      const href = $(element).attr("href") || "";
+      const title = cleanText($(element).find("h3").first().text() || $(element).text());
+      if (!href || !title) {
+        return;
+      }
+
+      const relation = cleanText($(element).find("span").last().text());
+      const slug = href.match(/\/media\/([^/]+)/)?.[1];
+      if (!slug) {
+        return;
+      }
+
+      links.push({
+        name: title,
+        category: relation || "Relacionado",
+        url: `stremio:///detail/series/${buildStremioId(this.id, "series", this.encodePathToken(`/media/${slug}`))}`
+      });
+    });
+
+    return Array.from(new Map(links.map((item) => [`${item.category}:${item.name}`, item])).values()).slice(0, 12);
+  }
+
+  extractEpisodeThumbnailBase(html) {
+    const posterUrl = this.extractPoster(html);
+    const posterId = String(posterUrl).match(/\/(\d+)\.(?:jpg|jpeg|png|webp)(?:\?|$)/i)?.[1];
+    if (!posterId) {
+      return "";
+    }
+
+    return `https://cdn.animeav1.com/screenshots/${posterId}/{episode}.jpg`;
   }
 
   extractTitle(html) {

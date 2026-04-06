@@ -21,10 +21,25 @@ import { absoluteUrl, mapSearchItem, stripTags } from "../lib/webstreamer/common
 import { fetchJson, fetchText } from "../lib/webstreamer/http.js";
 import { WebstreamBaseProvider } from "./webstreambase.js";
 
+function slugify(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, " ")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
 function cleanText(value) {
   return stripTags(value)
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function buildUniqueAnimeTitles(values = []) {
+  return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))];
 }
 
 function normalizeAnimeTitle(value) {
@@ -144,7 +159,7 @@ export class AnimeFlvProvider extends WebstreamBaseProvider {
       supportedTypes: ["movie", "series"]
     });
 
-    this.baseUrl = process.env.ANIMEFLV_BASE_URL || "https://www3.animeflv.net";
+    this.baseUrl = process.env.ANIMEFLV_BASE_URL || "https://www4.animeflv.net";
   }
 
   buildSearchQueries(externalMeta, extraTitles = []) {
@@ -193,6 +208,10 @@ export class AnimeFlvProvider extends WebstreamBaseProvider {
       }
     }
 
+    if (!items.length) {
+      items.push(...this.buildDirectCandidates(type, externalMeta));
+    }
+
     return this.dedupeById(items);
   }
 
@@ -203,6 +222,26 @@ export class AnimeFlvProvider extends WebstreamBaseProvider {
 
     const html = await fetchText(`${this.baseUrl}/browse?q=${encodeURIComponent(query.trim())}`).catch(() => "");
     return this.extractSearchItems(html, type);
+  }
+
+  buildDirectCandidates(type, externalMeta) {
+    const titles = buildUniqueAnimeTitles([
+      externalMeta?.name,
+      ...(Array.isArray(externalMeta?._searchTitles) ? externalMeta._searchTitles : [])
+    ]);
+    const slugs = buildUniqueAnimeTitles(
+      titles
+        .map((value) => slugify(value))
+        .filter(Boolean)
+    );
+
+    return slugs.map((slug, index) => mapSearchItem(
+      this.id,
+      type,
+      this.encodePathToken(`/anime/${slug}`),
+      titles[index] || this.unslugify(slug),
+      ""
+    ));
   }
 
   async getMeta({ type, slug }) {

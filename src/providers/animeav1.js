@@ -38,6 +38,10 @@ function cleanText(value) {
     .trim();
 }
 
+function buildUniqueAnimeTitles(values = []) {
+  return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))];
+}
+
 function decodeJsString(value) {
   return String(value || "")
     .replace(/\\"/g, "\"")
@@ -211,6 +215,10 @@ export class AnimeAv1Provider extends WebstreamBaseProvider {
       }
     }
 
+    if (!items.length) {
+      items.push(...this.buildDirectCandidates(type, externalMeta));
+    }
+
     return this.dedupeById(items);
   }
 
@@ -221,6 +229,26 @@ export class AnimeAv1Provider extends WebstreamBaseProvider {
 
     const html = await fetchText(`${this.baseUrl}/catalogo?search=${encodeURIComponent(query.trim())}`).catch(() => "");
     return this.extractSearchItems(html, type);
+  }
+
+  buildDirectCandidates(type, externalMeta) {
+    const titles = buildUniqueAnimeTitles([
+      externalMeta?.name,
+      ...(Array.isArray(externalMeta?._searchTitles) ? externalMeta._searchTitles : [])
+    ]);
+    const slugs = buildUniqueAnimeTitles(
+      titles
+        .map((value) => slugify(value))
+        .filter(Boolean)
+    );
+
+    return slugs.map((slug, index) => mapSearchItem(
+      this.id,
+      type,
+      this.encodePathToken(`/media/${slug}`),
+      titles[index] || this.unslugify(slug),
+      ""
+    ));
   }
 
   async getMeta({ type, slug }) {
@@ -612,6 +640,9 @@ export class AnimeAv1Provider extends WebstreamBaseProvider {
 
   pickBestCandidate(candidates, externalMeta) {
     const searchTitles = this.buildSearchQueries(externalMeta, externalMeta?._searchTitles || []);
+    const primaryTitles = buildUniqueAnimeTitles([externalMeta?.name]);
+    const primaryNormalizedTitles = primaryTitles.map((value) => normalizeAnimeTitle(value));
+    const primarySlugs = primaryTitles.map((value) => slugify(value)).filter(Boolean);
     const mapping = externalMeta?._animeMapping || null;
     const otakuMapping = externalMeta?._otakuMapping || null;
     const mappingTitles = getAnimeMappingTitles(mapping).map((value) => normalizeAnimeTitle(value));
@@ -623,6 +654,21 @@ export class AnimeAv1Provider extends WebstreamBaseProvider {
       const candidateTitle = normalizeAnimeTitle(candidate.name);
       const candidateSlug = this.extractCandidateSlug(candidate);
       let score = 0;
+
+      for (const target of primaryNormalizedTitles) {
+        if (!target || !candidateTitle) {
+          continue;
+        }
+
+        let localScore = basicTitleSimilarity(candidateTitle, target);
+        if (candidateTitle === target) {
+          localScore = 1.45;
+        } else if (candidateTitle.includes(target) || target.includes(candidateTitle)) {
+          localScore = Math.max(localScore, 1.2);
+        }
+
+        score = Math.max(score, localScore);
+      }
 
       for (const target of searchTitles) {
         const normalizedTarget = normalizeAnimeTitle(target);
@@ -669,6 +715,18 @@ export class AnimeAv1Provider extends WebstreamBaseProvider {
         }
 
         score = Math.max(score, localScore);
+      }
+
+      for (const target of primarySlugs) {
+        if (!target || !candidateSlug) {
+          continue;
+        }
+
+        if (candidateSlug === target) {
+          score = Math.max(score, 1.55);
+        } else if (candidateSlug.includes(target) || target.includes(candidateSlug)) {
+          score = Math.max(score, 1.25);
+        }
       }
 
       if (expectedSlug && candidateSlug) {

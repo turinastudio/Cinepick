@@ -44,6 +44,26 @@ function providerSupportsTmdbFallback(providerId) {
   return ["animeav1", "animeflv"].includes(String(providerId || "").trim().toLowerCase());
 }
 
+function parseDirectExternalId(rawId, type, season, episode) {
+  const value = String(rawId || "").trim();
+  if (!value) {
+    return null;
+  }
+
+  if (/^tt\d+$/i.test(value)) {
+    return buildExternalId(value, type, season, episode);
+  }
+
+  if (/^(tmdb|mal|anilist|kitsu|anidb):/i.test(value)) {
+    if (type === "series" && season && episode && !/^tmdb:\d+:\d+:\d+$/i.test(value)) {
+      return `${value}:${season}:${episode}`;
+    }
+    return value;
+  }
+
+  return null;
+}
+
 function buildExternalId(imdbId, type, season, episode) {
   if (type === "series" && season && episode) {
     return `${imdbId}:${season}:${episode}`;
@@ -58,7 +78,7 @@ function printHeader(providerId, tmdbId, type, season, episode) {
     : "";
 
   console.log(`\nTesting ${providerId} provider...`);
-  console.log(`TMDB: ${tmdbId} | Tipo: ${type}${seasonTag}\n`);
+  console.log(`Input: ${tmdbId} | Tipo: ${type}${seasonTag}\n`);
 }
 
 function normalizeMode(value) {
@@ -199,20 +219,20 @@ async function run() {
 
   for (const id of providerIds) {
     if (id === "global") {
-      const imdbId = await resolveImdbId(tmdbId, type).catch(() => null);
-      const externalId = imdbId
-        ? buildExternalId(imdbId, type, season, episode)
-        : null;
+      const directExternalId = parseDirectExternalId(tmdbId, type, season, episode);
+      const imdbId = directExternalId ? null : await resolveImdbId(tmdbId, type).catch(() => null);
+      const externalId = directExternalId
+        || (imdbId ? buildExternalId(imdbId, type, season, episode) : null);
 
       if (!externalId) {
         console.log(`\nTesting global selection...`);
-        console.log(`TMDB: ${tmdbId} | Tipo: ${type}${type === "series" && season && episode ? ` | S${season}E${episode}` : ""}\n`);
-        console.log(`ERROR: No se pudo resolver IMDb desde TMDB ${tmdbId}\n`);
+        console.log(`Input: ${tmdbId} | Tipo: ${type}${type === "series" && season && episode ? ` | S${season}E${episode}` : ""}\n`);
+        console.log(`ERROR: No se pudo resolver un external ID valido desde ${tmdbId}\n`);
         continue;
       }
 
       console.log(`\nTesting global selection...`);
-      console.log(`TMDB: ${tmdbId} | Tipo: ${type}${type === "series" && season && episode ? ` | S${season}E${episode}` : ""}\n`);
+      console.log(`Input: ${tmdbId} | Tipo: ${type}${type === "series" && season && episode ? ` | S${season}E${episode}` : ""}\n`);
       const result = await debugStreamsFromExternalId(type, externalId);
       printResult(result, mode);
       continue;
@@ -224,17 +244,19 @@ async function run() {
       continue;
     }
 
-    const imdbId = await resolveImdbId(tmdbId, type).catch(() => null);
-    const externalId = imdbId
-      ? buildExternalId(imdbId, type, season, episode)
-      : providerSupportsTmdbFallback(id)
-        ? (type === "series" && season && episode ? `tmdb:${tmdbId}:${season}:${episode}` : `tmdb:${tmdbId}`)
-        : null;
+    const directExternalId = parseDirectExternalId(tmdbId, type, season, episode);
+    const imdbId = directExternalId ? null : await resolveImdbId(tmdbId, type).catch(() => null);
+    const externalId = directExternalId
+      || (imdbId
+        ? buildExternalId(imdbId, type, season, episode)
+        : providerSupportsTmdbFallback(id)
+          ? (type === "series" && season && episode ? `tmdb:${tmdbId}:${season}:${episode}` : `tmdb:${tmdbId}`)
+          : null);
 
     if (!externalId) {
       console.log(`\nTesting ${id} provider...`);
-      console.log(`TMDB: ${tmdbId} | Tipo: ${type}${type === "series" && season && episode ? ` | S${season}E${episode}` : ""}\n`);
-      console.log(`ERROR: No se pudo resolver IMDb desde TMDB ${tmdbId}\n`);
+      console.log(`Input: ${tmdbId} | Tipo: ${type}${type === "series" && season && episode ? ` | S${season}E${episode}` : ""}\n`);
+      console.log(`ERROR: No se pudo resolver un external ID valido desde ${tmdbId}\n`);
       continue;
     }
 

@@ -42,11 +42,50 @@ function buildUniqueAnimeTitles(values = []) {
   return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))];
 }
 
+function expandAnimeTitleVariants(values = []) {
+  const variants = new Set();
+
+  for (const rawValue of values) {
+    const value = String(rawValue || "").trim();
+    if (!value) {
+      continue;
+    }
+
+    variants.add(value);
+
+    const noPunctuation = value.replace(/[!?:]/g, " ").replace(/\s+/g, " ").trim();
+    if (noPunctuation) {
+      variants.add(noPunctuation);
+    }
+
+    const beforeColon = value.split(":")[0]?.trim();
+    if (beforeColon) {
+      variants.add(beforeColon);
+      variants.add(beforeColon.replace(/[!?:]/g, " ").replace(/\s+/g, " ").trim());
+    }
+
+    const beforeDash = value.split(" - ")[0]?.trim();
+    if (beforeDash) {
+      variants.add(beforeDash);
+    }
+  }
+
+  return [...variants].filter(Boolean);
+}
+
 function decodeJsString(value) {
   return String(value || "")
     .replace(/\\"/g, "\"")
     .replace(/\\\//g, "/")
     .replace(/\\\\/g, "\\");
+}
+
+function safeJsonParse(value, fallback = null) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
 }
 
 function normalizeServerName(value) {
@@ -171,19 +210,7 @@ export class AnimeAv1Provider extends WebstreamBaseProvider {
 
   buildSearchQueries(externalMeta, extraTitles = []) {
     const baseQueries = super.buildSearchQueries(externalMeta, extraTitles);
-    const expanded = new Set(baseQueries);
-
-    for (const value of baseQueries) {
-      const cleaned = String(value || "")
-        .replace(/[!?:]/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-      if (cleaned) {
-        expanded.add(cleaned);
-      }
-    }
-
-    return [...expanded].slice(0, 6);
+    return buildUniqueAnimeTitles(expandAnimeTitleVariants(baseQueries)).slice(0, 8);
   }
 
   async searchWithFallbackQueries({ type, externalMeta }) {
@@ -232,10 +259,10 @@ export class AnimeAv1Provider extends WebstreamBaseProvider {
   }
 
   buildDirectCandidates(type, externalMeta) {
-    const titles = buildUniqueAnimeTitles([
+    const titles = buildUniqueAnimeTitles(expandAnimeTitleVariants([
       externalMeta?.name,
       ...(Array.isArray(externalMeta?._searchTitles) ? externalMeta._searchTitles : [])
-    ]);
+    ]));
     const slugs = buildUniqueAnimeTitles(
       titles
         .map((value) => slugify(value))
@@ -255,24 +282,34 @@ export class AnimeAv1Provider extends WebstreamBaseProvider {
     const path = this.decodePathToken(slug);
     const pageUrl = absoluteUrl(path, this.baseUrl);
     const html = await fetchText(pageUrl).catch(() => "");
-    const videos = type === "series" ? this.buildEpisodeVideos(pageUrl, html) : [];
-    const title = this.extractTitle(html) || this.unslugify(path);
-    const year = this.extractYear(html);
-    const runtime = this.extractRuntime(html);
-    const trailer = this.extractTrailer(html);
-    const links = this.extractRelatedLinks(html);
+    const info = this.extractAnimeInfoData(pageUrl, html);
+    const videos = type === "series"
+      ? info.episodes.map((item) => ({
+          id: buildStremioId(this.id, "series", this.encodePathToken(item.path)),
+          title: `Episodio ${buildEpisodeLabel(item.number)}`,
+          season: 1,
+          episode: Number.parseInt(String(item.number), 10) || 0,
+          ...(info.thumbnailBase ? { thumbnail: info.thumbnailBase.replace("{episode}", String(item.number)) } : {})
+        }))
+      : [];
+    const title = info.title || this.extractTitle(html) || this.unslugify(path);
+    const poster = info.cover || this.extractPoster(html);
+    const releaseInfo = info.releaseInfo || this.extractYear(html);
+    const runtime = info.runtime || this.extractRuntime(html);
+    const trailer = info.trailer || this.extractTrailer(html);
+    const links = info.links?.length ? info.links : this.extractRelatedLinks(html);
 
     return {
       id: buildStremioId(this.id, type, slug),
       type,
       name: title,
-      poster: this.extractPoster(html),
-      background: this.extractPoster(html),
-      description: this.extractDescription(html),
-      genres: this.extractGenres(html),
+      poster,
+      background: poster,
+      description: info.synopsis || this.extractDescription(html),
+      genres: info.genres?.length ? info.genres : this.extractGenres(html),
       cast: [],
       videos,
-      ...(year ? { releaseInfo: year } : {}),
+      ...(releaseInfo ? { releaseInfo } : {}),
       ...(runtime ? { runtime } : {}),
       ...(trailer ? { trailers: [{ source: trailer, type: "Trailer" }] } : {}),
       ...(links.length > 0 ? { links } : {}),
@@ -437,7 +474,17 @@ export class AnimeAv1Provider extends WebstreamBaseProvider {
   resolveEpisodeUrl(pageUrl, html, targetEpisode) {
     const entries = this.extractEpisodeEntries(pageUrl, html);
     const exact = entries.find((item) => Number.parseFloat(String(item.number)) === Number(targetEpisode));
-    return exact ? absoluteUrl(exact.path, this.baseUrl) : null;
+    if (exact) {
+      return absoluteUrl(exact.path, this.baseUrl);
+    }
+
+    const pathname = new URL(pageUrl).pathname;
+    const slug = pathname.split("/").filter(Boolean).slice(1).join("/");
+    if (slug && targetEpisode) {
+      return absoluteUrl(`/media/${slug}/${targetEpisode}`, this.baseUrl);
+    }
+
+    return null;
   }
 
   async resolvePlaybackPage(type, pageUrl, html) {
@@ -471,24 +518,21 @@ export class AnimeAv1Provider extends WebstreamBaseProvider {
   }
 
   extractEpisodeEntries(pageUrl, html) {
-    const script = this.extractNodeScript(html);
-    const episodeListRegex = /episodes\s*:\s*\[([^\]]*)\]/i;
-    const episodeRegex = /\{\s*id\s*:\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*number\s*:\s*([0-9]+(?:\.[0-9]+)?)\s*\}/g;
-    const listMatch = script.match(episodeListRegex);
-
-    if (!listMatch) {
-      return [];
+    const pagePath = new URL(pageUrl).pathname.replace(/\/+$/, "");
+    const info = this.extractAnimeInfoData(pageUrl, html);
+    if (info.episodes.length > 0) {
+      return info.episodes;
     }
 
-    const pagePath = new URL(pageUrl).pathname.replace(/\/+$/, "");
     const episodes = [];
-    let match;
-    while ((match = episodeRegex.exec(listMatch[1]))) {
-      const number = match[2];
-      episodes.push({
-        number,
-        path: `${pagePath}/${number}`
-      });
+    const count = Number.parseInt(String(this.extractNodeScript(html).match(/episodesCount:\s*(\d+)/i)?.[1] || ""), 10);
+    if (Number.isFinite(count) && count > 0) {
+      for (let index = 1; index <= count; index += 1) {
+        episodes.push({
+          number: index,
+          path: `${pagePath}/${index}`
+        });
+      }
     }
 
     return episodes.reverse();
@@ -526,31 +570,21 @@ export class AnimeAv1Provider extends WebstreamBaseProvider {
     const players = [];
     const hasKnownDub = hasOtakuDub(this._currentOtakuMapping);
 
-    for (const language of ["SUB", "DUB"]) {
-      for (const sectionType of ["embeds", "downloads"]) {
-        const sectionRegex = new RegExp(`${sectionType}\\s*:\\s*\\{[\\s\\S]*?${language}\\s*:\\s*\\[([\\s\\S]*?)\\]`, "i");
-        const sectionMatch = script.match(sectionRegex);
-        if (!sectionMatch) {
+    for (const { language, items } of this.extractAnimeAv1Players(script)) {
+      for (const item of items) {
+        const server = normalizeServerName(item.server);
+        const rawUrl = decodeJsString(item.url).split("?embed")[0];
+        if (!server || !rawUrl) {
           continue;
         }
 
-        const itemRegex = /\{\s*server\s*:\s*"([^"]*)"\s*,\s*url\s*:\s*"([^"]*)"\s*\}/g;
-        let itemMatch;
-        while ((itemMatch = itemRegex.exec(sectionMatch[1]))) {
-          const server = normalizeServerName(itemMatch[1]);
-          const rawUrl = decodeJsString(itemMatch[2]).split("?embed")[0];
-          if (!rawUrl) {
-            continue;
-          }
-
-          players.push({
-            language,
-            server,
-            url: rawUrl,
-            referer,
-            hasKnownDub
-          });
-        }
+        players.push({
+          language,
+          server,
+          url: rawUrl,
+          referer,
+          hasKnownDub
+        });
       }
     }
 
@@ -610,15 +644,14 @@ export class AnimeAv1Provider extends WebstreamBaseProvider {
   extractSearchItems(html, type) {
     const $ = cheerio.load(String(html || ""));
     const items = [];
-    $("article[class*='group/item']").each((_, element) => {
-      const anchor = $(element).find("a[href]").first();
-      const heading = $(element).find("header h3").first();
-      const href = absoluteUrl(anchor.attr("href") || "", this.baseUrl);
+    $("body > div > div.container > main > section > div > article").each((_, element) => {
+      const entry = $(element);
+      const href = absoluteUrl(entry.find("a[href*='/media/']").first().attr("href") || "", this.baseUrl);
       if (!href) {
         return;
       }
 
-      const title = cleanText(heading.text());
+      const title = cleanText(entry.find("header > h3").first().text() || entry.find("h3").first().text());
       if (!title) {
         return;
       }
@@ -923,7 +956,9 @@ export class AnimeAv1Provider extends WebstreamBaseProvider {
   }
 
   extractNodeScript(html) {
-    return String(html || "").match(/<script[^>]*>[\s\S]*?node_ids[\s\S]*?<\/script>/i)?.[0] || "";
+    return String(html || "").match(/<script[^>]*>[\s\S]*?kit\.start\(app,\s*element,\s*\{[\s\S]*?<\/script>/i)?.[0]
+      || String(html || "").match(/<script[^>]*>[\s\S]*?node_ids[\s\S]*?<\/script>/i)?.[0]
+      || "";
   }
 
   extractYear(html) {
@@ -968,6 +1003,128 @@ export class AnimeAv1Provider extends WebstreamBaseProvider {
     });
 
     return Array.from(new Map(links.map((item) => [`${item.category}:${item.name}`, item])).values()).slice(0, 12);
+  }
+
+  extractAnimeInfoData(pageUrl, html) {
+    const $ = cheerio.load(String(html || ""));
+    const script = this.extractNodeScript(html);
+    const pathname = new URL(pageUrl).pathname.replace(/\/+$/, "");
+    const segments = pathname.split("/").filter(Boolean);
+    const slug = segments[1] || segments[0] || "";
+    const dataBlock = script.match(/data:\s*(\[[\s\S]*?\])\s*,\s*(?:node_ids|checksum|assets)/i)?.[1]
+      || script.match(/data:\s*(\[[\s\S]*\])\s*,\s*node_ids/i)?.[1]
+      || "";
+    const title = cleanText(
+      dataBlock.match(/title:\s*"([^"]+)"/i)?.[1]
+      || $("body main > article > div > div > header > div > h1").text()
+    );
+    const synopsis = cleanText(
+      dataBlock.match(/synopsis:\s*"([\s\S]*?)",\s*(?:trailer|runtime|score|genres)/i)?.[1]
+      || $("body main > article > div > div > div.entry > p").text()
+    );
+    const trailer = cleanText(dataBlock.match(/trailer:\s*"([^"]+)"/i)?.[1] || "");
+    const runtimeValue = dataBlock.match(/runtime:\s*([0-9]+)/i)?.[1];
+    const runtime = runtimeValue ? `${runtimeValue}m` : "";
+    const startDateRaw = dataBlock.match(/startDate:\s*"([^"]+)"/i)?.[1] || "";
+    const endDateRaw = dataBlock.match(/endDate:\s*"([^"]+)"/i)?.[1] || "";
+    const startYear = extractYear(startDateRaw);
+    const endYear = extractYear(endDateRaw);
+    const releaseInfo = startYear ? `${startYear}${endYear ? `-${endYear}` : ""}` : this.extractYear(html);
+    const episodes = [];
+    const episodesCount = Number.parseInt(String(dataBlock.match(/episodesCount:\s*(\d+)/i)?.[1] || ""), 10);
+    if (Number.isFinite(episodesCount) && episodesCount > 0) {
+      for (let index = 1; index <= episodesCount; index += 1) {
+        episodes.push({
+          number: index,
+          path: `/media/${slug}/${index}`
+        });
+      }
+    }
+
+    const alternativeTitles = [];
+    const akaMatch = dataBlock.match(/aka:\s*(\{[\s\S]*?\})\s*,\s*(?:season|episodesCount|runtime|score|genres|updatedAt)/i)?.[1];
+    const akaValues = safeJsonParse(akaMatch, null);
+    if (akaValues && typeof akaValues === "object") {
+      alternativeTitles.push(...Object.values(akaValues));
+    } else {
+      $("body main > article > div > div > header > div > h2").each((_, element) => {
+        alternativeTitles.push(cleanText($(element).text()));
+      });
+    }
+
+    const links = [];
+    $("body > div > div.container > main > section:nth-child(2) a[href*='/media/']").each((_, element) => {
+      const href = $(element).attr("href") || "";
+      const relatedSlug = href.match(/\/media\/([^/]+)/)?.[1];
+      const relatedTitle = cleanText($(element).find("h3").text() || $(element).text());
+      const relation = cleanText($(element).find("h3 + span").text());
+      if (!relatedSlug || !relatedTitle) {
+        return;
+      }
+
+      links.push({
+        name: relatedTitle,
+        category: relation || "Relacionado",
+        url: `stremio:///detail/series/${buildStremioId(this.id, "series", this.encodePathToken(`/media/${relatedSlug}`))}`
+      });
+    });
+
+    return {
+      slug,
+      title,
+      synopsis: decodeJsString(synopsis),
+      cover: absoluteUrl(
+        $("body main > article > div > div > figure > img").attr("src")
+        || $("img[class*='object-cover']").attr("src")
+        || "",
+        this.baseUrl
+      ),
+      genres: Array.from(new Set(
+        [
+          ...Array.from(dataBlock.matchAll(/name:\s*"([^"]+)"/gi), (match) => cleanText(match[1])),
+          ...$("body main > article > div > div > header > div > a").map((_, element) => cleanText($(element).text())).get()
+        ].filter(Boolean)
+      )),
+      runtime,
+      trailer,
+      releaseInfo,
+      episodes: episodes.reverse(),
+      alternativeTitles: buildUniqueAnimeTitles(alternativeTitles),
+      links: Array.from(new Map(links.map((item) => [`${item.category}:${item.name}`, item])).values()).slice(0, 12),
+      thumbnailBase: this.extractEpisodeThumbnailBase(html)
+    };
+  }
+
+  extractAnimeAv1Players(script) {
+    const players = [];
+    const itemRegex = /\{\s*server\s*:\s*"([^"]*)"\s*,\s*url\s*:\s*"([^"]*)"\s*\}/g;
+
+    for (const language of ["SUB", "DUB"]) {
+      for (const section of ["embeds", "downloads"]) {
+        const sectionMatch = script.match(new RegExp(`${section}:\\s*[\\s\\S]*?${language}:\\s*(\\[[\\s\\S]*?\\])`, "i"));
+        if (!sectionMatch?.[1]) {
+          continue;
+        }
+
+        const rawItems = [];
+        let match;
+        while ((match = itemRegex.exec(sectionMatch[1]))) {
+          rawItems.push({
+            server: match[1],
+            url: match[2]
+          });
+        }
+
+        if (rawItems.length > 0) {
+          players.push({
+            language,
+            items: rawItems
+          });
+        }
+      }
+    }
+
+    return players;
   }
 
   extractEpisodeThumbnailBase(html) {

@@ -22,6 +22,28 @@ function normalizeAnimeLookupTitle(value) {
     .trim();
 }
 
+function getSignificantWords(value) {
+  return String(value || "")
+    .split(/\s+/)
+    .map((word) => word.trim())
+    .filter((word) => word.length >= 3);
+}
+
+function hasStrongExactMatch(left, right) {
+  return Boolean(left && right && left === right && Math.min(left.length, right.length) >= 3);
+}
+
+function hasStrongContainment(left, right) {
+  if (!left || !right) {
+    return false;
+  }
+
+  const shorter = left.length <= right.length ? left : right;
+  return Math.min(left.length, right.length) >= 4
+    && shorter.includes(" ")
+    && (left.includes(right) || right.includes(left));
+}
+
 function ensureCatalogLoaded() {
   if (animeCatalogCache) {
     return animeCatalogCache;
@@ -140,13 +162,13 @@ function scoreCatalogMatch(item, normalizedQueries, year) {
         continue;
       }
 
-      if (normalizedValue === query) {
+      if (hasStrongExactMatch(normalizedValue, query)) {
         score = Math.max(score, 100);
-      } else if (normalizedValue.includes(query) || query.includes(normalizedValue)) {
+      } else if (hasStrongContainment(normalizedValue, query)) {
         score = Math.max(score, 85);
       } else {
-        const queryWords = query.split(/\s+/).filter(Boolean);
-        const valueWords = normalizedValue.split(/\s+/).filter(Boolean);
+        const queryWords = getSignificantWords(query);
+        const valueWords = getSignificantWords(normalizedValue);
         const overlap = queryWords.filter((word) => valueWords.includes(word)).length;
         if (overlap > 0) {
           const localScore = Math.round((overlap / Math.max(queryWords.length, valueWords.length)) * 70);
@@ -213,10 +235,18 @@ export function findBestOtakuMappingByTitle(titles = []) {
 
       for (const normalizedValue of normalizedValues) {
         for (const query of queries) {
-          if (normalizedValue === query) {
+          if (hasStrongExactMatch(normalizedValue, query)) {
             score = Math.max(score, 100);
-          } else if (normalizedValue.includes(query) || query.includes(normalizedValue)) {
+          } else if (hasStrongContainment(normalizedValue, query)) {
             score = Math.max(score, 85);
+          } else {
+            const queryWords = getSignificantWords(query);
+            const valueWords = getSignificantWords(normalizedValue);
+            const overlap = queryWords.filter((word) => valueWords.includes(word)).length;
+            if (overlap > 0) {
+              const localScore = Math.round((overlap / Math.max(queryWords.length, valueWords.length)) * 70);
+              score = Math.max(score, localScore);
+            }
           }
         }
       }
@@ -238,10 +268,18 @@ export function findBestOtakuMappingByTitle(titles = []) {
       }
 
       for (const query of queries) {
-        if (normalizedValue === query) {
+        if (hasStrongExactMatch(normalizedValue, query)) {
           score = Math.max(score, 100);
-        } else if (normalizedValue.includes(query) || query.includes(normalizedValue)) {
+        } else if (hasStrongContainment(normalizedValue, query)) {
           score = Math.max(score, 85);
+        } else {
+          const queryWords = getSignificantWords(query);
+          const valueWords = getSignificantWords(normalizedValue);
+          const overlap = queryWords.filter((word) => valueWords.includes(word)).length;
+          if (overlap > 0) {
+            const localScore = Math.round((overlap / Math.max(queryWords.length, valueWords.length)) * 70);
+            score = Math.max(score, localScore);
+          }
         }
       }
     }
@@ -251,7 +289,7 @@ export function findBestOtakuMappingByTitle(titles = []) {
     }
   }
 
-  return best && best.score >= 85 ? best.entry : null;
+  return best && best.score >= 90 ? best.entry : null;
 }
 
 export function findBestAnimeMappingByTitle(titles = [], year = "") {
@@ -287,7 +325,7 @@ export function findBestAnimeMappingByTitle(titles = [], year = "") {
     }
   }
 
-  return best && best.score >= 45 ? best.item : null;
+  return best && best.score >= 70 ? best.item : null;
 }
 
 export function getAnimeMappingTitles(item) {

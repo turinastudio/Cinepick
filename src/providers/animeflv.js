@@ -42,6 +42,45 @@ function buildUniqueAnimeTitles(values = []) {
   return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))];
 }
 
+function expandAnimeTitleVariants(values = []) {
+  const variants = new Set();
+
+  for (const rawValue of values) {
+    const value = String(rawValue || "").trim();
+    if (!value) {
+      continue;
+    }
+
+    variants.add(value);
+
+    const noPunctuation = value.replace(/[!?:]/g, " ").replace(/\s+/g, " ").trim();
+    if (noPunctuation) {
+      variants.add(noPunctuation);
+    }
+
+    const beforeColon = value.split(":")[0]?.trim();
+    if (beforeColon) {
+      variants.add(beforeColon);
+      variants.add(beforeColon.replace(/[!?:]/g, " ").replace(/\s+/g, " ").trim());
+    }
+
+    const beforeDash = value.split(" - ")[0]?.trim();
+    if (beforeDash) {
+      variants.add(beforeDash);
+    }
+  }
+
+  return [...variants].filter(Boolean);
+}
+
+function safeJsonParse(value, fallback = null) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+}
+
 function normalizeAnimeTitle(value) {
   return normalizeMediaTitle(String(value || ""))
     .replace(/\b(tv|anime|movie|pelicula|ova|special)\b/g, " ")
@@ -164,19 +203,7 @@ export class AnimeFlvProvider extends WebstreamBaseProvider {
 
   buildSearchQueries(externalMeta, extraTitles = []) {
     const baseQueries = super.buildSearchQueries(externalMeta, extraTitles);
-    const expanded = new Set(baseQueries);
-
-    for (const value of baseQueries) {
-      const cleaned = String(value || "")
-        .replace(/[!?:]/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-      if (cleaned) {
-        expanded.add(cleaned);
-      }
-    }
-
-    return [...expanded].slice(0, 6);
+    return buildUniqueAnimeTitles(expandAnimeTitleVariants(baseQueries)).slice(0, 8);
   }
 
   async searchWithFallbackQueries({ type, externalMeta }) {
@@ -225,10 +252,10 @@ export class AnimeFlvProvider extends WebstreamBaseProvider {
   }
 
   buildDirectCandidates(type, externalMeta) {
-    const titles = buildUniqueAnimeTitles([
+    const titles = buildUniqueAnimeTitles(expandAnimeTitleVariants([
       externalMeta?.name,
       ...(Array.isArray(externalMeta?._searchTitles) ? externalMeta._searchTitles : [])
-    ]);
+    ]));
     const slugs = buildUniqueAnimeTitles(
       titles
         .map((value) => slugify(value))
@@ -248,21 +275,39 @@ export class AnimeFlvProvider extends WebstreamBaseProvider {
     const path = this.decodePathToken(slug);
     const pageUrl = absoluteUrl(path, this.baseUrl);
     const html = await fetchText(pageUrl).catch(() => "");
-    const videos = type === "series" ? this.buildEpisodeVideos(pageUrl, html) : [];
-    const year = this.extractYear(html);
-    const title = this.extractTitle(html) || this.unslugify(path);
+    const info = this.extractAnimeInfoData(pageUrl, html);
+    const videos = type === "series"
+      ? info.episodes.map((item) => ({
+          id: buildStremioId(this.id, "series", this.encodePathToken(item.path)),
+          title: `Episodio ${buildEpisodeLabel(item.number)}`,
+          season: 1,
+          episode: Number.parseInt(String(item.number), 10) || 0,
+          ...(info.thumbnailBase ? { thumbnail: info.thumbnailBase.replace("{episode}", String(item.number)) } : {})
+        }))
+      : [];
+    const title = info.title || this.extractTitle(html) || this.unslugify(path);
+    const poster = info.cover || this.extractPoster(html);
+    const description = info.synopsis || this.extractDescription(html);
+    const genres = info.genres?.length ? info.genres : this.extractGenres(html);
+    const releaseInfo = info.releaseInfo || this.extractYear(html);
+    const links = (info.related || []).map((item) => ({
+      name: item.title,
+      category: item.relation || "Relacionado",
+      url: `stremio:///detail/series/${buildStremioId(this.id, "series", this.encodePathToken(`/anime/${item.slug}`))}`
+    }));
 
     return {
       id: buildStremioId(this.id, type, slug),
       type,
       name: title,
-      poster: this.extractPoster(html),
-      background: this.extractPoster(html),
-      description: this.extractDescription(html),
-      genres: this.extractGenres(html),
+      poster,
+      background: poster,
+      description,
+      genres,
       cast: [],
       videos,
-      ...(year ? { releaseInfo: year } : {}),
+      ...(releaseInfo ? { releaseInfo } : {}),
+      ...(links.length ? { links } : {}),
       ...(videos.length === 1 ? { behaviorHints: { defaultVideoId: videos[0].id } } : {})
     };
   }
@@ -410,7 +455,7 @@ export class AnimeFlvProvider extends WebstreamBaseProvider {
   }
 
   buildEpisodeVideos(pageUrl, html) {
-    const episodes = this.extractEpisodeEntries(html);
+    const episodes = this.extractEpisodeEntries(pageUrl, html);
     const thumbnailBase = this.extractEpisodeThumbnailBase(html);
     return episodes.map((item) => ({
       id: buildStremioId(this.id, "series", this.encodePathToken(item.path)),
@@ -422,9 +467,20 @@ export class AnimeFlvProvider extends WebstreamBaseProvider {
   }
 
   resolveEpisodeUrl(pageUrl, html, targetEpisode) {
-    const entries = this.extractEpisodeEntries(html);
+    const entries = this.extractEpisodeEntries(pageUrl, html);
     const exact = entries.find((item) => Number.parseFloat(String(item.number)) === Number(targetEpisode));
-    return exact ? absoluteUrl(exact.path, this.baseUrl) : null;
+    if (exact) {
+      return absoluteUrl(exact.path, this.baseUrl);
+    }
+
+    const pathname = new URL(pageUrl).pathname;
+    const segments = pathname.split("/").filter(Boolean);
+    const slug = segments.length >= 2 ? segments[1] : "";
+    if (slug && targetEpisode) {
+      return absoluteUrl(`/ver/${slug}-${targetEpisode}`, this.baseUrl);
+    }
+
+    return null;
   }
 
   async resolvePlaybackPage(type, pageUrl, html) {
@@ -432,7 +488,7 @@ export class AnimeFlvProvider extends WebstreamBaseProvider {
       return { pageUrl, html };
     }
 
-    const entries = this.extractEpisodeEntries(html);
+    const entries = this.extractEpisodeEntries(pageUrl, html);
     if (!entries.length) {
       return { pageUrl, html };
     }
@@ -457,14 +513,12 @@ export class AnimeFlvProvider extends WebstreamBaseProvider {
     };
   }
 
-  extractEpisodeEntries(html) {
+  extractEpisodeEntries(pageUrl, html) {
     const script = this.extractAnimeInfoScript(html);
-    const animeInfoRaw = script.match(/var\s+anime_info\s*=\s*\[([^\]]+)\]/i)?.[1] || "";
     const episodeSection = script.match(/var\s+episodes\s*=\s*\[([\s\S]*?)\];/i)?.[1] || "";
-    const animeInfoParts = animeInfoRaw.split(",").map((item) => item.trim().replace(/^"|"$/g, ""));
-    const animeUri = animeInfoParts[2] || "";
+    const slug = new URL(pageUrl).pathname.split("/").filter(Boolean).pop() || "";
 
-    if (!animeUri || !episodeSection) {
+    if (!slug || !episodeSection) {
       return [];
     }
 
@@ -475,7 +529,7 @@ export class AnimeFlvProvider extends WebstreamBaseProvider {
       const number = match[1];
       episodes.push({
         number,
-        path: `/ver/${animeUri}-${number}`
+        path: `/ver/${slug}-${number}`
       });
     }
 
@@ -516,7 +570,7 @@ export class AnimeFlvProvider extends WebstreamBaseProvider {
       return [];
     }
 
-    const parsed = JSON.parse(rawJson);
+    const parsed = safeJsonParse(rawJson, {});
     const players = [];
     const hasKnownDub = hasOtakuDub(this._currentOtakuMapping);
 
@@ -585,10 +639,10 @@ export class AnimeFlvProvider extends WebstreamBaseProvider {
   extractSearchItems(html, type) {
     const $ = cheerio.load(String(html || ""));
     const items = [];
-    $("div.Container ul.ListAnimes li article").each((_, element) => {
+    $("body > div.Wrapper > div > div > main > ul > li").each((_, element) => {
       const entry = $(element);
-      const href = absoluteUrl(entry.find("div.Description a.Button").attr("href") || "", this.baseUrl);
-      const title = cleanText(entry.find("a h3").text());
+      const href = absoluteUrl(entry.find("a[href*='/anime/']").first().attr("href") || "", this.baseUrl);
+      const title = cleanText(entry.find("h3").first().text());
       if (!href || !title) {
         return;
       }
@@ -602,6 +656,9 @@ export class AnimeFlvProvider extends WebstreamBaseProvider {
 
   pickBestCandidate(candidates, externalMeta) {
     const searchTitles = this.buildSearchQueries(externalMeta, externalMeta?._searchTitles || []);
+    const primaryTitles = buildUniqueAnimeTitles([externalMeta?.name]);
+    const primaryNormalizedTitles = primaryTitles.map((value) => normalizeAnimeTitle(value));
+    const primarySlugs = primaryTitles.map((value) => slugify(value)).filter(Boolean);
     const mapping = externalMeta?._animeMapping || null;
     const otakuMapping = externalMeta?._otakuMapping || null;
     const mappingTitles = getAnimeMappingTitles(mapping).map((value) => normalizeAnimeTitle(value));
@@ -610,7 +667,25 @@ export class AnimeFlvProvider extends WebstreamBaseProvider {
 
     for (const candidate of candidates) {
       const candidateTitle = normalizeAnimeTitle(candidate.name);
+      const encodedPath = String(candidate?.id || "").split(":").slice(2).join(":");
+      const decodedSlug = encodedPath
+        ? this.decodePathToken(encodedPath).split("/").filter(Boolean).pop() || ""
+        : "";
       let score = 0;
+
+      for (const target of primaryNormalizedTitles) {
+        if (!target || !candidateTitle) {
+          continue;
+        }
+
+        let localScore = basicTitleSimilarity(candidateTitle, target);
+        if (candidateTitle === target) {
+          localScore = 1.45;
+        } else if (candidateTitle.includes(target) || target.includes(candidateTitle)) {
+          localScore = Math.max(localScore, 1.2);
+        }
+        score = Math.max(score, localScore);
+      }
 
       for (const target of searchTitles) {
         const normalizedTarget = normalizeAnimeTitle(target);
@@ -647,6 +722,18 @@ export class AnimeFlvProvider extends WebstreamBaseProvider {
           localScore = Math.max(localScore, 0.98);
         }
         score = Math.max(score, localScore);
+      }
+
+      for (const target of primarySlugs) {
+        if (!target || !decodedSlug) {
+          continue;
+        }
+
+        if (decodedSlug === target) {
+          score = Math.max(score, 1.55);
+        } else if (decodedSlug.includes(target) || target.includes(decodedSlug)) {
+          score = Math.max(score, 1.25);
+        }
       }
 
       if (!best || score > best.score) {
@@ -849,6 +936,60 @@ export class AnimeFlvProvider extends WebstreamBaseProvider {
     }
 
     return extractYear(html);
+  }
+
+  extractAnimeInfoData(pageUrl, html) {
+    const $ = cheerio.load(String(html || ""));
+    const script = this.extractAnimeInfoScript(html);
+    const rawAnimeInfo = script.match(/var\s+anime_info\s*=\s*(\[[\s\S]*?\])/i)?.[1] || "";
+    const rawEpisodes = script.match(/var\s+episodes\s*=\s*(\[[\s\S]*?\]);/i)?.[1] || "";
+    const pathname = new URL(pageUrl).pathname;
+    const slug = pathname.split("/").filter(Boolean).pop() || "";
+    const animeInfo = Array.isArray(safeJsonParse(rawAnimeInfo, null)) ? safeJsonParse(rawAnimeInfo, []) : [];
+    const episodesSource = Array.isArray(safeJsonParse(rawEpisodes, null)) ? safeJsonParse(rawEpisodes, []) : [];
+    const episodes = episodesSource.map((entry) => ({
+      number: entry?.[0],
+      path: `/ver/${slug}-${entry?.[0]}`
+    })).filter((entry) => entry.number);
+
+    const related = [];
+    $("ul.ListAnmRel > li").each((_, element) => {
+      const anchor = $(element).find("a").first();
+      const href = anchor.attr("href") || "";
+      const relatedSlug = href.match(/\/anime\/([^/]+)/)?.[1];
+      const title = cleanText(anchor.text());
+      const relation = cleanText($(element).text().match(/\(([^)]+)\)\s*$/)?.[1] || "");
+      if (!relatedSlug || !title) {
+        return;
+      }
+
+      related.push({
+        title,
+        relation,
+        slug: relatedSlug
+      });
+    });
+
+    const thumbnailBase = this.extractEpisodeThumbnailBase(html);
+    const releaseInfo = animeInfo[3]
+      ? extractYear(String(animeInfo[3]))
+      : this.extractYear(html);
+
+    return {
+      title: cleanText($("h1.Title").first().text()),
+      cover: absoluteUrl(
+        $("div.AnimeCover div.Image figure img").attr("src")
+          || $("div.AnimeCover div.Image figure img").attr("data-cfsrc")
+          || "",
+        this.baseUrl
+      ),
+      synopsis: cleanText($("div.Description > p").first().text() || $("div.Description").first().text()),
+      genres: $("nav.Nvgnrs a").map((_, element) => cleanText($(element).text())).get().filter(Boolean),
+      episodes: episodes.reverse(),
+      related,
+      releaseInfo,
+      thumbnailBase
+    };
   }
 
   extractEpisodeThumbnailBase(html) {

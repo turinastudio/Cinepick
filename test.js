@@ -41,7 +41,7 @@ async function resolveImdbId(tmdbId, type) {
 }
 
 function providerSupportsTmdbFallback(providerId) {
-  return ["animeav1"].includes(String(providerId || "").trim().toLowerCase());
+  return ["animeav1", "animeflv"].includes(String(providerId || "").trim().toLowerCase());
 }
 
 function buildExternalId(imdbId, type, season, episode) {
@@ -173,7 +173,7 @@ async function run() {
 
   const providerIds = targetProviders.length > 0
     ? targetProviders
-    : ["animeav1", "lamovie", "cinecalidad", "seriesmetro", "netmirror", "castle"];
+    : ["animeav1", "animeflv", "lamovie", "cinecalidad", "seriesmetro", "netmirror", "castle"];
 
   for (const id of providerIds) {
     const provider = getProviderById(id);

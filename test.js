@@ -1,4 +1,4 @@
-import { debugProviderStreamsFromExternalId, getProviderById } from "./src/providers/index.js";
+import { debugProviderStreamsFromExternalId, debugStreamsFromExternalId, getProviderById } from "./src/providers/index.js";
 
 const TMDB_API_KEY = process.env.TMDB_API_KEY || "439c478a771f35c05022f9feabcca01c";
 
@@ -69,6 +69,28 @@ function normalizeMode(value) {
 function printResult(result, mode = "basic") {
   if (!result) {
     console.log("ERROR: No hubo resultado\n");
+    return;
+  }
+
+  if (Array.isArray(result.results) && Array.isArray(result.globalSelectedStreams)) {
+    console.log(`OK: ${result.globalSelectedStreams.length} streams globales seleccionados:\n`);
+
+    result.globalSelectedStreams.forEach((stream, index) => {
+      console.log(`[${index + 1}] ${stream.title || stream.name}`);
+      console.log(`    URL: ${String(stream.url || "").slice(0, 120)}${String(stream.url || "").length > 120 ? "..." : ""}`);
+      if (stream.behaviorHints) {
+        console.log(`    Hints: ${JSON.stringify(stream.behaviorHints)}`);
+      }
+      console.log("");
+    });
+
+    if (mode === "advanced") {
+      console.log(`selectionMode: ${JSON.stringify(result.selectionMode, null, 2)}`);
+      console.log(`globalScoredStreams: ${JSON.stringify(result.globalScoredStreams, null, 2)}`);
+      console.log(`results: ${JSON.stringify(result.results, null, 2)}`);
+      console.log("");
+    }
+
     return;
   }
 
@@ -176,6 +198,26 @@ async function run() {
     : ["animeav1", "animeflv", "lacartoons", "lamovie", "cinecalidad", "seriesmetro", "netmirror", "castle"];
 
   for (const id of providerIds) {
+    if (id === "global") {
+      const imdbId = await resolveImdbId(tmdbId, type).catch(() => null);
+      const externalId = imdbId
+        ? buildExternalId(imdbId, type, season, episode)
+        : null;
+
+      if (!externalId) {
+        console.log(`\nTesting global selection...`);
+        console.log(`TMDB: ${tmdbId} | Tipo: ${type}${type === "series" && season && episode ? ` | S${season}E${episode}` : ""}\n`);
+        console.log(`ERROR: No se pudo resolver IMDb desde TMDB ${tmdbId}\n`);
+        continue;
+      }
+
+      console.log(`\nTesting global selection...`);
+      console.log(`TMDB: ${tmdbId} | Tipo: ${type}${type === "series" && season && episode ? ` | S${season}E${episode}` : ""}\n`);
+      const result = await debugStreamsFromExternalId(type, externalId);
+      printResult(result, mode);
+      continue;
+    }
+
     const provider = getProviderById(id);
     if (!provider) {
       console.log(`ERROR: Provider no encontrado: ${id}\n`);

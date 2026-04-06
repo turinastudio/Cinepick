@@ -145,7 +145,9 @@ export async function resolveStreamsFromExternalId(type, id) {
     });
   }
 
-  return scoreAndSelectStreams("global", collected);
+  return scoreAndSelectStreams("global", collected, {
+    contentKind: routing.kind
+  });
 }
 
 export async function debugStreamsFromExternalId(type, id) {
@@ -164,7 +166,9 @@ export async function debugStreamsFromExternalId(type, id) {
     usedFallback = true;
   }
 
-  const globalScoredStreams = analyzeScoredStreams("global", collected).map((item) => ({
+  const globalScoredStreams = analyzeScoredStreams("global", collected, {
+    contentKind: routing.kind
+  }).map((item) => ({
     title: item.stream.title,
     url: item.stream.url || null,
     providerId: item.stream._providerId || null,
@@ -173,7 +177,9 @@ export async function debugStreamsFromExternalId(type, id) {
     score: item.score,
     components: item.components
   }));
-  const globalSelectedStreams = scoreAndSelectStreams("global", collected);
+  const globalSelectedStreams = scoreAndSelectStreams("global", collected, {
+    contentKind: routing.kind
+  });
 
   return {
     routing,

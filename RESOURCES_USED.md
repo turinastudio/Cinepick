@@ -273,3 +273,4 @@ Conclusion practica:
   - metadata mas rica en `animeav1` y `animeflv`
   - soporte de IDs `mal`, `anilist`, `kitsu` y `anidb`
   - mejor parsing de `AnimeAV1` para `embeds` y `downloads`
+- toda esa linea de trabajo queda documentada, pero anime queda desactivado del addon activo hasta nueva revision

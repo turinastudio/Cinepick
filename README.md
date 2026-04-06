@@ -30,32 +30,17 @@ La arquitectura actual mezcla lo mejor de dos mundos:
 - `cineplus123`
 - `serieskao`
 
-### Providers anime funcionando
+### Trabajo anime pausado
 
 - `animeav1`
-  - soporta series y peliculas anime
-  - separa `LAT SUB` y `LAT DUB`
-  - usa mappings locales desde `animestream-addon` para mejorar matching
-  - soporta IDs anime extra:
-    - `mal:`
-    - `anilist:`
-    - `kitsu:`
-    - `anidb:`
-  - agrega metadata enriquecida:
-    - `releaseInfo`
-    - `runtime`
-    - `trailers`
-    - `links` relacionados
 - `animeflv`
-  - soporta series y peliculas anime
-  - actualmente se trata como provider `LAT SUB`
-  - usa mappings locales para mejorar matching anime
-  - soporta IDs anime extra:
-    - `mal:`
-    - `anilist:`
-    - `kitsu:`
-    - `anidb:`
-  - agrega thumbnails y metadata extra cuando se pueden inferir
+
+El trabajo de anime sigue presente en el repo, pero ambos providers quedaron desactivados del flujo activo, del manifest y de los catalogs hasta nueva revision.
+
+Motivo practico:
+
+- el matching y el scoring anime todavia no quedaron con la consistencia que queremos para deploy
+- preferimos pausar anime antes que mezclar resultados inestables con el flujo general
 
 ### Providers animacion retro funcionando
 
@@ -127,8 +112,8 @@ Hoy mezcla extractors previos del proyecto con ports/adaptaciones inspiradas en 
 
 Regla importante actual:
 
-- en seleccion global, si el item se detecta como anime real, `animeav1` y `animeflv` reciben prioridad por score y por seleccion final
-- esa preferencia no deberia activarse en series o peliculas normales
+- el flujo global activo hoy prioriza solo providers actualmente habilitados en `index.js` y `manifest.js`
+- el trabajo de routing/scoring anime queda en el repo pero fuera del deploy hasta nueva revision
 
 ## Ejecutar en local
 
@@ -170,10 +155,6 @@ node test.js 550 movie null null cinecalidad
 node test.js 1396 tv 1 1 lamovie
 node test.js 1396 tv 1 1 seriesmetro
 node test.js 1396 tv 1 1 netmirror advanced
-node test.js 209867 tv 1 1 animeav1 advanced
-node test.js 372058 movie null null animeav1 advanced
-node test.js 209867 tv 1 1 animeflv advanced
-node test.js 372058 movie null null animeflv advanced
 node test.js <tmdbId> tv 1 1 lacartoons advanced
 node test.js <tmdbId> movie null null lacartoons advanced
 ```
@@ -224,11 +205,6 @@ Healthcheck:
 - `SERIESKAO_BASE_URL`
 - `SERIESMETRO_BASE_URL`
 
-### Anime providers
-
-- `ANIMEAV1_BASE_URL`
-- `ANIMEFLV_BASE_URL`
-
 ### Animacion retro
 
 - `LACARTOONS_BASE_URL`
@@ -249,10 +225,6 @@ Healthcheck:
 - [NetMirror Breaking Bad S01E01](http://127.0.0.1:3000/_debug/provider/netmirror/stream/series/tt0903747:1:1.json)
 - [Castle Breaking Bad S01E01](http://127.0.0.1:3000/_debug/provider/castle/stream/series/tt0903747:1:1.json)
 - [SeriesMetro Breaking Bad S01E01](http://127.0.0.1:3000/_debug/provider/seriesmetro/stream/series/tt0903747:1:1.json)
-- [AnimeAV1 Frieren S01E01](http://127.0.0.1:3000/_debug/provider/animeav1/stream/series/tt22248376:1:1.json)
-- [AnimeAV1 Your Name](http://127.0.0.1:3000/_debug/provider/animeav1/stream/movie/tt5311514.json)
-- [AnimeFLV Frieren S01E01](http://127.0.0.1:3000/_debug/provider/animeflv/stream/series/tt22248376:1:1.json)
-- [AnimeFLV Your Name](http://127.0.0.1:3000/_debug/provider/animeflv/stream/movie/tt5311514.json)
 - [LACartoons Matrix](http://127.0.0.1:3000/_debug/provider/lacartoons/stream/movie/tt0133093.json)
 - [LACartoons Courage S02E01](http://127.0.0.1:3000/_debug/provider/lacartoons/stream/series/tt0220880:2:1.json)
 
@@ -299,8 +271,6 @@ Healthcheck:
 - `CINEPLUS123_BASE_URL=https://cineplus123.org`
 - `SERIESKAO_BASE_URL=https://serieskao.top`
 - `SERIESMETRO_BASE_URL=https://www3.seriesmetro.net`
-- `ANIMEAV1_BASE_URL=https://animeav1.com`
-- `ANIMEFLV_BASE_URL=https://www3.animeflv.net`
 - `LACARTOONS_BASE_URL=https://www.lacartoons.com`
 
 ### Verificacion despues del deploy

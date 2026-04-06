@@ -52,9 +52,10 @@ Se eligio una arquitectura hibrida:
 - [src/providers/netmirror.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/netmirror.js)
 - [src/providers/castle.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/castle.js)
 
-### Providers anime agregados
+### Trabajo anime pausado
 
 - [src/providers/animeav1.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/animeav1.js)
+  - el codigo queda en el repo pero desactivado de `index.js` y `manifest.js`
   - usa `catalog.json.gz` y `otaku-mappings.json` de `animestream-addon`
   - mejora matching por `imdb`, `tmdb`, `slug` y aliases anime
   - separa `LAT SUB` y `LAT DUB`
@@ -68,12 +69,19 @@ Se eligio una arquitectura hibrida:
     - `runtime`
     - `trailers`
     - `links` relacionados
-  - validado con:
+  - validado durante esta etapa con:
     - `Frieren`
     - `Your Name.`
     - `Kimetsu no Yaiba: Infinity Castle`
+    - `Ingoku Danchi`
 - [src/providers/animeflv.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/animeflv.js)
-  - usa la estructura `browse + anime_info + episodes + var videos`
+  - el codigo queda en el repo pero desactivado de `index.js` y `manifest.js`
+  - usa una estrategia mas fiel a la pagina:
+    - `browse`
+    - `anime_info`
+    - `episodes`
+    - `var videos`
+    - fallback por slug directo `/ver/<slug>-<ep>`
   - usa tambien `catalog.json.gz` y `otaku-mappings.json` para matching
   - por ahora se trata como provider `LAT SUB`
   - soporta tambien IDs:
@@ -82,9 +90,17 @@ Se eligio una arquitectura hibrida:
     - `kitsu:`
     - `anidb:`
   - suma thumbnails de episodios y metadata extra cuando el HTML lo permite
-  - validado con:
+  - validado durante esta etapa con:
     - `Frieren`
     - `Your Name.`
+    - `Ingoku Danchi`
+
+Decision actual:
+
+- anime queda pausado hasta nueva revision
+- no se deploya
+- no aparece en catalogs
+- no participa del flujo global activo
 
 ### Provider animacion retro agregado
 
@@ -184,6 +200,12 @@ Motivo:
   - `AniDB`
   usando `relations.yuna.moe`
 
+Hallazgo final de esta etapa:
+
+- el scraping anime mejoro bastante cuando se lo acerco a `animeflv-stremio-addon`
+- aun asi, la experiencia global no quedo lo suficientemente prolija como para dejar anime activo en deploy
+- por eso el codigo se conserva, pero el feature queda pausado
+
 ## Ranking anime
 
 Se ajusto [src/lib/stream-scoring.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/stream-scoring.js) para que:
@@ -195,6 +217,11 @@ Objetivo:
 
 - que en anime real no ganen tan facil providers generales como `Gnula`, `Mhdflix` o `VerSeriesOnline`
 - sin activar esa prioridad en contenido normal
+
+Estado actual:
+
+- esta logica queda en el repo como trabajo pausado
+- como los providers anime fueron desactivados del flujo activo, hoy esa parte no participa del deploy
 
 ## Limpieza pendiente
 
@@ -240,10 +267,6 @@ node test.js 550 movie null null cinecalidad
 node test.js 1396 tv 1 1 lamovie
 node test.js 1396 tv 1 1 seriesmetro
 node test.js 1396 tv 1 1 netmirror advanced
-node test.js 209867 tv 1 1 animeav1 advanced
-node test.js 372058 movie null null animeav1 advanced
-node test.js 209867 tv 1 1 animeflv advanced
-node test.js 372058 movie null null animeflv advanced
 node test.js <tmdbId> tv 1 1 lacartoons advanced
 node test.js <tmdbId> movie null null lacartoons advanced
 ```
@@ -279,13 +302,6 @@ Notas:
 - [NetMirror Breaking Bad S01E01](http://127.0.0.1:3000/_debug/provider/netmirror/stream/series/tt0903747:1:1.json)
 - [Castle Breaking Bad S01E01](http://127.0.0.1:3000/_debug/provider/castle/stream/series/tt0903747:1:1.json)
 - [SeriesMetro Breaking Bad S01E01](http://127.0.0.1:3000/_debug/provider/seriesmetro/stream/series/tt0903747:1:1.json)
-
-### Anime
-
-- [AnimeAV1 Frieren S01E01](http://127.0.0.1:3000/_debug/provider/animeav1/stream/series/tt22248376:1:1.json)
-- [AnimeAV1 Your Name](http://127.0.0.1:3000/_debug/provider/animeav1/stream/movie/tt5311514.json)
-- [AnimeFLV Frieren S01E01](http://127.0.0.1:3000/_debug/provider/animeflv/stream/series/tt22248376:1:1.json)
-- [AnimeFLV Your Name](http://127.0.0.1:3000/_debug/provider/animeflv/stream/movie/tt5311514.json)
 
 ### Animacion retro
 

@@ -39,6 +39,9 @@
   - `Frieren`
   - `Your Name.`
   - `Kimetsu no Yaiba: Infinity Castle`
+  - `Ingoku Danchi`
+- `animeav1` y `animeflv` quedaron desactivados del flujo activo, del manifest y de los catalogs hasta nueva revision.
+- El codigo anime se conserva en el repo, pero el deploy publico vuelve a quedar sin providers anime por ahora.
 
 ### Animacion retro
 
@@ -67,6 +70,7 @@
   - el bonus de score
   - y la seleccion final global
 - Tambien se reforzo el filtro para que providers anime no participen en contenido no anime.
+- Como anime queda pausado, esa logica sigue en el repo pero no participa del flujo activo actual.
 
 ## [Unreleased] - 2026-04-03
 

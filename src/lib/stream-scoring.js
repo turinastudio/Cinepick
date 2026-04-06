@@ -3,11 +3,6 @@ import { buildHttpStreamTitle } from "./stream-format.js";
 
 const DEFAULT_MAX_RESULTS = 2;
 const DEFAULT_DISABLED_SOURCES = new Set(["netu", "hqq", "waaw", "waaw.tv"]);
-const ANIME_PRIORITY_PROVIDERS = new Set(["animeav1", "animeflv"]);
-const ANIME_PROVIDER_BONUS = {
-  animeav1: 60,
-  animeflv: 42
-};
 
 const HOST_SCORES = {
   vidhide: 100,
@@ -115,25 +110,7 @@ function detectProviderAdjustment(providerId, sourceLabel, stream, options = {})
     return -28;
   }
 
-  if (options.animeContext) {
-    if (ANIME_PROVIDER_BONUS[effectiveProviderId]) {
-      return ANIME_PROVIDER_BONUS[effectiveProviderId];
-    }
-  }
-
   return 0;
-}
-
-function detectAnimeContext(providerId, streams, options = {}) {
-  if (typeof options.animeContext === "boolean") {
-    return options.animeContext;
-  }
-
-  if (String(providerId || "").toLowerCase() !== "global") {
-    return false;
-  }
-
-  return streams.some((stream) => ANIME_PRIORITY_PROVIDERS.has(String(stream._providerId || "").toLowerCase()));
 }
 
 function buildSourceKey(providerId, stream) {
@@ -163,27 +140,10 @@ function dedupeStreams(streams) {
   return deduped;
 }
 
-function selectWithProviderDiversity(scoredItems, maxResults, options = {}) {
+function selectWithProviderDiversity(scoredItems, maxResults) {
   const targetCount = Math.max(1, maxResults);
   const selected = [];
   const usedProviders = new Set();
-  const animeContext = Boolean(options.animeContext);
-
-  if (animeContext) {
-    for (const providerId of Object.keys(ANIME_PROVIDER_BONUS)) {
-      if (selected.length >= targetCount) {
-        break;
-      }
-
-      const bestAnimeItem = scoredItems.find((item) => String(item.stream._providerId || "").toLowerCase() === providerId);
-      if (!bestAnimeItem) {
-        continue;
-      }
-
-      selected.push(bestAnimeItem);
-      usedProviders.add(providerId);
-    }
-  }
 
   for (const item of scoredItems) {
     if (selected.length >= targetCount) {
@@ -233,7 +193,6 @@ function selectWithProviderDiversity(scoredItems, maxResults, options = {}) {
 
 export function analyzeScoredStreams(providerId, streams, options = {}) {
   const disabledSources = getDisabledSourceSet();
-  const animeContext = detectAnimeContext(providerId, streams, options);
 
   return dedupeStreams(streams)
     .filter((stream) => {
@@ -248,7 +207,7 @@ export function analyzeScoredStreams(providerId, streams, options = {}) {
       const languageScore = detectLanguageScore(stream);
       const transportScore = detectTransportScore(stream);
       const complexityPenalty = detectComplexityPenalty(stream);
-      const providerAdjustment = detectProviderAdjustment(providerId, sourceLabel, stream, { ...options, animeContext });
+      const providerAdjustment = detectProviderAdjustment(providerId, sourceLabel, stream, options);
       const score =
         (HOST_SCORES[sourceLabel] || 20) +
         resolutionScore +
@@ -282,8 +241,7 @@ export function analyzeScoredStreams(providerId, streams, options = {}) {
           providerAdjustment,
           complexityPenalty,
           penalty,
-          languageTier: detectLanguageTier(stream),
-          animeContext
+          languageTier: detectLanguageTier(stream)
         }
       };
     })
@@ -293,9 +251,8 @@ export function analyzeScoredStreams(providerId, streams, options = {}) {
 export function scoreAndSelectStreams(providerId, streams, options = {}) {
   const maxResults = Number.parseInt(process.env.STREAM_MAX_RESULTS || "", 10) || options.maxResults || DEFAULT_MAX_RESULTS;
   const cleaned = analyzeScoredStreams(providerId, streams, options);
-  const animeContext = detectAnimeContext(providerId, cleaned.map((item) => item.stream), options);
   const selected = providerId === "global"
-    ? selectWithProviderDiversity(cleaned, maxResults, { animeContext })
+    ? selectWithProviderDiversity(cleaned, maxResults)
     : cleaned.slice(0, Math.max(1, maxResults));
 
   return selected.map((item) => {

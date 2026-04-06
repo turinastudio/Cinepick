@@ -1,4 +1,5 @@
 import { parseStremioId } from "../lib/ids.js";
+import { classifyContentForProviderRouting } from "../lib/content-routing.js";
 import { analyzeScoredStreams, scoreAndSelectStreams } from "../lib/stream-scoring.js";
 import { AnimeAv1Provider } from "./animeav1.js";
 import { AnimeFlvProvider } from "./animeflv.js";
@@ -53,6 +54,7 @@ const providers = activeProviderFilter.length > 0
 const streamSelectionMode = String(process.env.STREAM_SELECTION_MODE || "global").trim().toLowerCase();
 const providerTimeoutMs = Math.max(1000, Number(process.env.PROVIDER_TIMEOUT_MS || 12000) || 12000);
 const providerDebugTimeoutMs = Math.max(providerTimeoutMs, Number(process.env.PROVIDER_DEBUG_TIMEOUT_MS || 18000) || 18000);
+const ANIME_PROVIDER_IDS = new Set(["animeav1", "animeflv"]);
 
 export function getProviderByCatalog(catalogId) {
   if (catalogId.startsWith("gnula-")) {
@@ -127,9 +129,86 @@ export function resolveProviderFromMetaId(id) {
 }
 
 export async function resolveStreamsFromExternalId(type, id) {
+  const routing = await classifyContentForProviderRouting(type, id);
+  const primaryProviders = getProvidersForRouting(routing, "primary");
+  const fallbackProviders = getProvidersForRouting(routing, "fallback");
+  let collected = await collectStreamsFromProviders(primaryProviders, type, id);
+
+  if (routing.kind === "anime" && collected.length === 0 && fallbackProviders.length > 0) {
+    collected = await collectStreamsFromProviders(fallbackProviders, type, id);
+  }
+
+  if (streamSelectionMode === "per_provider") {
+    return collected.map((stream) => {
+      const { _providerId, ...rest } = stream;
+      return rest;
+    });
+  }
+
+  return scoreAndSelectStreams("global", collected);
+}
+
+export async function debugStreamsFromExternalId(type, id) {
+  const routing = await classifyContentForProviderRouting(type, id);
+  const primaryProviders = getProvidersForRouting(routing, "primary");
+  const fallbackProviders = getProvidersForRouting(routing, "fallback");
+  const primaryRun = await debugProviders(primaryProviders, type, id);
+  let results = [...primaryRun.results];
+  let collected = [...primaryRun.collected];
+  let usedFallback = false;
+
+  if (routing.kind === "anime" && collected.length === 0 && fallbackProviders.length > 0) {
+    const fallbackRun = await debugProviders(fallbackProviders, type, id);
+    results = results.concat(fallbackRun.results);
+    collected = collected.concat(fallbackRun.collected);
+    usedFallback = true;
+  }
+
+  const globalScoredStreams = analyzeScoredStreams("global", collected).map((item) => ({
+    title: item.stream.title,
+    url: item.stream.url || null,
+    providerId: item.stream._providerId || null,
+    sourceKey: item.sourceKey,
+    sourceLabel: item.sourceLabel,
+    score: item.score,
+    components: item.components
+  }));
+  const globalSelectedStreams = scoreAndSelectStreams("global", collected);
+
+  return {
+    routing,
+    usedFallback,
+    primaryProviders: primaryProviders.map((provider) => provider.id),
+    fallbackProviders: fallbackProviders.map((provider) => provider.id),
+    results,
+    selectionMode: streamSelectionMode,
+    providerTimeoutMs,
+    providerDebugTimeoutMs,
+    globalScoredStreams,
+    globalSelectedStreams
+  };
+}
+
+function isAnimeProvider(provider) {
+  return ANIME_PROVIDER_IDS.has(String(provider?.id || "").toLowerCase());
+}
+
+function getProvidersForRouting(routing, phase = "primary") {
+  if (routing?.kind === "anime") {
+    return phase === "primary"
+      ? providers.filter((provider) => isAnimeProvider(provider))
+      : providers.filter((provider) => !isAnimeProvider(provider));
+  }
+
+  return phase === "primary"
+    ? providers.filter((provider) => !isAnimeProvider(provider))
+    : [];
+}
+
+async function collectStreamsFromProviders(targetProviders, type, id) {
   const collected = [];
   const settled = await Promise.all(
-    providers.map((provider) =>
+    targetProviders.map((provider) =>
       withTimeout(
         provider.getStreamsFromExternalId({ type, externalId: id }),
         providerTimeoutMs,
@@ -158,20 +237,13 @@ export async function resolveStreamsFromExternalId(type, id) {
     }
   }
 
-  if (streamSelectionMode === "per_provider") {
-    return collected.map((stream) => {
-      const { _providerId, ...rest } = stream;
-      return rest;
-    });
-  }
-
-  return scoreAndSelectStreams("global", collected);
+  return collected;
 }
 
-export async function debugStreamsFromExternalId(type, id) {
+async function debugProviders(targetProviders, type, id) {
   const collected = [];
   const settled = await Promise.all(
-    providers.map((provider) =>
+    targetProviders.map((provider) =>
       withTimeout(
         provider.debugStreamsFromExternalId({ type, externalId: id }),
         providerDebugTimeoutMs,
@@ -182,6 +254,7 @@ export async function debugStreamsFromExternalId(type, id) {
       )
     )
   );
+
   const results = settled.map((item) => {
     if (!item.ok) {
       return {
@@ -205,25 +278,7 @@ export async function debugStreamsFromExternalId(type, id) {
     return debug;
   });
 
-  const globalScoredStreams = analyzeScoredStreams("global", collected).map((item) => ({
-    title: item.stream.title,
-    url: item.stream.url || null,
-    providerId: item.stream._providerId || null,
-    sourceKey: item.sourceKey,
-    sourceLabel: item.sourceLabel,
-    score: item.score,
-    components: item.components
-  }));
-  const globalSelectedStreams = scoreAndSelectStreams("global", collected);
-
-  return {
-    results,
-    selectionMode: streamSelectionMode,
-    providerTimeoutMs,
-    providerDebugTimeoutMs,
-    globalScoredStreams,
-    globalSelectedStreams
-  };
+  return { results, collected };
 }
 
 export async function debugProviderStreamsFromExternalId(providerId, type, id) {

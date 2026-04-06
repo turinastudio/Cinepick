@@ -2,6 +2,7 @@ import { parseStremioId } from "../lib/ids.js";
 import { analyzeScoredStreams, scoreAndSelectStreams } from "../lib/stream-scoring.js";
 import { AnimeAv1Provider } from "./animeav1.js";
 import { AnimeFlvProvider } from "./animeflv.js";
+import { LaCartoonsProvider } from "./lacartoons.js";
 import { CinecalidadProvider } from "./cinecalidad.js";
 import { CineHdPlusProvider } from "./cinehdplus.js";
 import { Cineplus123Provider } from "./cineplus123.js";
@@ -21,6 +22,7 @@ import { VerSeriesOnlineProvider } from "./verseriesonline.js";
 const baseProviders = [
   new AnimeAv1Provider(),
   new AnimeFlvProvider(),
+  new LaCartoonsProvider(),
   new GnulaProvider(),
   new CinecalidadProvider(),
   new NetMirrorProvider(),
@@ -63,6 +65,10 @@ export function getProviderByCatalog(catalogId) {
 
   if (catalogId.startsWith("animeflv-")) {
     return providers.find((provider) => provider.id === "animeflv") ?? null;
+  }
+
+  if (catalogId.startsWith("lacartoons-")) {
+    return providers.find((provider) => provider.id === "lacartoons") ?? null;
   }
 
   if (catalogId.startsWith("cinecalidad-")) {

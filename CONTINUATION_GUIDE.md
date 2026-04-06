@@ -70,6 +70,18 @@ Se eligio una arquitectura hibrida:
     - `Frieren`
     - `Your Name.`
 
+### Provider animacion retro agregado
+
+- [src/providers/lacartoons.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/lacartoons.js)
+  - usa la estructura HTML simple de `lacartoons`
+  - busca con `?Titulo=...`
+  - arma episodios desde `.estilo-temporada + .episodio-panel`
+  - resuelve reproduccion desde `iframe`
+  - por ahora se trata como provider `LAT`
+  - pensado para series y peliculas animadas clasicas
+  - validado con:
+    - `Coraje, el perro cobarde` S02E01
+
 ### Estado actual de idioma para providers multi-language
 
 - `netmirror`
@@ -197,6 +209,8 @@ node test.js 209867 tv 1 1 animeav1 advanced
 node test.js 372058 movie null null animeav1 advanced
 node test.js 209867 tv 1 1 animeflv advanced
 node test.js 372058 movie null null animeflv advanced
+node test.js <tmdbId> tv 1 1 lacartoons advanced
+node test.js <tmdbId> movie null null lacartoons advanced
 ```
 
 Atajo por npm:
@@ -237,3 +251,8 @@ Notas:
 - [AnimeAV1 Your Name](http://127.0.0.1:3000/_debug/provider/animeav1/stream/movie/tt5311514.json)
 - [AnimeFLV Frieren S01E01](http://127.0.0.1:3000/_debug/provider/animeflv/stream/series/tt22248376:1:1.json)
 - [AnimeFLV Your Name](http://127.0.0.1:3000/_debug/provider/animeflv/stream/movie/tt5311514.json)
+
+### Animacion retro
+
+- [LACartoons Matrix](http://127.0.0.1:3000/_debug/provider/lacartoons/stream/movie/tt0133093.json)
+- [LACartoons Courage S02E01](http://127.0.0.1:3000/_debug/provider/lacartoons/stream/series/tt0220880:2:1.json)

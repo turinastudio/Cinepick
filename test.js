@@ -173,7 +173,7 @@ async function run() {
 
   const providerIds = targetProviders.length > 0
     ? targetProviders
-    : ["animeav1", "animeflv", "lamovie", "cinecalidad", "seriesmetro", "netmirror", "castle"];
+    : ["animeav1", "animeflv", "lacartoons", "lamovie", "cinecalidad", "seriesmetro", "netmirror", "castle"];
 
   for (const id of providerIds) {
     const provider = getProviderById(id);

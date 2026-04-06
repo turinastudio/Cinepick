@@ -53,5 +53,11 @@ services:
         value: https://cineplus123.org
       - key: SERIESKAO_BASE_URL
         value: https://serieskao.top
+      - key: ANIMEAV1_BASE_URL
+        value: https://animeav1.com
+      - key: ANIMEFLV_BASE_URL
+        value: https://www3.animeflv.net
+      - key: LACARTOONS_BASE_URL
+        value: https://www.lacartoons.com
       - key: ADDON_URL
         value: https://stremio-web-scraper-addon.onrender.com

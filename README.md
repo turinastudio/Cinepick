@@ -41,6 +41,18 @@ La arquitectura actual mezcla lo mejor de dos mundos:
   - actualmente se trata como provider `LAT SUB`
   - usa mappings locales para mejorar matching anime
 
+### Providers animacion retro funcionando
+
+- `lacartoons`
+  - soporta series y peliculas animadas clasicas
+  - actualmente se trata como provider `LAT`
+  - usa HTML simple del sitio:
+    - busqueda por `?Titulo=...`
+    - temporadas por paneles
+    - reproduccion desde `iframe`
+  - validado con:
+    - `Coraje, el perro cobarde` S02E01
+
 ### Nota sobre providers multi-language
 
 - `netmirror`
@@ -141,6 +153,8 @@ node test.js 209867 tv 1 1 animeav1 advanced
 node test.js 372058 movie null null animeav1 advanced
 node test.js 209867 tv 1 1 animeflv advanced
 node test.js 372058 movie null null animeflv advanced
+node test.js <tmdbId> tv 1 1 lacartoons advanced
+node test.js <tmdbId> movie null null lacartoons advanced
 ```
 
 Modos:
@@ -194,6 +208,10 @@ Healthcheck:
 - `ANIMEAV1_BASE_URL`
 - `ANIMEFLV_BASE_URL`
 
+### Animacion retro
+
+- `LACARTOONS_BASE_URL`
+
 ## Debug util
 
 ### Debug global
@@ -214,6 +232,8 @@ Healthcheck:
 - [AnimeAV1 Your Name](http://127.0.0.1:3000/_debug/provider/animeav1/stream/movie/tt5311514.json)
 - [AnimeFLV Frieren S01E01](http://127.0.0.1:3000/_debug/provider/animeflv/stream/series/tt22248376:1:1.json)
 - [AnimeFLV Your Name](http://127.0.0.1:3000/_debug/provider/animeflv/stream/movie/tt5311514.json)
+- [LACartoons Matrix](http://127.0.0.1:3000/_debug/provider/lacartoons/stream/movie/tt0133093.json)
+- [LACartoons Courage S02E01](http://127.0.0.1:3000/_debug/provider/lacartoons/stream/series/tt0220880:2:1.json)
 
 ## Deploy en Railway
 
@@ -258,6 +278,9 @@ Healthcheck:
 - `CINEPLUS123_BASE_URL=https://cineplus123.org`
 - `SERIESKAO_BASE_URL=https://serieskao.top`
 - `SERIESMETRO_BASE_URL=https://www3.seriesmetro.net`
+- `ANIMEAV1_BASE_URL=https://animeav1.com`
+- `ANIMEFLV_BASE_URL=https://www3.animeflv.net`
+- `LACARTOONS_BASE_URL=https://www.lacartoons.com`
 
 ### Verificacion despues del deploy
 

@@ -225,9 +225,15 @@ Partes especialmente utiles:
 
 - [src/es/animeav1](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/extensions-source/src/es/animeav1)
 - [src/es/animeflv](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/extensions-source/src/es/animeflv)
+- [src/es/lacartoons](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/extensions-source/src/es/lacartoons)
 
 Conclusion practica:
 
-- `animeav1` y `animeflv` salieron de aca
+- `animeav1`, `animeflv` y `lacartoons` salieron de aca
 - la arquitectura original no se porto literal
 - se adapto la logica al runtime HTTP/extractors de este addon
+
+Ademas, `lacartoons` obligo a reforzar extractors:
+
+- se porto soporte real para `RpmVid`
+- fue validado con `Coraje, el perro cobarde` S02E01

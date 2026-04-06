@@ -29,6 +29,21 @@
   - `Your Name.`
   - `Kimetsu no Yaiba: Infinity Castle`
 
+### Animacion retro
+
+- Se agrego `lacartoons` como provider nuevo para series y peliculas animadas clasicas.
+- `lacartoons` usa:
+  - busqueda por `?Titulo=...`
+  - parsing de temporadas y episodios desde HTML
+  - `iframe` + extractors compartidos para reproducir
+- `lacartoons` por ahora se trata como provider `LAT`.
+- Se porto extractor real para `RpmVid`:
+  - `api/v1/video?id=<hash>`
+  - desencriptado `AES-CBC`
+  - extraccion de `source` y subtitulos
+- Caso validado:
+  - `Coraje, el perro cobarde` S02E01
+
 ### Testing y debug
 
 - El tester CLI ahora sirve tambien para providers anime via fallback `tmdb:<id>` cuando no hay IMDb util.

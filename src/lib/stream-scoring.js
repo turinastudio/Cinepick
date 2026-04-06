@@ -3,6 +3,7 @@ import { buildHttpStreamTitle } from "./stream-format.js";
 
 const DEFAULT_MAX_RESULTS = 2;
 const DEFAULT_DISABLED_SOURCES = new Set(["netu", "hqq", "waaw", "waaw.tv"]);
+const ANIME_PRIORITY_PROVIDERS = new Set(["animeav1", "animeflv"]);
 
 const HOST_SCORES = {
   vidhide: 100,
@@ -103,14 +104,36 @@ function detectSourceLabel(stream) {
   return "generic";
 }
 
-function detectProviderAdjustment(providerId, sourceLabel, stream) {
+function detectProviderAdjustment(providerId, sourceLabel, stream, options = {}) {
   const effectiveProviderId = String(stream._providerId || providerId || "").toLowerCase();
 
   if (effectiveProviderId === "mhdflix" && sourceLabel === "netu") {
     return -28;
   }
 
+  if (options.animeContext) {
+    if (effectiveProviderId === "animeav1") {
+      return 32;
+    }
+
+    if (effectiveProviderId === "animeflv") {
+      return 18;
+    }
+  }
+
   return 0;
+}
+
+function detectAnimeContext(providerId, streams, options = {}) {
+  if (typeof options.animeContext === "boolean") {
+    return options.animeContext;
+  }
+
+  if (String(providerId || "").toLowerCase() !== "global") {
+    return false;
+  }
+
+  return streams.some((stream) => ANIME_PRIORITY_PROVIDERS.has(String(stream._providerId || "").toLowerCase()));
 }
 
 function buildSourceKey(providerId, stream) {
@@ -193,6 +216,7 @@ function selectWithProviderDiversity(scoredItems, maxResults) {
 
 export function analyzeScoredStreams(providerId, streams, options = {}) {
   const disabledSources = getDisabledSourceSet();
+  const animeContext = detectAnimeContext(providerId, streams, options);
 
   return dedupeStreams(streams)
     .filter((stream) => {
@@ -207,7 +231,7 @@ export function analyzeScoredStreams(providerId, streams, options = {}) {
       const languageScore = detectLanguageScore(stream);
       const transportScore = detectTransportScore(stream);
       const complexityPenalty = detectComplexityPenalty(stream);
-      const providerAdjustment = detectProviderAdjustment(providerId, sourceLabel, stream);
+      const providerAdjustment = detectProviderAdjustment(providerId, sourceLabel, stream, { ...options, animeContext });
       const score =
         (HOST_SCORES[sourceLabel] || 20) +
         resolutionScore +
@@ -241,7 +265,8 @@ export function analyzeScoredStreams(providerId, streams, options = {}) {
           providerAdjustment,
           complexityPenalty,
           penalty,
-          languageTier: detectLanguageTier(stream)
+          languageTier: detectLanguageTier(stream),
+          animeContext
         }
       };
     })

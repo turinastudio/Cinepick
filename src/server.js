@@ -19,7 +19,7 @@ import {
 
 const host = process.env.HOST || "0.0.0.0";
 const port = Number.parseInt(process.env.PORT || "3000", 10) || 3000;
-const PUBLIC_STREAM_NAME = "CinePick";
+const PUBLIC_STREAM_NAME = "Cinepick";
 const logoPath = path.resolve(process.cwd(), "assets", "Logo.png");
 const addonUrlOverride = String(process.env.ADDON_URL || "").trim().replace(/\/$/, "");
 

@@ -3,10 +3,6 @@ import { buildHttpStreamTitle } from "./stream-format.js";
 
 const DEFAULT_MAX_RESULTS = 2;
 const DEFAULT_DISABLED_SOURCES = new Set(["netu", "hqq", "waaw", "waaw.tv"]);
-const ANIME_PROVIDER_BONUS = {
-  animeav1: 24,
-  animeflv: 10
-};
 
 const HOST_SCORES = {
   vidhide: 100,
@@ -126,14 +122,10 @@ function detectSourceLabel(stream) {
 
 function detectProviderAdjustment(providerId, sourceLabel, stream, options = {}) {
   const effectiveProviderId = String(stream._providerId || providerId || "").toLowerCase();
-  const contentKind = String(options.contentKind || "").toLowerCase();
+  void options;
 
   if (effectiveProviderId === "mhdflix" && sourceLabel === "netu") {
     return -28;
-  }
-
-  if (contentKind === "anime" && ANIME_PROVIDER_BONUS[effectiveProviderId]) {
-    return ANIME_PROVIDER_BONUS[effectiveProviderId];
   }
 
   return 0;

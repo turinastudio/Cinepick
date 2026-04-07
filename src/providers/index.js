@@ -1,5 +1,4 @@
 import { parseStremioId } from "../lib/ids.js";
-import { classifyContentForProviderRouting } from "../lib/content-routing.js";
 import { analyzeScoredStreams, scoreAndSelectStreams } from "../lib/stream-scoring.js";
 import { LaCartoonsProvider } from "./lacartoons.js";
 import { CinecalidadProvider } from "./cinecalidad.js";
@@ -46,47 +45,6 @@ const providers = activeProviderFilter.length > 0
 const streamSelectionMode = String(process.env.STREAM_SELECTION_MODE || "global").trim().toLowerCase();
 const providerTimeoutMs = Math.max(1000, Number(process.env.PROVIDER_TIMEOUT_MS || 12000) || 12000);
 const providerDebugTimeoutMs = Math.max(providerTimeoutMs, Number(process.env.PROVIDER_DEBUG_TIMEOUT_MS || 18000) || 18000);
-const ANIME_PROVIDER_IDS = new Set(["animeav1", "animeflv"]);
-
-export function getProviderByCatalog(catalogId) {
-  if (catalogId.startsWith("gnula-")) {
-    return providers.find((provider) => provider.id === "gnula") ?? null;
-  }
-
-  if (catalogId.startsWith("lacartoons-")) {
-    return providers.find((provider) => provider.id === "lacartoons") ?? null;
-  }
-
-  if (catalogId.startsWith("cinecalidad-")) {
-    return providers.find((provider) => provider.id === "cinecalidad") ?? null;
-  }
-
-  if (catalogId.startsWith("mhdflix-")) {
-    return providers.find((provider) => provider.id === "mhdflix") ?? null;
-  }
-
-  if (catalogId.startsWith("lamovie-")) {
-    return providers.find((provider) => provider.id === "lamovie") ?? null;
-  }
-
-  if (catalogId.startsWith("verseriesonline-")) {
-    return providers.find((provider) => provider.id === "verseriesonline") ?? null;
-  }
-
-  if (catalogId.startsWith("cineplus123-")) {
-    return providers.find((provider) => provider.id === "cineplus123") ?? null;
-  }
-
-  if (catalogId.startsWith("serieskao-")) {
-    return providers.find((provider) => provider.id === "serieskao") ?? null;
-  }
-
-  if (catalogId.startsWith("seriesmetro-")) {
-    return providers.find((provider) => provider.id === "seriesmetro") ?? null;
-  }
-
-  return null;
-}
 
 export function getProviderById(providerId) {
   return providers.find((provider) => provider.id === providerId) ?? null;
@@ -113,14 +71,8 @@ export function resolveProviderFromMetaId(id) {
 }
 
 export async function resolveStreamsFromExternalId(type, id) {
-  const routing = await classifyContentForProviderRouting(type, id);
-  const primaryProviders = getProvidersForRouting(routing, "primary");
-  const fallbackProviders = getProvidersForRouting(routing, "fallback");
-  let collected = await collectStreamsFromProviders(primaryProviders, type, id);
-
-  if (routing.kind === "anime" && collected.length === 0 && fallbackProviders.length > 0) {
-    collected = await collectStreamsFromProviders(fallbackProviders, type, id);
-  }
+  const routing = buildDefaultRouting(type, id);
+  const collected = await collectStreamsFromProviders(providers, type, id);
 
   if (streamSelectionMode === "per_provider") {
     return collected.map((stream) => {
@@ -135,20 +87,11 @@ export async function resolveStreamsFromExternalId(type, id) {
 }
 
 export async function debugStreamsFromExternalId(type, id) {
-  const routing = await classifyContentForProviderRouting(type, id);
-  const primaryProviders = getProvidersForRouting(routing, "primary");
-  const fallbackProviders = getProvidersForRouting(routing, "fallback");
-  const primaryRun = await debugProviders(primaryProviders, type, id);
-  let results = [...primaryRun.results];
-  let collected = [...primaryRun.collected];
-  let usedFallback = false;
-
-  if (routing.kind === "anime" && collected.length === 0 && fallbackProviders.length > 0) {
-    const fallbackRun = await debugProviders(fallbackProviders, type, id);
-    results = results.concat(fallbackRun.results);
-    collected = collected.concat(fallbackRun.collected);
-    usedFallback = true;
-  }
+  const routing = buildDefaultRouting(type, id);
+  const run = await debugProviders(providers, type, id);
+  const results = [...run.results];
+  const collected = [...run.collected];
+  const usedFallback = false;
 
   const globalScoredStreams = analyzeScoredStreams("global", collected, {
     contentKind: routing.kind
@@ -168,8 +111,8 @@ export async function debugStreamsFromExternalId(type, id) {
   return {
     routing,
     usedFallback,
-    primaryProviders: primaryProviders.map((provider) => provider.id),
-    fallbackProviders: fallbackProviders.map((provider) => provider.id),
+    primaryProviders: providers.map((provider) => provider.id),
+    fallbackProviders: [],
     results,
     selectionMode: streamSelectionMode,
     providerTimeoutMs,
@@ -179,20 +122,20 @@ export async function debugStreamsFromExternalId(type, id) {
   };
 }
 
-function isAnimeProvider(provider) {
-  return ANIME_PROVIDER_IDS.has(String(provider?.id || "").toLowerCase());
-}
-
-function getProvidersForRouting(routing, phase = "primary") {
-  if (routing?.kind === "anime") {
-    return phase === "primary"
-      ? providers.filter((provider) => isAnimeProvider(provider))
-      : providers.filter((provider) => !isAnimeProvider(provider));
-  }
-
-  return phase === "primary"
-    ? providers.filter((provider) => !isAnimeProvider(provider))
-    : [];
+function buildDefaultRouting(type, externalId) {
+  return {
+    type,
+    externalId,
+    kind: "general",
+    confidence: "high",
+    reasons: {
+      mode: "general_only"
+    },
+    resolved: {
+      imdbId: String(externalId || "").startsWith("tt") ? String(externalId).split(":")[0] : null,
+      tmdbId: String(externalId || "").startsWith("tmdb:") ? String(externalId).replace(/^tmdb:/, "").split(":")[0] : null
+    }
+  };
 }
 
 async function collectStreamsFromProviders(targetProviders, type, id) {

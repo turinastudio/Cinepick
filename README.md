@@ -43,9 +43,10 @@ Addon de Stremio para combinar:
   - `verseriesonline`
   - `lamovie`
 - set activo alineado con el contrato actual:
-  - `animeav1` y `animeflv` siguen fuera del flujo activo
+  - `animeav1` y `animeflv` removidos del repo y del flujo activo
   - `verhdlink` y `cinehdplus` removidos del flujo activo y de `idPrefixes`
   - conflicto de alias `waaw` corregido en extractors
+  - catalogs removidos del manifest y del server
 
 Detalle tecnico adicional:
 
@@ -74,18 +75,6 @@ La arquitectura actual mezcla lo mejor de dos mundos:
 - `cineplus123`
 - `serieskao`
 - `lacartoons`
-
-### Trabajo anime pausado
-
-- `animeav1`
-- `animeflv`
-
-El trabajo de anime sigue presente en el repo, pero ambos providers quedaron desactivados del flujo activo, del manifest y de los catalogs hasta nueva revision.
-
-Motivo practico:
-
-- el matching y el scoring anime todavia no quedaron con la consistencia que queremos para deploy
-- preferimos pausar anime antes que mezclar resultados inestables con el flujo general
 
 ### Providers animacion retro funcionando
 
@@ -153,7 +142,7 @@ Hoy mezcla extractors previos del proyecto con ports/adaptaciones inspiradas en 
 Regla importante actual:
 
 - el flujo global activo hoy prioriza solo providers actualmente habilitados en `index.js` y `manifest.js`
-- el trabajo de routing/scoring anime queda en el repo pero fuera del deploy hasta nueva revision
+- el addon ya no publica catalogs y responde solo con `meta` y `stream`
 
 ## Ejecutar en local
 

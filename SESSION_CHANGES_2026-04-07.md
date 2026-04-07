@@ -27,6 +27,14 @@ Documentar los cambios funcionales, visuales y de confiabilidad realizados sobre
 - las rutas `\/alt\/...` se normalizan internamente hacia el addon real
 - esto permite reinstalar el addon en Stremio rompiendo cache sin duplicar logica
 
+## Limpieza de anime y catalogs
+
+- `animeav1` y `animeflv` fueron removidos del repo
+- se eliminaron las utilidades internas de routing y mappings anime
+- el manifest dejo de publicar `catalog`
+- la ruta `/catalog/...` fue removida del server
+- el addon queda enfocado solo en peliculas y series dentro del flujo general actual
+
 ## Presentacion de streams
 
 - la columna izquierda en Stremio ahora muestra `CinePick`
@@ -124,11 +132,6 @@ Caso concreto corregido:
 - episodios o series que podian terminar mostrando resultados de otra franquicia por fallback demasiado permisivo
 
 ## Flujo activo de providers
-
-Providers anime fuera del flujo activo:
-
-- `animeav1`
-- `animeflv`
 
 Providers removidos del flujo activo en esta sesion por alineacion con el contrato actual:
 

@@ -12,7 +12,6 @@ import { appendSupportStream } from "./lib/support-stream.js";
 import {
   debugProviderStreamsFromExternalId,
   debugStreamsFromExternalId,
-  getProviderByCatalog,
   getProviderById,
   resolveProviderFromMetaId,
   resolveStreamsFromExternalId
@@ -23,21 +22,6 @@ const port = Number.parseInt(process.env.PORT || "3000", 10) || 3000;
 const PUBLIC_STREAM_NAME = "CinePick";
 const logoPath = path.resolve(process.cwd(), "assets", "Logo.png");
 const addonUrlOverride = String(process.env.ADDON_URL || "").trim().replace(/\/$/, "");
-
-function createCatalogResponse(items) {
-  return {
-    metas: items.map((item) => ({
-      id: item.id,
-      type: item.type,
-      name: item.name,
-      poster: item.poster,
-      posterShape: item.posterShape || "poster",
-      description: item.description,
-      genres: item.genres,
-      releaseInfo: item.releaseInfo
-    }))
-  };
-}
 
 function createMetaResponse(item) {
   return {
@@ -132,30 +116,6 @@ function sanitizeDebugStreams(streams) {
     const { _rawTitle, ...rest } = stream;
     return rest;
   });
-}
-
-async function handleCatalog(res, pathname, searchParams) {
-  const match = pathname.match(/^\/catalog\/([^/]+)\/([^/.]+)\.json$/);
-
-  if (!match) {
-    notFound(res);
-    return;
-  }
-
-  const [, type, catalogId] = match;
-  const provider = getProviderByCatalog(catalogId);
-
-  if (!provider || !provider.supportsType(type)) {
-    json(res, 200, { metas: [] });
-    return;
-  }
-
-  const items = await provider.search({
-    type,
-    query: searchParams.get("search") || ""
-  });
-
-  json(res, 200, createCatalogResponse(items));
 }
 
 async function handleMeta(res, pathname) {
@@ -365,11 +325,6 @@ const server = http.createServer(async (req, res) => {
         "Cache-Control": "public, max-age=3600"
       });
       res.end(imageBuffer);
-      return;
-    }
-
-    if (req.method === "GET" && normalizedPathname.startsWith("/catalog/")) {
-      await handleCatalog(res, normalizedPathname, url.searchParams);
       return;
     }
 

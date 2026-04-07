@@ -116,7 +116,7 @@ export class CuevanaProvider extends WebstreamBaseProvider {
     });
 
     const streams = await resolveWebstreamCandidates(this.id, rawCandidates);
-    return this.sortStreams(streams);
+    return this.sortStreams(this.attachDisplayTitle(streams, pageTitle));
   }
 
   async getStreamsFromExternalId({ type, externalId }) {

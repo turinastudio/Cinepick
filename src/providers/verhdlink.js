@@ -51,6 +51,11 @@ export class VerHdLinkProvider extends WebstreamBaseProvider {
   async getStreams({ type, slug }) {
     const pageUrl = absoluteUrl(slug, this.baseUrl);
     const html = await fetchText(pageUrl).catch(() => "");
+    const $ = cheerio.load(html);
+    const pageTitle =
+      stripTags($("meta[property='og:title']").attr("content")) ||
+      stripTags($("title").text()) ||
+      "VerHdLink";
     const rawCandidates = [];
     const latinoBlock = html.match(/_player-mirrors[^"']*latino[\s\S]{0,6000}?(?:<\/section>|<\/div>)/i)?.[0] || "";
 
@@ -68,7 +73,7 @@ export class VerHdLinkProvider extends WebstreamBaseProvider {
     }
 
     const streams = await resolveWebstreamCandidates(this.id, rawCandidates);
-    return this.sortStreams(streams);
+    return this.sortStreams(this.attachDisplayTitle(streams, pageTitle));
   }
 
   async getStreamsFromExternalId({ type, externalId }) {

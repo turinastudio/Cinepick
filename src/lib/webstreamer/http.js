@@ -11,11 +11,40 @@ const DEFAULT_HEADERS = {
 const cookieJar = new Map();
 const REQUEST_TIMEOUT_MS = Math.max(
   1000,
-  Number.parseInt(process.env.WEBSTREAM_HTTP_TIMEOUT_MS || "15000", 10) || 15000
+  Number.parseInt(
+    process.env.WEBSTREAM_HTTP_TIMEOUT_MS ||
+    process.env.PROVIDER_TIMEOUT_MS ||
+    "15000",
+    10
+  ) || 15000
 );
+const REQUEST_RETRY_COUNT = Math.max(
+  0,
+  Math.min(Number.parseInt(process.env.WEBSTREAM_HTTP_RETRIES || "1", 10) || 1, 2)
+);
+const RETRYABLE_STATUS_CODES = new Set([403, 429, 502, 503, 504]);
+const RETRYABLE_ERROR_CODES = new Set([
+  "ECONNABORTED",
+  "ECONNRESET",
+  "ENOTFOUND",
+  "ETIMEDOUT",
+  "EAI_AGAIN"
+]);
 
 function mergeHeaders(headers) {
   return { ...DEFAULT_HEADERS, ...(headers || {}) };
+}
+
+function isRetryableError(error) {
+  return RETRYABLE_ERROR_CODES.has(String(error?.code || "").toUpperCase());
+}
+
+function isRetryableStatus(status) {
+  return RETRYABLE_STATUS_CODES.has(Number(status));
+}
+
+async function wait(ms) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function getCookieHeader(url) {
@@ -64,22 +93,43 @@ function storeCookies(url, response) {
 
 async function issueRequest(url, options = {}) {
   const cookieHeader = getCookieHeader(url);
-  const response = await axios({
-    url,
-    method: options.method || "GET",
-    headers: mergeHeaders({
-      ...(cookieHeader ? { Cookie: cookieHeader } : {}),
-      ...(options.headers || {})
-    }),
-    data: options.body,
-    responseType: options.responseType || "text",
-    maxRedirects: 5,
-    timeout: REQUEST_TIMEOUT_MS,
-    validateStatus: () => true
-  });
+  let lastError = null;
 
-  storeCookies(url, response);
-  return response;
+  for (let attempt = 0; attempt <= REQUEST_RETRY_COUNT; attempt += 1) {
+    try {
+      const response = await axios({
+        url,
+        method: options.method || "GET",
+        headers: mergeHeaders({
+          ...(cookieHeader ? { Cookie: cookieHeader } : {}),
+          ...(options.headers || {})
+        }),
+        data: options.body,
+        responseType: options.responseType || "text",
+        maxRedirects: 5,
+        timeout: REQUEST_TIMEOUT_MS,
+        validateStatus: () => true
+      });
+
+      storeCookies(url, response);
+
+      if (attempt < REQUEST_RETRY_COUNT && isRetryableStatus(response.status)) {
+        await wait(250 * (attempt + 1));
+        continue;
+      }
+
+      return response;
+    } catch (error) {
+      lastError = error;
+      if (attempt >= REQUEST_RETRY_COUNT || !isRetryableError(error)) {
+        throw error;
+      }
+
+      await wait(250 * (attempt + 1));
+    }
+  }
+
+  throw lastError || new Error(`Request failed for ${url}`);
 }
 
 async function warmHost(url, headers) {
@@ -117,7 +167,12 @@ export async function fetchText(url, options = {}) {
 }
 
 export async function fetchJson(url, options = {}) {
-  const response = await issueRequest(url, { ...options, responseType: "json" });
+  let response = await issueRequest(url, { ...options, responseType: "json" });
+
+  if (response.status === 403 && !options._warmed) {
+    await warmHost(url, options.headers);
+    response = await issueRequest(url, { ...options, responseType: "json", _warmed: true });
+  }
 
   if (response.status < 200 || response.status >= 300) {
     throw new Error(`HTTP ${response.status}: ${response.statusText} para ${url}`);

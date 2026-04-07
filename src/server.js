@@ -1,4 +1,6 @@
 import http from "node:http";
+import fs from "node:fs";
+import path from "node:path";
 import { manifest } from "./manifest.js";
 import {
   json,
@@ -6,6 +8,7 @@ import {
   proxyStream,
   serverError
 } from "./lib/http.js";
+import { appendSupportStream } from "./lib/support-stream.js";
 import {
   debugProviderStreamsFromExternalId,
   debugStreamsFromExternalId,
@@ -16,7 +19,10 @@ import {
 } from "./providers/index.js";
 
 const host = process.env.HOST || "0.0.0.0";
-const port = Number(process.env.PORT || 3000);
+const port = Number.parseInt(process.env.PORT || "3000", 10) || 3000;
+const PUBLIC_STREAM_NAME = "CinePick";
+const logoPath = path.resolve(process.cwd(), "assets", "Logo.png");
+const addonUrlOverride = String(process.env.ADDON_URL || "").trim().replace(/\/$/, "");
 
 function createCatalogResponse(items) {
   return {
@@ -53,11 +59,32 @@ function parseUrl(req) {
   return new URL(req.url, `http://${req.headers.host || `${host}:${port}`}`);
 }
 
+function normalizeAddonPath(pathname) {
+  if (pathname === "/alt" || pathname.startsWith("/alt/")) {
+    const normalized = pathname.slice("/alt".length) || "/";
+    return normalized.startsWith("/") ? normalized : `/${normalized}`;
+  }
+
+  return pathname;
+}
+
 function getRequestOrigin(req) {
+  if (addonUrlOverride) {
+    return addonUrlOverride;
+  }
+
   const forwardedProto = String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim();
   const proto = forwardedProto || "http";
   const reqHost = req.headers.host || `${host}:${port}`;
   return `${proto}://${reqHost}`;
+}
+
+function buildManifest(req) {
+  const origin = getRequestOrigin(req);
+  return {
+    ...manifest,
+    logo: `${origin}/logo.png`
+  };
 }
 
 function absolutizeStreamUrls(req, streams) {
@@ -79,6 +106,31 @@ function absolutizeStreamUrls(req, streams) {
     }
 
     return next;
+  });
+}
+
+function projectPublicStreams(streams) {
+  return (Array.isArray(streams) ? streams : []).map((stream) => {
+    if (!stream || typeof stream !== "object") {
+      return stream;
+    }
+
+    const { _rawTitle, ...rest } = stream;
+    return {
+      ...rest,
+      name: PUBLIC_STREAM_NAME
+    };
+  });
+}
+
+function sanitizeDebugStreams(streams) {
+  return (Array.isArray(streams) ? streams : []).map((stream) => {
+    if (!stream || typeof stream !== "object") {
+      return stream;
+    }
+
+    const { _rawTitle, ...rest } = stream;
+    return rest;
   });
 }
 
@@ -143,7 +195,9 @@ async function handleStream(req, res, pathname) {
 
   if (!resolved || resolved.type !== requestedType) {
     const externalStreams = await resolveStreamsFromExternalId(requestedType, decodeURIComponent(rawId));
-    json(res, 200, { streams: absolutizeStreamUrls(req, externalStreams) });
+    json(res, 200, {
+      streams: projectPublicStreams(absolutizeStreamUrls(req, appendSupportStream(externalStreams)))
+    });
     return;
   }
 
@@ -152,7 +206,9 @@ async function handleStream(req, res, pathname) {
     slug: resolved.slug
   });
 
-  json(res, 200, { streams: absolutizeStreamUrls(req, streams) });
+  json(res, 200, {
+    streams: projectPublicStreams(absolutizeStreamUrls(req, appendSupportStream(streams)))
+  });
 }
 
 async function handleDebug(res, pathname) {
@@ -201,7 +257,7 @@ async function handleDebug(res, pathname) {
     selectionMode: debug.selectionMode || "global",
     results: debug.results || [],
     globalScoredStreams: debug.globalScoredStreams || [],
-    globalSelectedStreams: debug.globalSelectedStreams || []
+    globalSelectedStreams: sanitizeDebugStreams(debug.globalSelectedStreams || [])
   });
 }
 
@@ -284,49 +340,61 @@ const server = http.createServer(async (req, res) => {
 
   try {
     const url = parseUrl(req);
+    const normalizedPathname = normalizeAddonPath(url.pathname);
 
-    if (req.method === "GET" && url.pathname === "/manifest.json") {
-      json(res, 200, manifest);
+    if (req.method === "GET" && normalizedPathname === "/manifest.json") {
+      json(res, 200, buildManifest(req));
       return;
     }
 
-    if (req.method === "GET" && url.pathname === "/") {
+    if (req.method === "GET" && normalizedPathname === "/") {
       json(res, 200, {
         ok: true,
-        name: manifest.name,
-        version: manifest.version,
-        manifest: "/manifest.json"
+        name: buildManifest(req).name,
+        version: buildManifest(req).version,
+        manifest: "/manifest.json",
+        alternateManifest: "/alt/manifest.json"
       });
       return;
     }
 
-    if (req.method === "GET" && url.pathname.startsWith("/catalog/")) {
-      await handleCatalog(res, url.pathname, url.searchParams);
+    if (req.method === "GET" && normalizedPathname === "/logo.png") {
+      const imageBuffer = fs.readFileSync(logoPath);
+      res.writeHead(200, {
+        "Content-Type": "image/png",
+        "Cache-Control": "public, max-age=3600"
+      });
+      res.end(imageBuffer);
       return;
     }
 
-    if (req.method === "GET" && url.pathname.startsWith("/meta/")) {
-      await handleMeta(res, url.pathname);
+    if (req.method === "GET" && normalizedPathname.startsWith("/catalog/")) {
+      await handleCatalog(res, normalizedPathname, url.searchParams);
       return;
     }
 
-    if (req.method === "GET" && url.pathname.startsWith("/stream/")) {
-      await handleStream(req, res, url.pathname);
+    if (req.method === "GET" && normalizedPathname.startsWith("/meta/")) {
+      await handleMeta(res, normalizedPathname);
       return;
     }
 
-    if (req.method === "GET" && url.pathname.startsWith("/_debug/stream/")) {
-      await handleDebug(res, url.pathname);
+    if (req.method === "GET" && normalizedPathname.startsWith("/stream/")) {
+      await handleStream(req, res, normalizedPathname);
       return;
     }
 
-    if (req.method === "GET" && url.pathname.startsWith("/_debug/provider/")) {
-      await handleProviderDebug(res, url.pathname);
+    if (req.method === "GET" && normalizedPathname.startsWith("/_debug/stream/")) {
+      await handleDebug(res, normalizedPathname);
       return;
     }
 
-    if (req.method === "GET" && url.pathname.startsWith("/p/")) {
-      await handleProxy(req, res, url.pathname);
+    if (req.method === "GET" && normalizedPathname.startsWith("/_debug/provider/")) {
+      await handleProviderDebug(res, normalizedPathname);
+      return;
+    }
+
+    if (req.method === "GET" && normalizedPathname.startsWith("/p/")) {
+      await handleProxy(req, res, normalizedPathname);
       return;
     }
 

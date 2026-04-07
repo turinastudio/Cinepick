@@ -24,6 +24,16 @@ export function normalizeTitle(value) {
     .trim();
 }
 
+function tokenizeTitle(value) {
+  return stripTags(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/g)
+    .map((token) => token.trim())
+    .filter(Boolean);
+}
+
 export function buildSearchTerms(...values) {
   const terms = new Set();
 
@@ -47,6 +57,8 @@ export function buildSearchTerms(...values) {
 export function scoreSearchCandidate(targetTitle, rawTitle, expectedYear, matchedYear) {
   const targetNorm = normalizeTitle(targetTitle);
   const rawNorm = normalizeTitle(rawTitle);
+  const targetTokens = tokenizeTitle(targetTitle);
+  const rawTokens = tokenizeTitle(rawTitle);
   const expectedYearNumber = Number.parseInt(expectedYear, 10);
   const matchedYearNumber = Number.parseInt(matchedYear, 10);
   let score = 0;
@@ -61,12 +73,16 @@ export function scoreSearchCandidate(targetTitle, rawTitle, expectedYear, matche
     score += 5;
   }
 
-  const targetTokens = targetNorm.match(/[a-z0-9]+/g) || [];
-  const rawTokens = rawNorm.match(/[a-z0-9]+/g) || [];
-  score += Math.min(
-    targetTokens.filter((token) => rawTokens.includes(token)).length,
-    4
-  );
+  const overlappingTokens = targetTokens.filter((token) => rawTokens.includes(token)).length;
+  score += Math.min(overlappingTokens, 4);
+
+  if (targetTokens.length === 1 && rawTokens.length > 2 && overlappingTokens === 0) {
+    score -= 6;
+  }
+
+  if (targetTokens.length > 1 && overlappingTokens === 0) {
+    score -= 8;
+  }
 
   if (Number.isFinite(expectedYearNumber) && Number.isFinite(matchedYearNumber)) {
     if (matchedYearNumber === expectedYearNumber) {

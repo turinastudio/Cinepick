@@ -247,8 +247,39 @@ function tryParseJson(text) {
   }
 }
 
+const PROVIDER_TIMEOUT_MS = Math.max(
+  1000,
+  Number.parseInt(process.env.PROVIDER_TIMEOUT_MS || "12000", 10) || 12000
+);
+const EXTRACTOR_TIMEOUT_MS = Math.max(
+  1000,
+  Math.min(
+    Number.parseInt(process.env.EXTRACTOR_TIMEOUT_MS || "", 10) || Math.floor(PROVIDER_TIMEOUT_MS / 3),
+    PROVIDER_TIMEOUT_MS
+  )
+);
+
+async function fetchWithTimeout(url, options = {}) {
+  const controller = new AbortController();
+  const timeoutHandle = setTimeout(() => controller.abort(), EXTRACTOR_TIMEOUT_MS);
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error(`Extractor timeout after ${EXTRACTOR_TIMEOUT_MS}ms para ${url}`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutHandle);
+  }
+}
+
 async function fetchText(url, headers = {}) {
-  const response = await fetch(url, {
+  const response = await fetchWithTimeout(url, {
     headers: {
       "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
       accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -265,7 +296,7 @@ async function fetchText(url, headers = {}) {
 }
 
 async function fetchJson(url, headers = {}) {
-  const response = await fetch(url, {
+  const response = await fetchWithTimeout(url, {
     headers: {
       "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
       accept: "application/json,text/plain;q=0.9,*/*;q=0.8",
@@ -328,7 +359,17 @@ async function extractStreamTape(url, label) {
 }
 
 async function extractDood(url, label) {
-  const response = await fetch(url, { redirect: "follow" });
+  const response = await fetchWithTimeout(url, {
+    headers: {
+      "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      referer: url
+    },
+    redirect: "follow"
+  });
+  if (!response.ok) {
+    throw new Error(`Extractor respondio ${response.status} para ${url}`);
+  }
   const resolvedUrl = response.url;
   const html = await response.text();
 
@@ -595,7 +636,7 @@ async function extractStreamWish(url, label) {
 
     if (/vibuxer\.com\/stream\//i.test(resolvedUrl)) {
       try {
-        const redirected = await fetch(resolvedUrl, {
+        const redirected = await fetchWithTimeout(resolvedUrl, {
           headers: {
             Referer: `https://${refererHost}/`,
             "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
@@ -1617,7 +1658,7 @@ const extractorRegistry = [
   {
     id: "vidora",
     source: "northstar-inspired",
-    aliases: ["vidora", "waaw"],
+    aliases: ["vidora"],
     resolve: extractVidora
   },
   {
@@ -1650,6 +1691,7 @@ export function matchExtractorByUrl(url) {
 export async function resolveExtractorStream(url, label, shouldProxy = false) {
   const matchedExtractor = matchExtractorByUrl(url);
   let streams = [];
+  let extractorFailed = false;
 
   try {
     if (matchedExtractor) {
@@ -1668,6 +1710,22 @@ export async function resolveExtractorStream(url, label, shouldProxy = false) {
       }
     }
   } catch {
+    extractorFailed = true;
+  }
+
+  if ((extractorFailed || streams.length === 0) && !/\.(m3u8|mp4)(\?|$)/i.test(url)) {
+    const genericM3u8 = await extractGenericM3u8Page(url, label).catch(() => []);
+    if (genericM3u8.length > 0) {
+      streams = genericM3u8;
+    } else {
+      const jwPlayer = await extractJWPlayer(url, label).catch(() => []);
+      if (jwPlayer.length > 0) {
+        streams = jwPlayer;
+      }
+    }
+  }
+
+  if (streams.length === 0) {
     return [];
   }
 

@@ -99,7 +99,7 @@ export class HomeCineProvider extends WebstreamBaseProvider {
     const rawCandidates = this.extractRawCandidates(pageHtml, pageUrl, pageTitle);
 
     const streams = await resolveWebstreamCandidates(this.id, rawCandidates);
-    return this.sortStreams(streams);
+    return this.sortStreams(this.attachDisplayTitle(streams, pageTitle));
   }
 
   async getStreamsFromExternalId({ type, externalId }) {

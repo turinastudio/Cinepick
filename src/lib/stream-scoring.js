@@ -26,6 +26,23 @@ const HOST_SCORES = {
   dood: 42
 };
 
+function getTitleText(stream) {
+  return String(stream._rawTitle || stream.title || "");
+}
+
+function getNameText(stream) {
+  return String(stream.name || "");
+}
+
+function isValidStreamTarget(value) {
+  const target = String(value || "").trim();
+  if (!target) {
+    return false;
+  }
+
+  return /^https?:\/\//i.test(target) || /^\/p\//.test(target);
+}
+
 function getDisabledSourceSet() {
   if (/^(1|true|yes)$/i.test(String(process.env.ALLOW_UNSTABLE_HOSTS || ""))) {
     return new Set();
@@ -44,7 +61,7 @@ function getDisabledSourceSet() {
 }
 
 function detectResolutionScore(stream) {
-  const text = `${stream.title || ""} ${stream.description || ""}`.toLowerCase();
+  const text = `${getTitleText(stream)} ${stream.description || ""}`.toLowerCase();
   if (/\b(2160p|4k)\b/.test(text)) return 24;
   if (/\b1080p\b/.test(text)) return 18;
   if (/\b720p\b/.test(text)) return 10;
@@ -53,9 +70,9 @@ function detectResolutionScore(stream) {
 }
 
 function detectLanguageTier(stream) {
-  const text = `${stream.title || ""} ${stream.name || ""}`.toLowerCase();
+  const text = `${getTitleText(stream)} ${getNameText(stream)}`.toLowerCase();
   if (text.includes("[lat]") || /\blatino\b|\blatam\b/.test(text)) return 3;
-  if (text.includes("[cast]") || /\bcastellano\b|\bespa(?:n|ñ)ol\b/.test(text)) return 2;
+  if (text.includes("[cast]") || /\bcastellano\b|\bespa(?:n|\u00f1)ol\b/.test(text)) return 2;
   if (text.includes("[sub]") || /\bsubtitulado\b|\bvose\b/.test(text)) return 1;
   return 0;
 }
@@ -95,8 +112,8 @@ function detectComplexityPenalty(stream) {
 }
 
 function detectSourceLabel(stream) {
-  const text = `${stream.title || ""} ${stream.name || ""}`.toLowerCase();
-  const url = String(stream.url || "").toLowerCase();
+  const text = `${getTitleText(stream)} ${getNameText(stream)}`.toLowerCase();
+  const url = String(stream._targetUrl || stream.url || "").toLowerCase();
 
   for (const host of Object.keys(HOST_SCORES)) {
     if (text.includes(host) || url.includes(host)) {
@@ -137,7 +154,7 @@ function dedupeStreams(streams) {
   const deduped = [];
 
   for (const stream of streams) {
-    const dedupeKey = `${stream.url || ""}::${stream.title || ""}`;
+    const dedupeKey = `${stream.url || ""}::${getTitleText(stream)}`;
     if (seen.has(dedupeKey)) {
       continue;
     }
@@ -205,6 +222,13 @@ export function analyzeScoredStreams(providerId, streams, options = {}) {
 
   return dedupeStreams(streams)
     .filter((stream) => {
+      if (isValidStreamTarget(stream.url)) {
+        return true;
+      }
+
+      return /^https?:\/\//i.test(String(stream.externalUrl || "").trim());
+    })
+    .filter((stream) => {
       const sourceLabel = detectSourceLabel(stream);
       return !disabledSources.has(sourceLabel);
     })
@@ -227,9 +251,10 @@ export function analyzeScoredStreams(providerId, streams, options = {}) {
         complexityPenalty -
         penalty;
 
-      const cleanedTitle = options.cleanTitle ? options.cleanTitle(stream.title || "") : (stream.title || "");
+      const cleanedTitle = options.cleanTitle ? options.cleanTitle(getTitleText(stream)) : getTitleText(stream);
       const formattedTitle = buildHttpStreamTitle({
         ...stream,
+        _rawTitle: cleanedTitle,
         title: cleanedTitle,
         _sourceLabel: sourceLabel
       });
@@ -237,6 +262,7 @@ export function analyzeScoredStreams(providerId, streams, options = {}) {
       return {
         stream: {
           ...stream,
+          _rawTitle: cleanedTitle,
           title: formattedTitle
         },
         score,

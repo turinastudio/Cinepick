@@ -188,10 +188,14 @@ export class CastleProvider extends Provider {
     const data = extractDataBlock(videoData);
     const videoUrl = data.videoUrl;
     if (!videoUrl) return streams;
+    const displayTitle = parsedExternal.season && parsedExternal.episode
+      ? `${tmdbInfo.title} S${String(parsedExternal.season).padStart(2, "0")}E${String(parsedExternal.episode).padStart(2, "0")}`
+      : `${tmdbInfo.title}${tmdbInfo.year ? ` (${tmdbInfo.year})` : ""}`;
 
     const add = (url, quality) => {
       streams.push({
         ...buildStream("Castle", `${languageTag} ${quality} castle`, url, PLAYBACK_HEADERS, true),
+        _displayTitle: displayTitle,
         _providerId: this.id,
         description: parsedExternal.season && parsedExternal.episode
           ? `${tmdbInfo.title} S${String(parsedExternal.season).padStart(2, "0")}E${String(parsedExternal.episode).padStart(2, "0")}`

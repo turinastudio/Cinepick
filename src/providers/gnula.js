@@ -84,7 +84,9 @@ export class GnulaProvider extends Provider {
       allPlayers.map((player) => this.resolvePlayerStream(player))
     );
 
-    return this.sortStreams(streamGroups.flat().filter(Boolean));
+    const rawStreams = streamGroups.flat().filter(Boolean);
+    const displayTitle = this.extractDisplayTitleForTarget(target, nextData);
+    return this.sortStreams(this.attachDisplayTitle(rawStreams, displayTitle));
   }
 
   async getStreamsFromExternalId({ type, externalId }) {
@@ -348,6 +350,35 @@ export class GnulaProvider extends Provider {
     });
   }
 
+  attachDisplayTitle(streams, displayTitle) {
+    const normalized = String(displayTitle || "").trim();
+    if (!normalized) {
+      return streams;
+    }
+
+    return streams.map((stream) => ({
+      ...stream,
+      _displayTitle: stream._displayTitle || normalized
+    }));
+  }
+
+  extractDisplayTitleForTarget(target, nextData) {
+    const seriesName = String(nextData?.post?.titles?.name || "").replace(/\s+/g, " ").trim();
+    const episodeTitle = String(nextData?.episode?.title || "").replace(/\s+/g, " ").trim();
+
+    if (target?.type === "series") {
+      if (seriesName && episodeTitle && !episodeTitle.toLowerCase().includes(seriesName.toLowerCase())) {
+        return `${seriesName} - ${episodeTitle}`;
+      }
+
+      if (episodeTitle) {
+        return episodeTitle;
+      }
+    }
+
+    return seriesName || this.unslugify(target?.primarySlug || "");
+  }
+
   cleanStreamTitle(title) {
     return title
       .replace(/\s+/g, " ")
@@ -415,14 +446,15 @@ export class GnulaProvider extends Provider {
   pickBestCandidate(candidates, externalMeta) {
     const targetTitle = this.normalizeTitle(externalMeta.name);
     const targetYear = this.extractYear(externalMeta.releaseInfo || externalMeta.year || "");
+    const targetWords = targetTitle.split(/\s+/).filter(Boolean);
 
     const scored = candidates.map((candidate) => {
       const candidateTitle = this.normalizeTitle(candidate.name);
       const candidateYear = this.extractYear(candidate.releaseInfo || "");
       const titleSimilarity = this.stringSimilarity(candidateTitle, targetTitle);
       const candidateWords = candidateTitle.split(/\s+/).filter(Boolean);
-      const targetWords = targetTitle.split(/\s+/).filter(Boolean);
       const wordDelta = Math.abs(candidateWords.length - targetWords.length);
+      const wordOverlap = targetWords.filter((word) => candidateWords.includes(word)).length;
 
       let score = 0;
 
@@ -462,11 +494,24 @@ export class GnulaProvider extends Provider {
         score += 25;
       }
 
-      return { candidate, score };
+      return { candidate, score, titleSimilarity, relaxedSimilarity, wordOverlap };
     });
 
     scored.sort((a, b) => b.score - a.score);
-    return scored[0]?.score > 0 ? scored[0].candidate : candidates[0];
+    const best = scored[0] || null;
+    if (!best || best.score <= 0) {
+      return null;
+    }
+
+    const hasStrongExactness =
+      best.score >= 40 ||
+      best.titleSimilarity >= 0.84 ||
+      best.relaxedSimilarity >= 0.9;
+    const hasWordEvidence =
+      best.wordOverlap >= Math.min(Math.max(targetWords.length, 1), 2) ||
+      (targetWords.length === 1 && best.wordOverlap >= 1);
+
+    return hasStrongExactness || hasWordEvidence ? best.candidate : null;
   }
 
   normalizeTitle(value) {

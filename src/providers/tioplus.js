@@ -143,7 +143,7 @@ export class TioPlusProvider extends WebstreamBaseProvider {
     }
 
     const streams = await resolveWebstreamCandidates(this.id, resolvedCandidates);
-    return this.sortStreams(streams);
+    return this.sortStreams(this.attachDisplayTitle(streams, title));
   }
 
   async getStreamsFromExternalId({ type, externalId }) {

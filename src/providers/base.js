@@ -19,6 +19,18 @@ export class Provider {
     return !this.disabledSources.has(String(sourceName || "").trim().toLowerCase());
   }
 
+  attachDisplayTitle(streams, displayTitle) {
+    const normalized = String(displayTitle || "").replace(/\s+/g, " ").trim();
+    if (!normalized) {
+      return streams;
+    }
+
+    return (Array.isArray(streams) ? streams : []).map((stream) => ({
+      ...stream,
+      _displayTitle: stream?._displayTitle || normalized
+    }));
+  }
+
   async search(_params) {
     throw new Error("Provider.search not implemented");
   }

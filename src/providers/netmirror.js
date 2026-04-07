@@ -229,6 +229,10 @@ export class NetMirrorProvider extends Provider {
     debug.subtitleLanguages = [...new Set(subtitles.map((item) => item.lang).filter(Boolean))];
     debug.trackSummary = trackSummary;
 
+    const displayTitle = episodeData?.t
+      ? `${tmdbInfo.title} - ${episodeData.t}`
+      : `${tmdbInfo.title}${tmdbInfo.year ? ` (${tmdbInfo.year})` : ""}`;
+
     const streams = sources.map((source) => ({
       ...buildStream(
         "NetMirror",
@@ -244,6 +248,7 @@ export class NetMirrorProvider extends Provider {
         },
         true
       ),
+      _displayTitle: displayTitle,
       subtitles,
       _providerId: this.id
     }));

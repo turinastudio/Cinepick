@@ -94,7 +94,9 @@ export class SeriesMetroProvider extends WebstreamBaseProvider {
 
     const rawCandidates = await this.extractRawCandidates(pageUrl, pageHtml, pageUrl);
     const streams = await resolveWebstreamCandidates(this.id, rawCandidates);
-    return this.selectPreferredLanguageStreams(this.sortStreams(streams));
+    return this.selectPreferredLanguageStreams(
+      this.sortStreams(this.attachDisplayTitle(streams, this.extractTitle(pageHtml) || this.unslugify(path)))
+    );
   }
 
   async getStreamsFromExternalId({ type, externalId }) {
@@ -143,7 +145,9 @@ export class SeriesMetroProvider extends WebstreamBaseProvider {
 
     const rawCandidates = await this.extractRawCandidates(pageUrl, pageHtml, pageUrl);
     const streams = await resolveWebstreamCandidates(this.id, rawCandidates);
-    return this.selectPreferredLanguageStreams(this.sortStreams(streams));
+    return this.selectPreferredLanguageStreams(
+      this.sortStreams(this.attachDisplayTitle(streams, this.extractTitle(pageHtml) || this.unslugify(path)))
+    );
   }
 
   async debugStreamsFromExternalId({ type, externalId }) {

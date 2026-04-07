@@ -71,7 +71,9 @@ export class CinecalidadProvider extends WebstreamBaseProvider {
         players.map((player) => this.resolvePlayerStream(player))
       );
 
-      httpStreams = this.sortStreams(streamGroups.flat().filter(Boolean));
+      const rawStreams = streamGroups.flat().filter(Boolean);
+      const displayTitle = this.extractDisplayTitleFromPage(target, html);
+      httpStreams = this.sortStreams(this.attachDisplayTitle(rawStreams, displayTitle));
     }
 
     return httpStreams;
@@ -544,7 +546,8 @@ export class CinecalidadProvider extends WebstreamBaseProvider {
 
     const streamGroups = await Promise.all(players.map((player) => this.resolvePlayerStream(player)));
     const rawStreams = streamGroups.flat().filter(Boolean);
-    return this.sortStreams(rawStreams);
+    const displayTitle = this.extractDisplayTitleFromPage({ type, primarySlug: this.extractSlugFromUrl(url) || "" }, html);
+    return this.sortStreams(this.attachDisplayTitle(rawStreams, displayTitle));
   }
 
   buildEpisodePageUrl(token, seasonNumber, episodeNumber) {
@@ -770,6 +773,28 @@ export class CinecalidadProvider extends WebstreamBaseProvider {
     return scoreAndSelectStreams(this.id, streams, {
       cleanTitle: (title) => this.cleanStreamTitle(title)
     });
+  }
+
+  attachDisplayTitle(streams, displayTitle) {
+    const normalized = String(displayTitle || "").trim();
+    if (!normalized) {
+      return streams;
+    }
+
+    return streams.map((stream) => ({
+      ...stream,
+      _displayTitle: stream._displayTitle || normalized
+    }));
+  }
+
+  extractDisplayTitleFromPage(target, html) {
+    const pageTitle = this.cleanTitle(
+      this.extractOgValue(html, "og:title")
+      || this.extractFirstMatch(html, /<title>([^<]+)<\/title>/i)
+      || this.unslugify(target?.primarySlug || "")
+    );
+
+    return pageTitle;
   }
 
   cleanStreamTitle(title) {

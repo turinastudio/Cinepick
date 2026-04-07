@@ -172,6 +172,18 @@ export class WebstreamBaseProvider extends Provider {
     });
   }
 
+  attachDisplayTitle(streams, displayTitle) {
+    const normalized = String(displayTitle || "").replace(/\s+/g, " ").trim();
+    if (!normalized) {
+      return streams;
+    }
+
+    return (Array.isArray(streams) ? streams : []).map((stream) => ({
+      ...stream,
+      _displayTitle: stream._displayTitle || normalized
+    }));
+  }
+
   cleanStreamTitle(title) {
     return String(title || "").replace(/\s+/g, " ").trim();
   }

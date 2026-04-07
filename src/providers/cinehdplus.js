@@ -112,7 +112,8 @@ export class CineHdPlusProvider extends WebstreamBaseProvider {
     }
 
     const streams = await resolveWebstreamCandidates(this.id, rawCandidates);
-    return this.sortStreams(streams);
+    const title = stripTags(cheerio.load(html)("meta[property='og:title']").attr("content") || cheerio.load(html)("title").text());
+    return this.sortStreams(this.attachDisplayTitle(streams, title));
   }
 
   async getStreamsFromExternalId({ type, externalId }) {

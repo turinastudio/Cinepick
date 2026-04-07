@@ -3,7 +3,6 @@ import { classifyContentForProviderRouting } from "../lib/content-routing.js";
 import { analyzeScoredStreams, scoreAndSelectStreams } from "../lib/stream-scoring.js";
 import { LaCartoonsProvider } from "./lacartoons.js";
 import { CinecalidadProvider } from "./cinecalidad.js";
-import { CineHdPlusProvider } from "./cinehdplus.js";
 import { Cineplus123Provider } from "./cineplus123.js";
 import { CastleProvider } from "./castle.js";
 import { CuevanaProvider } from "./cuevana.js";
@@ -15,7 +14,6 @@ import { NetMirrorProvider } from "./netmirror.js";
 import { SeriesMetroProvider } from "./seriesmetro.js";
 import { SerieskaoProvider } from "./serieskao.js";
 import { TioPlusProvider } from "./tioplus.js";
-import { VerHdLinkProvider } from "./verhdlink.js";
 import { VerSeriesOnlineProvider } from "./verseriesonline.js";
 
 const baseProviders = [
@@ -27,8 +25,6 @@ const baseProviders = [
   new CuevanaProvider(),
   new HomeCineProvider(),
   new TioPlusProvider(),
-  new VerHdLinkProvider(),
-  new CineHdPlusProvider(),
   new MhdflixProvider(),
   new SeriesMetroProvider(),
   new VerSeriesOnlineProvider(),

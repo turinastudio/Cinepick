@@ -1,4 +1,4 @@
-# Stremio Web Scraper Addon
+# CinePick
 
 Addon de Stremio para combinar:
 
@@ -6,6 +6,50 @@ Addon de Stremio para combinar:
 - ranking global
 - proxy interno para HLS/MP4
 - debug por provider y debug global
+
+## Cambios recientes
+
+### Sesion 2026-04-07
+
+- identidad publica actualizada a `CinePick`
+- logo servido desde el propio addon usando `assets/Logo.png`
+- soporte de `ADDON_URL` como override canonico para URLs publicas
+- CTA de soporte agregado al final de la respuesta de `/stream`, sin tocar scoring ni matching
+- ruta alternativa `\/alt\/manifest.json` para facilitar pruebas y romper cache de Stremio
+- formato visual de streams simplificado:
+  - izquierda: `CinePick`
+  - derecha:
+    - `Titulo`
+    - `Latino/Castellano/Multilenguaje/Subtitulado`
+    - `Provider - Fuente`
+- separacion entre logica y presentacion:
+  - `_rawTitle` para scoring y deteccion tecnica
+  - `_displayTitle` para mostrar titulos mas limpios en Stremio
+- `_displayTitle` propagado a los providers principales para mejorar como se ve el titulo final
+- hardening del pipeline de streams:
+  - validacion de URLs antes de scorear/devolver streams
+  - deteccion de host usando `_targetUrl` para no perder la fuente real tras el proxy
+  - timeouts mas agresivos en extractors para reducir latencia
+  - timeout por candidato en `webstreamer/resolve`
+  - fallback generico `GenericM3U8` / `JWPlayer` cuando falla un extractor especifico
+  - headers y validacion de estado reforzados en `Dood`
+  - reintentos cortos para errores HTTP transitorios en `webstreamer/http`
+- matching interno mejorado en `scoreSearchCandidate()`
+- matching endurecido contra falsos positivos en providers con logica custom:
+  - `cineplus123`
+  - `gnula`
+  - `mhdflix`
+  - `serieskao`
+  - `verseriesonline`
+  - `lamovie`
+- set activo alineado con el contrato actual:
+  - `animeav1` y `animeflv` siguen fuera del flujo activo
+  - `verhdlink` y `cinehdplus` removidos del flujo activo y de `idPrefixes`
+  - conflicto de alias `waaw` corregido en extractors
+
+Detalle tecnico adicional:
+
+- [SESSION_CHANGES_2026-04-07.md](/C:/Users/lautaroturina/Desktop/Codex/CinePick/SESSION_CHANGES_2026-04-07.md)
 
 La arquitectura actual mezcla lo mejor de dos mundos:
 
@@ -29,6 +73,7 @@ La arquitectura actual mezcla lo mejor de dos mundos:
 - `verseriesonline`
 - `cineplus123`
 - `serieskao`
+- `lacartoons`
 
 ### Trabajo anime pausado
 
@@ -67,11 +112,6 @@ Motivo:
 - `NetMirror` suele devolver renditions y tracks auxiliares, pero no audio ES/LAT verificable
 - `Castle` puede tener metadata util, pero por ahora conviene ser conservadores en el deploy publico
 
-### Providers HTTP preparados pero pendientes de validar mejor
-
-- `verhdlink`
-- `cinehdplus`
-
 ### Providers explorados pero no activados para deploy
 
 - `cinemacity`
@@ -82,16 +122,16 @@ Motivo:
 
 ### Entrada principal
 
-- [src/server.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/server.js)
-- [src/providers/index.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/index.js)
-- [src/manifest.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/manifest.js)
+- [src/server.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/server.js)
+- [src/providers/index.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/providers/index.js)
+- [src/manifest.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/manifest.js)
 
 ### Capa HTTP nueva
 
-- [src/providers/webstreambase.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/webstreambase.js)
-- [src/lib/webstreamer/http.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/webstreamer/http.js)
-- [src/lib/webstreamer/common.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/webstreamer/common.js)
-- [src/lib/webstreamer/resolve.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/webstreamer/resolve.js)
+- [src/providers/webstreambase.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/providers/webstreambase.js)
+- [src/lib/webstreamer/http.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/lib/webstreamer/http.js)
+- [src/lib/webstreamer/common.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/lib/webstreamer/common.js)
+- [src/lib/webstreamer/resolve.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/lib/webstreamer/resolve.js)
 
 Esta capa usa:
 
@@ -101,14 +141,14 @@ Esta capa usa:
 
 ### Capa de extractors
 
-- [src/lib/extractors.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/extractors.js)
+- [src/lib/extractors.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/lib/extractors.js)
 
 Hoy mezcla extractors previos del proyecto con ports/adaptaciones inspiradas en `Northstar` y `Cloudstream`.
 
 ### Ranking y formato
 
-- [src/lib/stream-scoring.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/stream-scoring.js)
-- [src/lib/stream-format.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/stream-format.js)
+- [src/lib/stream-scoring.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/lib/stream-scoring.js)
+- [src/lib/stream-format.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/lib/stream-format.js)
 
 Regla importante actual:
 
@@ -181,8 +221,14 @@ Healthcheck:
 - `ADDON_URL`
 - `STREAM_SELECTION_MODE`
 - `STREAM_MAX_RESULTS`
+- `SHOW_SUPPORT_STREAM`
+- `SUPPORT_URL`
 - `PROVIDER_TIMEOUT_MS`
 - `PROVIDER_DEBUG_TIMEOUT_MS`
+- `EXTRACTOR_TIMEOUT_MS`
+- `EXTRACTOR_CANDIDATE_TIMEOUT_MS`
+- `WEBSTREAM_HTTP_TIMEOUT_MS`
+- `WEBSTREAM_HTTP_RETRIES`
 - `TMDB_API_KEY`
 
 ### HTTP providers
@@ -195,8 +241,6 @@ Healthcheck:
 - `CUEVANA_BASE_URL`
 - `HOMECINE_BASE_URL`
 - `TIOPLUS_BASE_URL`
-- `VERHDLINK_BASE_URL`
-- `CINEHDPLUS_BASE_URL`
 - `MHDFLIX_BASE_URL`
 - `MHDFLIX_API_URL`
 - `LAMOVIE_BASE_URL`
@@ -210,6 +254,12 @@ Healthcheck:
 - `LACARTOONS_BASE_URL`
 
 ## Debug util
+
+Nota operativa:
+
+- logs del tipo `[streams] <provider> fallo ... timeout after <n>ms` indican que ese provider puntual no llego a tiempo
+- no significan necesariamente que el addon haya fallado completo
+- mientras otros providers respondan, Stremio puede seguir mostrando streams normalmente
 
 ### Debug global
 
@@ -232,9 +282,9 @@ Healthcheck:
 
 ### Archivos preparados
 
-- [package.json](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/package.json)
-- [package-lock.json](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/package-lock.json)
-- [railway.json](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/railway.json)
+- [package.json](/C:/Users/lautaroturina/Desktop/Codex/CinePick/package.json)
+- [package-lock.json](/C:/Users/lautaroturina/Desktop/Codex/CinePick/package-lock.json)
+- [railway.json](/C:/Users/lautaroturina/Desktop/Codex/CinePick/railway.json)
 
 ### Comandos esperados por Railway
 
@@ -262,8 +312,6 @@ Healthcheck:
 - `CUEVANA_BASE_URL=https://ww1.cuevana3.is`
 - `HOMECINE_BASE_URL=https://homecine.to`
 - `TIOPLUS_BASE_URL=https://tioplus.app`
-- `VERHDLINK_BASE_URL=https://verhdlink.com`
-- `CINEHDPLUS_BASE_URL=https://cinehdplus.gratis`
 - `MHDFLIX_BASE_URL=https://ww1.mhdflix.com`
 - `MHDFLIX_API_URL=https://core.mhdflix.com`
 - `LAMOVIE_BASE_URL=https://la.movie`
@@ -272,6 +320,9 @@ Healthcheck:
 - `SERIESKAO_BASE_URL=https://serieskao.top`
 - `SERIESMETRO_BASE_URL=https://www3.seriesmetro.net`
 - `LACARTOONS_BASE_URL=https://www.lacartoons.com`
+- `EXTRACTOR_TIMEOUT_MS=3500`
+- `EXTRACTOR_CANDIDATE_TIMEOUT_MS=5000`
+- `WEBSTREAM_HTTP_RETRIES=1`
 
 ### Verificacion despues del deploy
 
@@ -280,8 +331,4 @@ Healthcheck:
 
 ## Documentacion adicional
 
-- [CONTINUATION_GUIDE.md](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/CONTINUATION_GUIDE.md)
-- [ANTIGRAVITY_HANDOFF.md](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/ANTIGRAVITY_HANDOFF.md)
-- [RESOURCES_USED.md](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/RESOURCES_USED.md)
-- [CLOUDSTREAM_EXTRACTORS_STATUS.md](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/CLOUDSTREAM_EXTRACTORS_STATUS.md)
-- [PORTING_GUIDE_ANIYOMI_TO_STREMIO.md](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/PORTING_GUIDE_ANIYOMI_TO_STREMIO.md)
+- [SESSION_CHANGES_2026-04-07.md](/C:/Users/lautaroturina/Desktop/Codex/CinePick/SESSION_CHANGES_2026-04-07.md)

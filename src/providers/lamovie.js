@@ -89,7 +89,8 @@ export class LaMovieProvider extends Provider {
     }
 
     const streamGroups = await Promise.all(embeds.map((embed) => this.resolveEmbedStream(embed)));
-    return this.sortStreams(streamGroups.flat().filter(Boolean));
+    const displayTitle = this.unslugify(target.slug || "");
+    return this.sortStreams(this.attachDisplayTitle(streamGroups.flat().filter(Boolean), displayTitle));
   }
 
   async getStreamsFromExternalId({ type, externalId }) {
@@ -968,11 +969,28 @@ export class LaMovieProvider extends Provider {
         }
       }
 
-      return { candidate, score };
+      const wordOverlap = titleCandidates.reduce((bestOverlap, candidateTargetTitle) => {
+        const referenceWords = candidateTargetTitle.split(/\s+/).filter(Boolean);
+        return Math.max(
+          bestOverlap,
+          referenceWords.filter((word) => candidateWords.includes(word)).length
+        );
+      }, 0);
+
+      return { candidate, score, wordOverlap };
     });
 
     scored.sort((a, b) => b.score - a.score);
-    return scored[0]?.score > 0 ? scored[0].candidate : strictShortCandidates[0] || null;
+    const best = scored[0] || null;
+    if (!best || best.score <= 0) {
+      return null;
+    }
+
+    const minimumOverlap = targetWords.length <= 1 ? 1 : Math.min(targetWords.length, 2);
+    const hasWordEvidence = best.wordOverlap >= minimumOverlap;
+    const hasStrongScore = best.score >= 35;
+
+    return hasStrongScore || hasWordEvidence ? best.candidate : null;
   }
 
   normalizeTitle(value) {

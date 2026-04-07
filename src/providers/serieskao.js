@@ -73,7 +73,10 @@ export class SerieskaoProvider extends Provider {
       sourcePages.map((pageUrl) => this.resolveSourcePage(pageUrl, target.url))
     );
 
-    return this.sortStreams(streamGroups.flat().filter(Boolean));
+    return this.sortStreams(this.attachDisplayTitle(
+      streamGroups.flat().filter(Boolean),
+      this.extractTitle(html) || this.unslugify(target.primarySlug)
+    ));
   }
 
   async getStreamsFromExternalId({ type, externalId }) {
@@ -805,14 +808,15 @@ export class SerieskaoProvider extends Provider {
   pickBestCandidate(candidates, externalMeta) {
     const targetTitle = this.normalizeTitle(externalMeta.name);
     const targetYear = this.extractYear(externalMeta.releaseInfo || externalMeta.year || "");
+    const targetWords = targetTitle.split(/\s+/).filter(Boolean);
 
     const scored = candidates.map((candidate) => {
       const candidateTitle = this.normalizeTitle(candidate.name);
       const candidateYear = this.extractYear(candidate.releaseInfo || "");
       const titleSimilarity = this.stringSimilarity(candidateTitle, targetTitle);
       const candidateWords = candidateTitle.split(/\s+/).filter(Boolean);
-      const targetWords = targetTitle.split(/\s+/).filter(Boolean);
       const wordDelta = Math.abs(candidateWords.length - targetWords.length);
+      const wordOverlap = targetWords.filter((word) => candidateWords.includes(word)).length;
 
       let score = 0;
 
@@ -843,11 +847,24 @@ export class SerieskaoProvider extends Provider {
         score += 25;
       }
 
-      return { candidate, score };
+      return { candidate, score, titleSimilarity, relaxedSimilarity, wordOverlap };
     });
 
     scored.sort((a, b) => b.score - a.score);
-    return scored[0]?.score > 0 ? scored[0].candidate : candidates[0] || null;
+    const best = scored[0] || null;
+    if (!best || best.score <= 0) {
+      return null;
+    }
+
+    const hasStrongExactness =
+      best.score >= 40 ||
+      best.titleSimilarity >= 0.84 ||
+      best.relaxedSimilarity >= 0.9;
+    const hasWordEvidence =
+      best.wordOverlap >= Math.min(Math.max(targetWords.length, 1), 2) ||
+      (targetWords.length === 1 && best.wordOverlap >= 1);
+
+    return hasStrongExactness || hasWordEvidence ? best.candidate : null;
   }
 
   resolveTypeFromPath(path, fallbackType) {

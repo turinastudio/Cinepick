@@ -133,7 +133,7 @@ export class LaCartoonsProvider extends WebstreamBaseProvider {
     }
 
     const streams = await this.extractStreamsFromPage(pageUrl, html);
-    return this.sortStreams(streams);
+    return this.sortStreams(this.attachDisplayTitle(streams, this.extractTitle(html) || this.unslugify(path)));
   }
 
   async getStreamsFromExternalId({ type, externalId }) {

@@ -1,11 +1,11 @@
 export const manifest = {
   id: "com.stremio.web.scraper",
   version: "0.1.1",
-  name: "Web Scraper Addon",
-  description: "Addon base para Stremio con providers web reutilizables.",
+  name: "CinePick",
+  description: "Olvídate de probar streams uno por uno. CinePick busca en múltiples fuentes y elige automáticamente el mejor disponible. Gratis, sin anuncios, sin suscripción. ¿Te gustó? Podés invitarme a un café y ayudar a mantener el proyecto vivo.",
   resources: ["catalog", "meta", "stream"],
   types: ["movie", "series"],
-  idPrefixes: ["lacartoons:", "gnula:", "cinecalidad:", "netmirror:", "castle:", "cuevana:", "homecine:", "tioplus:", "verhdlink:", "cinehdplus:", "mhdflix:", "lamovie:", "verseriesonline:", "cineplus123:", "serieskao:", "seriesmetro:", "tt"],
+  idPrefixes: ["lacartoons:", "gnula:", "cinecalidad:", "netmirror:", "castle:", "cuevana:", "homecine:", "tioplus:", "mhdflix:", "lamovie:", "verseriesonline:", "cineplus123:", "serieskao:", "seriesmetro:", "tt"],
   catalogs: [
     {
       type: "movie",

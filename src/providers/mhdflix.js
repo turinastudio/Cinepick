@@ -64,6 +64,7 @@ export class MhdflixProvider extends Provider {
 
   async getStreams({ type, slug }) {
     const target = this.parseSlugPayload(type, slug);
+    const media = await this.fetchMedia(target.mediaId).catch(() => null);
     const links = await this.fetchLinks(target);
 
     if (!links.length) {
@@ -76,7 +77,10 @@ export class MhdflixProvider extends Provider {
         .map((link) => this.resolveLinkStream(link))
     );
 
-    return this.sortStreams(streamGroups.flat().filter(Boolean));
+    return this.sortStreams(this.attachDisplayTitle(
+      streamGroups.flat().filter(Boolean),
+      this.resolveMediaTitle(media) || String(target.mediaId)
+    ));
   }
 
   async getStreamsFromExternalId({ type, externalId }) {
@@ -651,6 +655,7 @@ export class MhdflixProvider extends Provider {
       const titleSimilarity = this.stringSimilarity(candidateTitle, targetTitle);
       const candidateWords = candidateTitle.split(/\s+/).filter(Boolean);
       const wordDelta = Math.abs(candidateWords.length - targetWords.length);
+      const wordOverlap = targetWords.filter((word) => candidateWords.includes(word)).length;
 
       let score = 0;
       const hasWholeWordMatch = targetWords.every((word) => candidateWords.includes(word));
@@ -711,11 +716,24 @@ export class MhdflixProvider extends Provider {
         score += 25;
       }
 
-      return { candidate, score };
+      return { candidate, score, titleSimilarity, relaxedSimilarity, wordOverlap };
     });
 
     scored.sort((a, b) => b.score - a.score);
-    return scored[0]?.score > 0 ? scored[0].candidate : candidates[0];
+    const best = scored[0] || null;
+    if (!best || best.score <= 0) {
+      return null;
+    }
+
+    const hasStrongExactness =
+      best.score >= 35 ||
+      best.titleSimilarity >= 0.84 ||
+      best.relaxedSimilarity >= 0.9;
+    const hasWordEvidence =
+      best.wordOverlap >= Math.min(Math.max(targetWords.length, 1), 2) ||
+      (targetWords.length === 1 && best.wordOverlap >= 1);
+
+    return hasStrongExactness || hasWordEvidence ? best.candidate : null;
   }
 
   normalizeTitle(value) {

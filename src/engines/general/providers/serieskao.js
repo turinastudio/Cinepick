@@ -1,8 +1,8 @@
 import crypto from "node:crypto";
-import { buildStremioId } from "../lib/ids.js";
-import { buildStream, resolveExtractorStream } from "../lib/extractors.js";
-import { markSourceFailure, markSourceSuccess } from "../lib/penalty-reliability.js";
-import { analyzeScoredStreams, scoreAndSelectStreams } from "../lib/stream-scoring.js";
+import { buildStremioId } from "../../../lib/ids.js";
+import { buildStream, resolveExtractorStream } from "../../../lib/extractors.js";
+import { markSourceFailure, markSourceSuccess } from "../../../lib/penalty-reliability.js";
+import { analyzeScoredStreams, scoreAndSelectStreams } from "../../../lib/stream-scoring.js";
 import { Provider } from "./base.js";
 
 const AES_KEY = "Ak7qrvvH4WKYxV2OgaeHAEg2a5eh16vE";
@@ -1177,3 +1177,4 @@ export class SerieskaoProvider extends Provider {
     }
   }
 }
+

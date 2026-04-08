@@ -1,4 +1,5 @@
 const DEFAULT_TMDB_API_KEY = "439c478a771f35c05022f9feabcca01c";
+const { fetchJson } = require("../../../../shared/fetch.cjs");
 
 function hasTmdbCredentials() {
   return Boolean(
@@ -63,16 +64,6 @@ function uniqueValues(values = []) {
   }
 
   return result;
-}
-
-async function fetchJson(url, options = {}) {
-  const response = await fetch(url, options);
-
-  if (!response || !response.ok || response.status !== 200) {
-    throw new Error(`HTTP error! Status: ${response?.status}`);
-  }
-
-  return response.json();
 }
 
 async function fetchTmdbFindResults(imdbId, lang = undefined) {

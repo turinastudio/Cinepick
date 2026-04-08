@@ -1,4 +1,5 @@
 const cheerio = require("cheerio-without-node-native");
+const { fetchText } = require("../../../../shared/fetch.cjs");
 const {
   buildExternalStreams: buildProviderExternalStreams,
   buildInternalStreams: buildProviderInternalStreams
@@ -13,14 +14,10 @@ const ANIMEFLV_HEADERS = {
 };
 
 async function fetchHtml(url) {
-  const response = await fetch(url, {
+  return fetchText(url, {
     headers: ANIMEFLV_HEADERS,
     redirect: "follow"
   });
-  if (!response || !response.ok || response.status !== 200) {
-    throw new Error(`HTTP error! Status: ${response?.status}`);
-  }
-  return response.text();
 }
 
 function buildSlugCandidates(slug) {

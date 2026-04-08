@@ -1,4 +1,5 @@
 import {
+  getAnimeProviderById,
   debugAnimeProviderSearch,
   debugAnimeProviderStreams,
   getAnimeProviderIds,

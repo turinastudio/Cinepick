@@ -1,8 +1,8 @@
 import cheerio from "cheerio-without-node-native";
-import { buildStremioId } from "../lib/ids.js";
-import { absoluteUrl, stripTags } from "../lib/webstreamer/common.js";
-import { fetchText } from "../lib/webstreamer/http.js";
-import { resolveWebstreamCandidates } from "../lib/webstreamer/resolve.js";
+import { buildStremioId } from "../../../lib/ids.js";
+import { absoluteUrl, stripTags } from "../../../lib/webstreamer/common.js";
+import { fetchText } from "../../../lib/webstreamer/http.js";
+import { resolveWebstreamCandidates } from "../../../lib/webstreamer/resolve.js";
 import { WebstreamBaseProvider } from "./webstreambase.js";
 
 export class VerHdLinkProvider extends WebstreamBaseProvider {
@@ -117,3 +117,4 @@ export class VerHdLinkProvider extends WebstreamBaseProvider {
     return debug;
   }
 }
+

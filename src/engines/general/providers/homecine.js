@@ -1,14 +1,14 @@
 import cheerio from "cheerio-without-node-native";
-import { buildStremioId } from "../lib/ids.js";
+import { buildStremioId } from "../../../lib/ids.js";
 import {
   absoluteUrl,
   mapSearchItem,
   normalizeTitle,
   scoreSearchCandidate,
   stripTags
-} from "../lib/webstreamer/common.js";
-import { fetchText } from "../lib/webstreamer/http.js";
-import { resolveWebstreamCandidates } from "../lib/webstreamer/resolve.js";
+} from "../../../lib/webstreamer/common.js";
+import { fetchText } from "../../../lib/webstreamer/http.js";
+import { resolveWebstreamCandidates } from "../../../lib/webstreamer/resolve.js";
 import { WebstreamBaseProvider } from "./webstreambase.js";
 
 export class HomeCineProvider extends WebstreamBaseProvider {
@@ -280,3 +280,4 @@ export class HomeCineProvider extends WebstreamBaseProvider {
     return Array.from(new Map(rawCandidates.map((item) => [item.url, item])).values());
   }
 }
+

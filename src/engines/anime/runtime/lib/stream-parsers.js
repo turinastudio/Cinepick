@@ -1,14 +1,9 @@
+const { fetchText } = require("../../../../shared/fetch.cjs");
+
 function getStreamTapeLink(url) {
   const requestUrl = url.replace("/e/", "/v/");
 
-  return fetch(requestUrl)
-    .then((response) => {
-      if (!response || !response.ok || response.status !== 200) {
-        throw new Error(`HTTP error! Status: ${response?.status}`);
-      }
-
-      return response.text();
-    })
+  return fetchText(requestUrl)
     .then((data) => {
       const noRobotLinkPattern = /document\.getElementById\('norobotlink'\)\.innerHTML = (.+?);/g;
       const matches = noRobotLinkPattern.exec(data);
@@ -38,14 +33,7 @@ function getStreamTapeLink(url) {
 }
 
 function getYourUploadLink(url) {
-  return fetch(url)
-    .then((response) => {
-      if (!response || !response.ok || response.status !== 200) {
-        throw new Error(`HTTP error! Status: ${response?.status}`);
-      }
-
-      return response.text();
-    })
+  return fetchText(url)
     .then((data) => {
       const metaPattern = /property\s*=\s*"og:video"/g;
       const metaMatch = metaPattern.exec(data);
@@ -85,14 +73,7 @@ function getPDrainLink(url) {
 }
 
 function getMP4UploadLink(url) {
-  return fetch(url)
-    .then((response) => {
-      if (!response || !response.ok || response.status !== 200) {
-        throw new Error(`HTTP error! Status: ${response?.status}`);
-      }
-
-      return response.text();
-    })
+  return fetchText(url)
     .then((data) => {
       const metaPattern = /<script(?:.|\n)+?src:(?:.|\n)*?"(.+?\.mp4)"/g;
       const metaMatch = metaPattern.exec(data);

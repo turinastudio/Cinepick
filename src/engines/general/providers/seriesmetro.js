@@ -1,12 +1,12 @@
-import { buildStremioId } from "../lib/ids.js";
+import { buildStremioId } from "../../../lib/ids.js";
 import {
   absoluteUrl,
   buildSearchTerms,
   mapSearchItem,
   stripTags
-} from "../lib/webstreamer/common.js";
-import { fetchPage, fetchText } from "../lib/webstreamer/http.js";
-import { resolveWebstreamCandidates } from "../lib/webstreamer/resolve.js";
+} from "../../../lib/webstreamer/common.js";
+import { fetchPage, fetchText } from "../../../lib/webstreamer/http.js";
+import { resolveWebstreamCandidates } from "../../../lib/webstreamer/resolve.js";
 import { WebstreamBaseProvider } from "./webstreambase.js";
 
 const DEFAULT_HEADERS = {
@@ -514,3 +514,4 @@ export class SeriesMetroProvider extends WebstreamBaseProvider {
     return String(value || "").match(/\b(19|20)\d{2}\b/)?.[0] || "";
   }
 }
+

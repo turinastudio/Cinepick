@@ -1,5 +1,5 @@
 import cheerio from "cheerio-without-node-native";
-import { buildStremioId } from "../lib/ids.js";
+import { buildStremioId } from "../../../lib/ids.js";
 import {
   absoluteUrl,
   buildEpisodeTag,
@@ -7,9 +7,9 @@ import {
   mapSearchItem,
   scoreSearchCandidate,
   stripTags
-} from "../lib/webstreamer/common.js";
-import { fetchText } from "../lib/webstreamer/http.js";
-import { resolveWebstreamCandidates } from "../lib/webstreamer/resolve.js";
+} from "../../../lib/webstreamer/common.js";
+import { fetchText } from "../../../lib/webstreamer/http.js";
+import { resolveWebstreamCandidates } from "../../../lib/webstreamer/resolve.js";
 import { WebstreamBaseProvider } from "./webstreambase.js";
 
 export class CuevanaProvider extends WebstreamBaseProvider {
@@ -240,3 +240,4 @@ export class CuevanaProvider extends WebstreamBaseProvider {
     return debug;
   }
 }
+

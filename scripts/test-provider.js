@@ -1,4 +1,8 @@
-import { debugProviderStreamsFromExternalId, debugStreamsFromExternalId, getProviderById } from "../src/providers/index.js";
+import {
+  debugProviderStreamsFromExternalId,
+  debugStreamsFromExternalId,
+  getProviderById
+} from "../src/engines/general/providers/core.js";
 
 const TMDB_API_KEY = process.env.TMDB_API_KEY || "439c478a771f35c05022f9feabcca01c";
 

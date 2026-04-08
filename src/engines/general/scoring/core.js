@@ -144,8 +144,25 @@ function buildSourceKey(providerId, stream) {
 
 function dedupeStreams(streams) {
   return dedupeStreamsByTarget(streams, {
-    buildKey(stream) {
-      return `${stream.url || ""}::${getTitleText(stream)}`;
+    buildKey(stream, canonicalTarget) {
+      const sourceLabel = detectSourceLabel(stream);
+      const languageTier = detectLanguageTier(stream);
+      return canonicalTarget
+        ? `${languageTier}::${sourceLabel}::${canonicalTarget}`
+        : `${languageTier}::${sourceLabel}::${stream.url || ""}::${stream.externalUrl || ""}::${getTitleText(stream)}`;
+    },
+    mapDuplicate(stream, key, canonicalTarget) {
+      return {
+        key,
+        providerId: stream._providerId || null,
+        url: stream.url || null,
+        externalUrl: stream.externalUrl || null,
+        canonicalTarget: canonicalTarget || null,
+        name: stream.name || null,
+        title: getTitleText(stream) || null,
+        sourceLabel: detectSourceLabel(stream),
+        languageTier: detectLanguageTier(stream)
+      };
     }
   }).deduped;
 }

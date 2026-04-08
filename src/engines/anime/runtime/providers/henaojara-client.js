@@ -1,4 +1,5 @@
 const cheerio = require("cheerio-without-node-native");
+const { fetchText } = require("../../../../shared/fetch.cjs");
 const {
   buildExternalStreams: buildProviderExternalStreams,
   buildInternalStreams: buildProviderInternalStreams
@@ -8,11 +9,7 @@ const { isMovieTypeLabel, normalizeTypeLabel } = require("../lib/anime-types");
 const HENAOJARA_BASE = process.env.HENAOJARA_BASE_URL || "https://ww1.henaojara.net";
 
 async function fetchHtml(url) {
-  const response = await fetch(url);
-  if (!response || !response.ok || response.status !== 200) {
-    throw new Error(`HTTP error! Status: ${response?.status}`);
-  }
-  return response.text();
+  return fetchText(url);
 }
 
 function buildSearchUrl(query, genres = undefined, page = undefined) {
@@ -245,7 +242,7 @@ async function fetchServerOptions(slug, episodeNumber, html) {
     return "";
   }
 
-  const response = await fetch(`${HENAOJARA_BASE}/hj`, {
+  return fetchText(`${HENAOJARA_BASE}/hj`, {
     method: "POST",
     headers: {
       accept: "*/*",
@@ -263,12 +260,6 @@ async function fetchServerOptions(slug, episodeNumber, html) {
     },
     body: `acc=opt&i=${encrypted}`
   });
-
-  if (!response || !response.ok || response.status !== 200) {
-    throw new Error(`HTTP error! Status: ${response?.status}`);
-  }
-
-  return response.text();
 }
 
 async function parseEpisodeLinks(html, slug, episodeNumber = 1) {

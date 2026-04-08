@@ -1,7 +1,7 @@
-import { buildStream } from "../lib/extractors.js";
-import { scoreAndSelectStreams } from "../lib/stream-scoring.js";
-import { fetchTmdbMediaFromImdb, basicTitleSimilarity } from "../lib/tmdb.js";
-import { parseExternalStremioId } from "../lib/webstreamer/common.js";
+import { buildStream } from "../../../lib/extractors.js";
+import { scoreAndSelectStreams } from "../../../lib/stream-scoring.js";
+import { fetchTmdbMediaFromImdb, basicTitleSimilarity } from "../../../lib/tmdb.js";
+import { parseExternalStremioId } from "../../../lib/webstreamer/common.js";
 import { Provider } from "./base.js";
 
 const TMDB_API_KEY = process.env.TMDB_API_KEY || "439c478a771f35c05022f9feabcca01c";
@@ -343,3 +343,4 @@ export class CastleProvider extends Provider {
     return ranked[0]?.id || null;
   }
 }
+

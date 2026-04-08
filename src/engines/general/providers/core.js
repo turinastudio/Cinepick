@@ -1,19 +1,19 @@
 import { parseStremioId } from "../../../lib/ids.js";
 import { analyzeScoredStreams, scoreAndSelectStreams } from "../scoring.js";
-import { LaCartoonsProvider } from "../../../providers/lacartoons.js";
-import { CinecalidadProvider } from "../../../providers/cinecalidad.js";
-import { Cineplus123Provider } from "../../../providers/cineplus123.js";
-import { CastleProvider } from "../../../providers/castle.js";
-import { CuevanaProvider } from "../../../providers/cuevana.js";
-import { GnulaProvider } from "../../../providers/gnula.js";
-import { HomeCineProvider } from "../../../providers/homecine.js";
-import { LaMovieProvider } from "../../../providers/lamovie.js";
-import { MhdflixProvider } from "../../../providers/mhdflix.js";
-import { NetMirrorProvider } from "../../../providers/netmirror.js";
-import { SeriesMetroProvider } from "../../../providers/seriesmetro.js";
-import { SerieskaoProvider } from "../../../providers/serieskao.js";
-import { TioPlusProvider } from "../../../providers/tioplus.js";
-import { VerSeriesOnlineProvider } from "../../../providers/verseriesonline.js";
+import { LaCartoonsProvider } from "./lacartoons.js";
+import { CinecalidadProvider } from "./cinecalidad.js";
+import { Cineplus123Provider } from "./cineplus123.js";
+import { CastleProvider } from "./castle.js";
+import { CuevanaProvider } from "./cuevana.js";
+import { GnulaProvider } from "./gnula.js";
+import { HomeCineProvider } from "./homecine.js";
+import { LaMovieProvider } from "./lamovie.js";
+import { MhdflixProvider } from "./mhdflix.js";
+import { NetMirrorProvider } from "./netmirror.js";
+import { SeriesMetroProvider } from "./seriesmetro.js";
+import { SerieskaoProvider } from "./serieskao.js";
+import { TioPlusProvider } from "./tioplus.js";
+import { VerSeriesOnlineProvider } from "./verseriesonline.js";
 
 const baseProviders = [
   new LaCartoonsProvider(),

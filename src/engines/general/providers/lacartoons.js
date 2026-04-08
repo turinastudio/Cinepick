@@ -1,9 +1,9 @@
 import cheerio from "cheerio-without-node-native";
-import { buildStream, resolveExtractorStream } from "../lib/extractors.js";
-import { buildStremioId } from "../lib/ids.js";
-import { absoluteUrl, mapSearchItem, stripTags } from "../lib/webstreamer/common.js";
-import { fetchJson } from "../lib/webstreamer/http.js";
-import { fetchText } from "../lib/webstreamer/http.js";
+import { buildStream, resolveExtractorStream } from "../../../lib/extractors.js";
+import { buildStremioId } from "../../../lib/ids.js";
+import { absoluteUrl, mapSearchItem, stripTags } from "../../../lib/webstreamer/common.js";
+import { fetchJson } from "../../../lib/webstreamer/http.js";
+import { fetchText } from "../../../lib/webstreamer/http.js";
 import { WebstreamBaseProvider } from "./webstreambase.js";
 
 function cleanText(value) {
@@ -538,3 +538,4 @@ export class LaCartoonsProvider extends WebstreamBaseProvider {
       .join(" ") || "";
   }
 }
+

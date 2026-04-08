@@ -1,4 +1,5 @@
 const cheerio = require("cheerio-without-node-native");
+const { fetchText } = require("../../../../shared/fetch.cjs");
 const {
   buildExternalStreams: buildProviderExternalStreams,
   buildInternalStreams: buildProviderInternalStreams
@@ -27,11 +28,7 @@ function looksLikeMovieSearchItem(title, rawType, slug) {
 }
 
 async function fetchHtml(url) {
-  const response = await fetch(url);
-  if (!response || !response.ok || response.status !== 200) {
-    throw new Error(`HTTP error! Status: ${response?.status}`);
-  }
-  return response.text();
+  return fetchText(url);
 }
 
 function buildSearchUrl(query, type = undefined, genres = undefined, page = undefined) {

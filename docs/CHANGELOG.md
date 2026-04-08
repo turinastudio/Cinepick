@@ -162,7 +162,7 @@
   - se mejoro `goodstream`
   - usa scoring, penalidades y proxy
 - `mhdflix`
-  - nuevo provider en `src/providers/mhdflix.js`
+  - nuevo provider en `src/engines/general/providers/mhdflix.js`
   - soporta:
     - busqueda
     - meta
@@ -175,7 +175,7 @@
     - ahora evita elegir cualquier serie que solo contenga una palabra como `From`
     - si no hay match razonable, devuelve `no_best_match`
 - `lamovie`
-  - nuevo provider en `src/providers/lamovie.js`
+  - nuevo provider en `src/engines/general/providers/lamovie.js`
   - soporta peliculas y series
   - soporta:
     - busqueda
@@ -193,7 +193,7 @@
   - el matching ahora prioriza la ruta publica `/series/<slug>`
   - se castiga fuertemente a candidatos de `animes` cuando el match real es una serie normal
 - `verseriesonline`
-  - nuevo provider en `src/providers/verseriesonline.js`
+  - nuevo provider en `src/engines/general/providers/verseriesonline.js`
   - soporta series
   - soporta:
     - busqueda por URL directa
@@ -212,7 +212,7 @@
     - ahora toma el `<a>` real de cada player en vez de bloques enormes alrededor de `data-hash`
     - eso evita titulos ofuscados en streams y mejora la legibilidad del score/debug
 - `cineplus123`
-  - nuevo provider en `src/providers/cineplus123.js`
+  - nuevo provider en `src/engines/general/providers/cineplus123.js`
   - soporta peliculas y series
   - soporta:
     - busqueda
@@ -226,7 +226,7 @@
     - `cvid` y `uqload` todavia incompletos
   - usa scoring, penalidades y proxy
 - `serieskao`
-  - nuevo provider en `src/providers/serieskao.js`
+  - nuevo provider en `src/engines/general/providers/serieskao.js`
   - port basado en la extension original
   - soporta peliculas y series
   - soporta:
@@ -296,4 +296,5 @@
   - `manifest.json` publico
   - streams proxyeados desde su propio dominio
 - Para esta combinacion de providers y hosts, Railway esta respondiendo mejor que Render.
+
 

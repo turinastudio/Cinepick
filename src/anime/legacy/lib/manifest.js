@@ -32,7 +32,7 @@ async function buildManifest(origin = "") {
     id: "com.anipick.stremio.addon.v2",
     version: packageJson.version,
     name: "Anipick",
-    logo: absolutizeAsset(origin, "/assets/Logo.png", DEFAULT_LOGO),
+    logo: absolutizeAsset(origin, "/logo.png", DEFAULT_LOGO),
     description: process.env.MANIFEST_DESCRIPTION || DEFAULT_DESCRIPTION,
     resources: ["stream", "meta", "catalog"],
     types: ["movie", "series", "anime", "other"],

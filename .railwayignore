@@ -10,3 +10,5 @@ yarn-error.log*
 .idea/
 .vscode/
 data/source-penalties.json
+runtime/data/source-penalties.json
+anime-debug.log

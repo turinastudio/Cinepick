@@ -29,7 +29,7 @@ import { createDebugLogger } from "../shared/debug.js";
 const host = process.env.HOST || "0.0.0.0";
 const port = Number.parseInt(process.env.PORT || "3000", 10) || 3000;
 const PUBLIC_STREAM_NAME = "Cinepick";
-const logoPath = path.resolve(process.cwd(), "assets", "Logo.png");
+const logoPath = path.resolve(process.cwd(), "public", "assets", "Logo.png");
 const addonUrlOverride = String(process.env.ADDON_URL || "").trim().replace(/\/$/, "");
 const animeEngineEnabled = /^(1|true|yes)$/i.test(String(process.env.ENABLE_ANIME_ENGINE || "").trim());
 const animeEngineDebugEnabled = /^(1|true|yes)$/i.test(String(process.env.ANIME_ENGINE_DEBUG || "").trim());

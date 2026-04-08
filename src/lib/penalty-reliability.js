@@ -1,8 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const DATA_DIR = path.resolve(process.cwd(), "data");
-const PENALTY_FILE = path.join(DATA_DIR, "source-penalties.json");
+const RUNTIME_DATA_DIR = path.resolve(process.cwd(), "runtime", "data");
+const LEGACY_DATA_DIR = path.resolve(process.cwd(), "data");
+const PENALTY_FILE = path.join(RUNTIME_DATA_DIR, "source-penalties.json");
+const LEGACY_PENALTY_FILE = path.join(LEGACY_DATA_DIR, "source-penalties.json");
 
 const PENALTY_PER_FAILURE = 15;
 const RECOVERY_PER_SUCCESS = 10;
@@ -19,15 +21,18 @@ function ensureLoaded() {
   loaded = true;
 
   try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
+    if (!fs.existsSync(RUNTIME_DATA_DIR)) {
+      fs.mkdirSync(RUNTIME_DATA_DIR, { recursive: true });
     }
 
-    if (!fs.existsSync(PENALTY_FILE)) {
+    const sourceFile = fs.existsSync(PENALTY_FILE)
+      ? PENALTY_FILE
+      : (fs.existsSync(LEGACY_PENALTY_FILE) ? LEGACY_PENALTY_FILE : "");
+    if (!sourceFile) {
       return;
     }
 
-    const parsed = JSON.parse(fs.readFileSync(PENALTY_FILE, "utf8"));
+    const parsed = JSON.parse(fs.readFileSync(sourceFile, "utf8"));
     for (const [key, value] of Object.entries(parsed || {})) {
       if (typeof value === "number" && value > 0) {
         sourcePenalties.set(key, Math.min(MAX_PENALTY, value));
@@ -40,8 +45,8 @@ function ensureLoaded() {
 
 function persist() {
   try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
+    if (!fs.existsSync(RUNTIME_DATA_DIR)) {
+      fs.mkdirSync(RUNTIME_DATA_DIR, { recursive: true });
     }
 
     fs.writeFileSync(

@@ -12,7 +12,7 @@ Addon de Stremio para combinar:
 ### Sesion 2026-04-07 / 2026-04-08
 
 - identidad publica actualizada a `CinePick`
-- logo servido desde el propio addon usando `assets/Logo.png`
+- logo servido desde el propio addon usando `public/assets/Logo.png`
 - soporte de `ADDON_URL` como override canonico para URLs publicas
 - CTA de soporte agregado al final de la respuesta de `/stream`, sin tocar scoring ni matching
 - ruta alternativa `\/alt\/manifest.json` para facilitar pruebas y romper cache de Stremio
@@ -66,7 +66,7 @@ Addon de Stremio para combinar:
 
 Detalle tecnico adicional:
 
-- [SESSION_CHANGES_2026-04-07.md](/C:/Users/lautaroturina/Desktop/Codex/CinePick/SESSION_CHANGES_2026-04-07.md)
+- [SESSION_CHANGES_2026-04-07.md](/C:/Users/lautaroturina/Desktop/Codex/CinePick/docs/SESSION_CHANGES_2026-04-07.md)
 
 La arquitectura actual mezcla lo mejor de dos mundos:
 
@@ -285,18 +285,18 @@ npm run test:provider -- 1396 tv 1 1 netmirror advanced
 Formato:
 
 ```powershell
-node test.js <tmdbId> <movie|tv> [season] [episode] [provider] [basic|advanced]
+node scripts/test-provider.js <tmdbId> <movie|tv> [season] [episode] [provider] [basic|advanced]
 ```
 
 Ejemplos utiles:
 
 ```powershell
-node test.js 550 movie null null cinecalidad
-node test.js 1396 tv 1 1 lamovie
-node test.js 1396 tv 1 1 seriesmetro
-node test.js 1396 tv 1 1 netmirror advanced
-node test.js <tmdbId> tv 1 1 lacartoons advanced
-node test.js <tmdbId> movie null null lacartoons advanced
+node scripts/test-provider.js 550 movie null null cinecalidad
+node scripts/test-provider.js 1396 tv 1 1 lamovie
+node scripts/test-provider.js 1396 tv 1 1 seriesmetro
+node scripts/test-provider.js 1396 tv 1 1 netmirror advanced
+node scripts/test-provider.js <tmdbId> tv 1 1 lacartoons advanced
+node scripts/test-provider.js <tmdbId> movie null null lacartoons advanced
 ```
 
 Modos:
@@ -449,4 +449,4 @@ Nota operativa:
 
 ## Documentacion adicional
 
-- [SESSION_CHANGES_2026-04-07.md](/C:/Users/lautaroturina/Desktop/Codex/CinePick/SESSION_CHANGES_2026-04-07.md)
+- [SESSION_CHANGES_2026-04-07.md](/C:/Users/lautaroturina/Desktop/Codex/CinePick/docs/SESSION_CHANGES_2026-04-07.md)

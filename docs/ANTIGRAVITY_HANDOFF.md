@@ -9,7 +9,7 @@ Seguir evolucionando este addon de Stremio sin romper:
 - el flujo HTTP actual
 - el deploy en Render y Railway
 - el ranking global
-- la reproducibilidad local con `test.js`
+- la reproducibilidad local con `scripts/test-provider.js`
 
 ## Estado del proyecto
 
@@ -85,7 +85,7 @@ En Railway las variables se cargan manualmente.
 
 ### Render
 
-Render si usa [render.yaml](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/render.yaml) para variables y comandos.
+Render si usa [render.yaml](/C:/Users/lautaroturina/Desktop/Codex/CinePick/render.yaml) para variables y comandos.
 
 Si se suma un provider nuevo con `BASE_URL`, actualizar `render.yaml`.
 
@@ -101,39 +101,39 @@ No cambiar esos defaults sin una razon clara.
 
 ### Entrada principal
 
-- [src/server.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/server.js)
-- [src/providers/index.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/index.js)
-- [src/manifest.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/manifest.js)
+- [src/server.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/server.js)
+- [src/providers/index.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/providers/index.js)
+- [src/manifest.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/manifest.js)
 
 ### Base compartida para providers HTTP
 
-- [src/providers/webstreambase.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/webstreambase.js)
-- [src/lib/webstreamer/http.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/webstreamer/http.js)
-- [src/lib/webstreamer/common.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/webstreamer/common.js)
-- [src/lib/webstreamer/resolve.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/webstreamer/resolve.js)
+- [src/providers/webstreambase.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/providers/webstreambase.js)
+- [src/lib/webstreamer/http.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/lib/webstreamer/http.js)
+- [src/lib/webstreamer/common.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/lib/webstreamer/common.js)
+- [src/lib/webstreamer/resolve.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/lib/webstreamer/resolve.js)
 
 ### Extractors y proxy
 
-- [src/lib/extractors.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/extractors.js)
-- [src/lib/http.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/http.js)
+- [src/lib/extractors.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/lib/extractors.js)
+- [src/lib/http.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/lib/http.js)
 
 ### Scoring
 
-- [src/lib/stream-scoring.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/stream-scoring.js)
+- [src/lib/stream-scoring.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/lib/stream-scoring.js)
 
 ### Utilidades TMDB
 
-- [src/lib/tmdb.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/tmdb.js)
+- [src/lib/tmdb.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/lib/tmdb.js)
 
 ### Tester local
 
-- [test.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/test.js)
+- [test-provider.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/scripts/test-provider.js)
 
 ## Flujo recomendado para portar un provider nuevo
 
 ### 1. Buscar referencia externa
 
-Antes de escribir nada, revisar en [Recursos](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos):
+Antes de escribir nada, revisar en [Recursos](/C:/Users/lautaroturina/Desktop/Codex/CinePick/Recursos):
 
 - repos de Nuvio
 - Cloudstream
@@ -149,7 +149,7 @@ Documentar mentalmente:
 
 ### 2. Decidir si entra por `WebstreamBaseProvider` o `Provider`
 
-Usar [webstreambase.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/webstreambase.js) si el sitio:
+Usar [webstreambase.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/providers/webstreambase.js) si el sitio:
 
 - se comporta como scraper HTML clasico
 - usa search + pagina + embeds
@@ -180,7 +180,7 @@ Eso ahorra muchisimo tiempo.
 Formato:
 
 ```powershell
-node test.js <tmdbId> <movie|tv> [season] [episode] [provider] [basic|advanced]
+node scripts/test-provider.js <tmdbId> <movie|tv> [season] [episode] [provider] [basic|advanced]
 ```
 
 Ejemplos:
@@ -198,10 +198,10 @@ Usar `advanced` cuando falle.
 
 Si el provider ya responde de forma repetible:
 
-- agregarlo a [src/providers/index.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/index.js)
-- agregar su prefijo a [src/manifest.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/manifest.js)
-- sumar su `BASE_URL` a [render.yaml](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/render.yaml) si aplica
-- documentarlo en [README.md](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/README.md) y [CONTINUATION_GUIDE.md](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/CONTINUATION_GUIDE.md)
+- agregarlo a [src/providers/index.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/providers/index.js)
+- agregar su prefijo a [src/manifest.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/manifest.js)
+- sumar su `BASE_URL` a [render.yaml](/C:/Users/lautaroturina/Desktop/Codex/CinePick/render.yaml) si aplica
+- documentarlo en [README.md](/C:/Users/lautaroturina/Desktop/Codex/CinePick/README.md) y [CONTINUATION_GUIDE.md](/C:/Users/lautaroturina/Desktop/Codex/CinePick/docs/CONTINUATION_GUIDE.md)
 
 ## Flujo recomendado para agregar funciones nuevas
 
@@ -209,9 +209,9 @@ Si el provider ya responde de forma repetible:
 
 Revisar antes:
 
-- [src/server.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/server.js)
-- [src/lib/http.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/http.js)
-- [src/lib/extractors.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/extractors.js)
+- [src/server.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/server.js)
+- [src/lib/http.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/lib/http.js)
+- [src/lib/extractors.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/lib/extractors.js)
 
 No asumir que una URL relativa o un manifest simple va a funcionar en Stremio sin pasar por el proxy.
 
@@ -219,7 +219,7 @@ No asumir que una URL relativa o un manifest simple va a funcionar en Stremio si
 
 Revisar antes:
 
-- [src/lib/stream-scoring.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/stream-scoring.js)
+- [src/lib/stream-scoring.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/lib/stream-scoring.js)
 
 Reglas ya establecidas:
 
@@ -307,19 +307,19 @@ Dejarlo fuera si:
 - no reactivar torrents en el flujo de deploy
 - no agregar dependencias que Railway pueda banear
 - no meter providers nuevos al manifest si todavia estan en fase experimental
-- si un provider queda exploratorio, dejarlo fuera de [src/providers/index.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/index.js) y [src/manifest.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/manifest.js)
-- mantener actualizado [render.yaml](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/render.yaml) cuando se agrega una variable nueva
+- si un provider queda exploratorio, dejarlo fuera de [src/providers/index.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/providers/index.js) y [src/manifest.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/manifest.js)
+- mantener actualizado [render.yaml](/C:/Users/lautaroturina/Desktop/Codex/CinePick/render.yaml) cuando se agrega una variable nueva
 
 ## Recursos mas utiles para seguir
 
-- [README.md](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/README.md)
-- [CONTINUATION_GUIDE.md](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/CONTINUATION_GUIDE.md)
-- [RESOURCES_USED.md](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/RESOURCES_USED.md)
-- [Recursos/Northstar-main](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/Northstar-main)
-- [Recursos/Nuvio-Providers-Latino](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/Nuvio-Providers-Latino)
-- [Recursos/nuvio-providers](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/nuvio-providers)
-- [Recursos/cloudstream-extensions-phisher](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/cloudstream-extensions-phisher)
-- [Recursos/NetMirror-Extension](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/NetMirror-Extension)
+- [README.md](/C:/Users/lautaroturina/Desktop/Codex/CinePick/README.md)
+- [CONTINUATION_GUIDE.md](/C:/Users/lautaroturina/Desktop/Codex/CinePick/docs/CONTINUATION_GUIDE.md)
+- [RESOURCES_USED.md](/C:/Users/lautaroturina/Desktop/Codex/CinePick/docs/RESOURCES_USED.md)
+- [Recursos/Northstar-main](/C:/Users/lautaroturina/Desktop/Codex/CinePick/Recursos/Northstar-main)
+- [Recursos/Nuvio-Providers-Latino](/C:/Users/lautaroturina/Desktop/Codex/CinePick/Recursos/Nuvio-Providers-Latino)
+- [Recursos/nuvio-providers](/C:/Users/lautaroturina/Desktop/Codex/CinePick/Recursos/nuvio-providers)
+- [Recursos/cloudstream-extensions-phisher](/C:/Users/lautaroturina/Desktop/Codex/CinePick/Recursos/cloudstream-extensions-phisher)
+- [Recursos/NetMirror-Extension](/C:/Users/lautaroturina/Desktop/Codex/CinePick/Recursos/NetMirror-Extension)
 
 ## Siguiente backlog razonable
 
@@ -327,4 +327,5 @@ Dejarlo fuera si:
 2. Validar `cinehdplus`
 3. Revisar `streamwish` con casos concretos
 4. Revisar si `Castle` expone metadata suficiente para diferenciar `LAT` y `CAST`
-5. Retirar o archivar [src/providers/webstreamerlatino.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/providers/webstreamerlatino.js)
+5. Retirar o archivar [src/providers/webstreamerlatino.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/providers/webstreamerlatino.js)
+

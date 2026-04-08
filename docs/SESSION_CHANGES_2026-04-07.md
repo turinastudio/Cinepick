@@ -8,7 +8,7 @@ Documentar los cambios funcionales, visuales y de confiabilidad realizados sobre
 
 - nombre publico actualizado a `CinePick`
 - descripcion del manifest actualizada
-- logo servido desde `assets/Logo.png`
+- logo servido desde `public/assets/Logo.png`
 - el manifest expone `logo` usando una URL servida por el propio addon
 - `ADDON_URL` ahora puede usarse como origen canonico para construir URLs publicas
 

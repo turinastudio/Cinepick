@@ -20,8 +20,8 @@
   - `Netu`
   - `Mail.ru`
   - `Fembed`
-- Se agrego [src/lib/anime-mappings.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/src/lib/anime-mappings.js) para aprovechar mappings locales de anime.
-- Se agrego [src/lib/anime-relations.js](/C:/Users/lautaroturina/Desktop/Codex%20Stremio%20Addon/src/lib/anime-relations.js) para soportar IDs anime extra:
+- Se agrego [src/lib/anime-mappings.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/lib/anime-mappings.js) para aprovechar mappings locales de anime.
+- Se agrego [src/lib/anime-relations.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/lib/anime-relations.js) para soportar IDs anime extra:
   - `mal:`
   - `anilist:`
   - `kitsu:`
@@ -84,7 +84,7 @@
 
 ### Matching y testing
 
-- Se agrego [test.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/test.js) como tester CLI por TMDB.
+- Se agrego [test-provider.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/scripts/test-provider.js) como tester CLI por TMDB.
 - El tester ahora soporta:
   - modo `basic`
   - modo `advanced`
@@ -115,7 +115,7 @@
 - Se dejo documentado que:
   - Render toma variables desde `render.yaml`
   - Railway usa `railway.json` para build/start/healthcheck, pero las variables se cargan manualmente
-- Se agrego [ANTIGRAVITY_HANDOFF.md](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/ANTIGRAVITY_HANDOFF.md) como guia de continuidad para trabajar desde otros agentes como Gemini o Claude.
+- Se agrego [ANTIGRAVITY_HANDOFF.md](/C:/Users/lautaroturina/Desktop/Codex/CinePick/docs/ANTIGRAVITY_HANDOFF.md) como guia de continuidad para trabajar desde otros agentes como Gemini o Claude.
 
 ## [Unreleased] - 2026-04-01
 
@@ -133,7 +133,7 @@
 
 ### Seleccion inteligente de streams
 
-- Se agrego `penalty-reliability` persistente por fuente en `data/source-penalties.json`.
+- Se agrego `penalty-reliability` persistente por fuente en `runtime/data/source-penalties.json`.
 - Se agrego score por host, transporte, idioma, complejidad y penalidad acumulada.
 - Se soportan dos modos de seleccion:
   - `STREAM_SELECTION_MODE=global`
@@ -256,7 +256,7 @@
   - deteccion de episodios
   - players
   - respuesta de `doo_player_ajax`
-- Se agrego `start-local.bat` para lanzar localmente con:
+- Se agrego `scripts/start-local.bat` para lanzar localmente con:
   - `ADDON_URL=http://127.0.0.1:3000`
   - `STREAM_SELECTION_MODE=per_provider`
 
@@ -296,3 +296,4 @@
   - `manifest.json` publico
   - streams proxyeados desde su propio dominio
 - Para esta combinacion de providers y hosts, Railway esta respondiendo mejor que Render.
+

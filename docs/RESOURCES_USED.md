@@ -1,12 +1,12 @@
 # Resources Used
 
-Esta es la lista de repositorios o carpetas dentro de [Recursos](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos) que se usaron durante el trabajo y para que sirvio cada una.
+Esta es la lista de repositorios o carpetas dentro de [Recursos](/C:/Users/lautaroturina/Desktop/Codex/CinePick/Recursos) que se usaron durante el trabajo y para que sirvio cada una.
 
 ## Northstar-main
 
 Ruta:
 
-- [Recursos/Northstar-main](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/Northstar-main)
+- [Recursos/Northstar-main](/C:/Users/lautaroturina/Desktop/Codex/CinePick/Recursos/Northstar-main)
 
 Nos sirvio para:
 
@@ -17,15 +17,15 @@ Nos sirvio para:
 
 Partes especialmente utiles:
 
-- [src/webstreamer-latino/sources.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/Northstar-main/src/webstreamer-latino/sources.js)
-- [src/webstreamer-latino/extractors.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/Northstar-main/src/webstreamer-latino/extractors.js)
-- [src/webstreamer-latino/http.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/Northstar-main/src/webstreamer-latino/http.js)
+- [src/webstreamer-latino/sources.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/Recursos/Northstar-main/src/webstreamer-latino/sources.js)
+- [src/webstreamer-latino/extractors.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/Recursos/Northstar-main/src/webstreamer-latino/extractors.js)
+- [src/webstreamer-latino/http.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/Recursos/Northstar-main/src/webstreamer-latino/http.js)
 
 ## yarr-stremio
 
 Ruta:
 
-- [Recursos/yarr-stremio](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/yarr-stremio)
+- [Recursos/yarr-stremio](/C:/Users/lautaroturina/Desktop/Codex/CinePick/Recursos/yarr-stremio)
 
 Nos sirvio para:
 
@@ -41,7 +41,7 @@ Partes utiles:
 
 Ruta:
 
-- [Recursos/cinecalidad-python-torznab](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/cinecalidad-python-torznab)
+- [Recursos/cinecalidad-python-torznab](/C:/Users/lautaroturina/Desktop/Codex/CinePick/Recursos/cinecalidad-python-torznab)
 
 Nos sirvio para:
 
@@ -60,13 +60,13 @@ Conclusion practica:
 
 Archivo clave:
 
-- [cinecalidad_scraper.py](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/cinecalidad-python-torznab/cinecalidad_scraper.py)
+- [cinecalidad_scraper.py](/C:/Users/lautaroturina/Desktop/Codex/CinePick/Recursos/cinecalidad-python-torznab/cinecalidad_scraper.py)
 
 ## hackstoshort
 
 Ruta:
 
-- [Recursos/hackstoshort](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/hackstoshort)
+- [Recursos/hackstoshort](/C:/Users/lautaroturina/Desktop/Codex/CinePick/Recursos/hackstoshort)
 
 Nos sirvio para:
 
@@ -82,7 +82,7 @@ Conclusion practica:
 
 Ruta:
 
-- [Recursos/SEL-Filtering-and-Sorting](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/SEL-Filtering-and-Sorting)
+- [Recursos/SEL-Filtering-and-Sorting](/C:/Users/lautaroturina/Desktop/Codex/CinePick/Recursos/SEL-Filtering-and-Sorting)
 
 Nos sirvio para:
 
@@ -101,7 +101,7 @@ Conclusion practica:
 
 Ruta:
 
-- [Recursos/Nuvio-Providers-Latino](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/Nuvio-Providers-Latino)
+- [Recursos/Nuvio-Providers-Latino](/C:/Users/lautaroturina/Desktop/Codex/CinePick/Recursos/Nuvio-Providers-Latino)
 
 Nos sirvio para:
 
@@ -123,7 +123,7 @@ Conclusion practica:
 
 Ruta:
 
-- [Recursos/nuvio-providers](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/nuvio-providers)
+- [Recursos/nuvio-providers](/C:/Users/lautaroturina/Desktop/Codex/CinePick/Recursos/nuvio-providers)
 
 Nos sirvio para:
 
@@ -143,7 +143,7 @@ Conclusion practica:
 
 Ruta:
 
-- [Recursos/cloudstream-extensions-phisher](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/cloudstream-extensions-phisher)
+- [Recursos/cloudstream-extensions-phisher](/C:/Users/lautaroturina/Desktop/Codex/CinePick/Recursos/cloudstream-extensions-phisher)
 
 Nos sirvio para:
 
@@ -163,7 +163,7 @@ Conclusion practica:
 
 Ruta:
 
-- [Recursos/NetMirror-Extension](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/NetMirror-Extension)
+- [Recursos/NetMirror-Extension](/C:/Users/lautaroturina/Desktop/Codex/CinePick/Recursos/NetMirror-Extension)
 
 Nos sirvio para:
 
@@ -181,7 +181,7 @@ Conclusion practica:
 
 Ruta:
 
-- [Recursos/animestream-addon](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/animestream-addon)
+- [Recursos/animestream-addon](/C:/Users/lautaroturina/Desktop/Codex/CinePick/Recursos/animestream-addon)
 
 Nos sirvio para:
 
@@ -195,9 +195,9 @@ Nos sirvio para:
 
 Partes especialmente utiles:
 
-- [data/catalog.json.gz](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/animestream-addon/data/catalog.json.gz)
-- [data/otaku-mappings.json](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/animestream-addon/data/otaku-mappings.json)
-- [src/utils/databaseLoader.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/animestream-addon/src/utils/databaseLoader.js)
+- [data/catalog.json.gz](/C:/Users/lautaroturina/Desktop/Codex/CinePick/Recursos/animestream-addon/data/catalog.json.gz)
+- [data/otaku-mappings.json](/C:/Users/lautaroturina/Desktop/Codex/CinePick/Recursos/animestream-addon/data/otaku-mappings.json)
+- [src/utils/databaseLoader.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/Recursos/animestream-addon/src/utils/databaseLoader.js)
 
 Conclusion practica:
 
@@ -212,7 +212,7 @@ Conclusion practica:
 
 Ruta:
 
-- [Recursos/extensions-source](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/extensions-source)
+- [Recursos/extensions-source](/C:/Users/lautaroturina/Desktop/Codex/CinePick/Recursos/extensions-source)
 
 Nos sirvio para:
 
@@ -224,9 +224,9 @@ Nos sirvio para:
 
 Partes especialmente utiles:
 
-- [src/es/animeav1](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/extensions-source/src/es/animeav1)
-- [src/es/animeflv](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/extensions-source/src/es/animeflv)
-- [src/es/lacartoons](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/extensions-source/src/es/lacartoons)
+- [src/es/animeav1](/C:/Users/lautaroturina/Desktop/Codex/CinePick/Recursos/extensions-source/src/es/animeav1)
+- [src/es/animeflv](/C:/Users/lautaroturina/Desktop/Codex/CinePick/Recursos/extensions-source/src/es/animeflv)
+- [src/es/lacartoons](/C:/Users/lautaroturina/Desktop/Codex/CinePick/Recursos/extensions-source/src/es/lacartoons)
 
 Conclusion practica:
 
@@ -248,7 +248,7 @@ Ademas, `lacartoons` obligo a reforzar extractors:
 
 Ruta:
 
-- [Recursos/animeflv-stremio-addon](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/animeflv-stremio-addon)
+- [Recursos/animeflv-stremio-addon](/C:/Users/lautaroturina/Desktop/Codex/CinePick/Recursos/animeflv-stremio-addon)
 
 Nos sirvio para:
 
@@ -261,9 +261,9 @@ Nos sirvio para:
 
 Partes especialmente utiles:
 
-- [routes/animeFLV.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/animeflv-stremio-addon/routes/animeFLV.js)
-- [routes/animeav1.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/animeflv-stremio-addon/routes/animeav1.js)
-- [routes/relations.js](/C:/Users/lautaroturina/Desktop/Codex/Stremio%20Addon/Recursos/animeflv-stremio-addon/routes/relations.js)
+- [routes/animeFLV.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/Recursos/animeflv-stremio-addon/routes/animeFLV.js)
+- [routes/animeav1.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/Recursos/animeflv-stremio-addon/routes/animeav1.js)
+- [routes/relations.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/Recursos/animeflv-stremio-addon/routes/relations.js)
 
 Conclusion practica:
 
@@ -274,3 +274,4 @@ Conclusion practica:
   - soporte de IDs `mal`, `anilist`, `kitsu` y `anidb`
   - mejor parsing de `AnimeAV1` para `embeds` y `downloads`
 - toda esa linea de trabajo queda documentada, pero anime queda desactivado del addon activo hasta nueva revision
+

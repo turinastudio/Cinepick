@@ -1,4 +1,4 @@
-import { debugProviderStreamsFromExternalId, debugStreamsFromExternalId, getProviderById } from "./src/providers/index.js";
+import { debugProviderStreamsFromExternalId, debugStreamsFromExternalId, getProviderById } from "../src/providers/index.js";
 
 const TMDB_API_KEY = process.env.TMDB_API_KEY || "439c478a771f35c05022f9feabcca01c";
 
@@ -196,12 +196,12 @@ async function run() {
 
   if (!tmdbId || !rawType) {
     console.log("Uso:");
-    console.log("  node test.js <tmdbId> <movie|tv> [season] [episode] [provider] [basic|advanced]");
+  console.log("  node scripts/test-provider.js <tmdbId> <movie|tv> [season] [episode] [provider] [basic|advanced]");
     console.log("");
     console.log("Ejemplos:");
-    console.log("  node test.js 550 movie null null cinecalidad");
-    console.log("  node test.js 1396 tv 1 1 lamovie");
-    console.log("  node test.js 1396 tv 1 1 netmirror advanced");
+  console.log("  node scripts/test-provider.js 550 movie null null cinecalidad");
+  console.log("  node scripts/test-provider.js 1396 tv 1 1 lamovie");
+  console.log("  node scripts/test-provider.js 1396 tv 1 1 netmirror advanced");
     process.exit(1);
   }
 

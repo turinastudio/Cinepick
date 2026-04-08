@@ -3,7 +3,7 @@ const {
   buildSupportStream,
   debugSupportStream,
   shouldShowSupportStream
-} = require("../../../shared/support-stream.cjs");
+} = require("../../../../shared/support-stream.cjs");
 module.exports = {
   appendSupportStream,
   buildSupportStream,

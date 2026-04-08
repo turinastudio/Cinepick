@@ -62,7 +62,7 @@ Capacidades:
 - [src/engines/anime/index.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/engines/anime/index.js)
 - [src/engines/anime/core.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/engines/anime/core.js)
 - [src/engines/anime/detection.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/engines/anime/detection.js)
-- [src/anime/legacy](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/anime/legacy)
+- [src/engines/anime/runtime](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/engines/anime/runtime)
 
 ### Shared
 

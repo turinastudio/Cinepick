@@ -1,7 +1,7 @@
 import {
   debugProviderStreamsFromExternalId,
   debugStreamsFromExternalId,
-  getProviderById,
+  getProviderById as getProviderByIdInternal,
   resolveProviderFromMetaId,
   resolveStreamsFromExternalId
 } from "./providers/core.js";
@@ -10,9 +10,17 @@ export function getGeneralEngineIdPrefixes() {
   return [];
 }
 
+export function getIdPrefixes() {
+  return getGeneralEngineIdPrefixes();
+}
+
 export function isGeneralInternalId(type, id) {
   const resolved = resolveProviderFromMetaId(id);
   return Boolean(resolved && resolved.type === type);
+}
+
+export function isProviderId(providerId) {
+  return Boolean(getProviderByIdInternal(providerId));
 }
 
 export function resolveGeneralMetaTarget(type, id) {
@@ -42,6 +50,10 @@ export async function resolveGeneralMeta(type, id) {
   };
 }
 
+export async function resolveMeta(type, id) {
+  return resolveGeneralMeta(type, id);
+}
+
 export async function resolveGeneralStreams(type, id) {
   const resolved = resolveGeneralMetaTarget(type, id);
 
@@ -63,6 +75,10 @@ export async function resolveGeneralStreams(type, id) {
     providerId: resolved.provider.id,
     streams
   };
+}
+
+export async function resolveStreams(type, id) {
+  return resolveGeneralStreams(type, id);
 }
 
 export async function resolveGeneralDebug(type, id) {
@@ -88,6 +104,10 @@ export async function resolveGeneralDebug(type, id) {
     mode: "external",
     debug
   };
+}
+
+export async function resolveDebug(type, id) {
+  return resolveGeneralDebug(type, id);
 }
 
 export async function resolveGeneralProviderDebug(providerId, type, id) {
@@ -120,6 +140,14 @@ export async function resolveGeneralProviderDebug(providerId, type, id) {
   return debugProviderStreamsFromExternalId(providerId, type, id);
 }
 
+export async function resolveProviderDebug(providerId, type, id) {
+  return resolveGeneralProviderDebug(providerId, type, id);
+}
+
+export function getProviderById(providerId) {
+  return getProviderByIdInternal(providerId);
+}
+
 export function getGeneralProviderById(providerId) {
-  return getProviderById(providerId);
+  return getProviderByIdInternal(providerId);
 }

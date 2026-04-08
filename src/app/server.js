@@ -3,19 +3,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { manifest } from "./manifest.js";
 import {
-  getAnimeEngineIdPrefixes,
-  getGeneralProviderById,
-  isAnimeEngineProviderId,
-  resolveAnimeEngineDebug,
-  resolveAnimeEngineMeta,
-  resolveAnimeEngineProviderDebug,
-  resolveAnimeEngineProviderSearchDebug,
-  resolveAnimeEngineStreams,
-  resolveGeneralDebug,
-  resolveGeneralMeta,
-  resolveGeneralProviderDebug,
-  resolveGeneralStreams,
-  shouldUseAnimeEngine
+  animeEngine,
+  generalEngine
 } from "../engines/index.js";
 import {
   json,
@@ -77,7 +66,7 @@ function getRequestOrigin(req) {
 
 function buildManifest(req) {
   const origin = getRequestOrigin(req);
-  const animeIdPrefixes = animeEngineEnabled ? getAnimeEngineIdPrefixes() : [];
+  const animeIdPrefixes = animeEngineEnabled ? animeEngine.getIdPrefixes() : [];
   return {
     ...manifest,
     idPrefixes: [...new Set([...(manifest.idPrefixes || []), ...animeIdPrefixes])],
@@ -142,7 +131,7 @@ async function handleMeta(res, pathname) {
 
   const [, requestedType, rawId] = match;
   const decodedId = decodeURIComponent(rawId);
-  const animeDecision = await shouldUseAnimeEngine(requestedType, decodedId, {
+  const animeDecision = await animeEngine.shouldUseAnimeEngine(requestedType, decodedId, {
     enabled: animeEngineEnabled
   });
 
@@ -157,7 +146,7 @@ async function handleMeta(res, pathname) {
       type: requestedType,
       id: decodedId
     });
-    const { payload } = await resolveAnimeEngineMeta(requestedType, decodedId);
+    const { payload } = await animeEngine.resolveMeta(requestedType, decodedId);
     animeDebugLog("meta.response", {
       type: requestedType,
       id: decodedId,
@@ -169,7 +158,7 @@ async function handleMeta(res, pathname) {
     return;
   }
 
-  const general = await resolveGeneralMeta(requestedType, decodedId);
+  const general = await generalEngine.resolveMeta(requestedType, decodedId);
   json(res, 200, { meta: general.meta ? createMetaResponse(general.meta).meta : null });
 }
 
@@ -183,7 +172,7 @@ async function handleStream(req, res, pathname) {
 
   const [, requestedType, rawId] = match;
   const decodedId = decodeURIComponent(rawId);
-  const animeDecision = await shouldUseAnimeEngine(requestedType, decodedId, {
+  const animeDecision = await animeEngine.shouldUseAnimeEngine(requestedType, decodedId, {
     enabled: animeEngineEnabled
   });
 
@@ -198,7 +187,7 @@ async function handleStream(req, res, pathname) {
       type: requestedType,
       id: decodedId
     });
-    const { payload } = await resolveAnimeEngineStreams(requestedType, decodedId);
+    const { payload } = await animeEngine.resolveStreams(requestedType, decodedId);
     animeDebugLog("stream.response", {
       type: requestedType,
       id: decodedId,
@@ -211,7 +200,7 @@ async function handleStream(req, res, pathname) {
     return;
   }
 
-  const general = await resolveGeneralStreams(requestedType, decodedId);
+  const general = await generalEngine.resolveStreams(requestedType, decodedId);
   const streams = Array.isArray(general.streams) ? general.streams : [];
   json(res, 200, {
     streams: projectPublicStreams(absolutizeStreamUrls(req, appendSupportStream(streams)))
@@ -228,7 +217,7 @@ async function handleDebug(res, pathname) {
 
   const [, requestedType, rawId] = match;
   const decodedId = decodeURIComponent(rawId);
-  const animeDecision = await shouldUseAnimeEngine(requestedType, decodedId, {
+  const animeDecision = await animeEngine.shouldUseAnimeEngine(requestedType, decodedId, {
     enabled: animeEngineEnabled
   });
 
@@ -243,7 +232,7 @@ async function handleDebug(res, pathname) {
       type: requestedType,
       id: decodedId
     });
-    const { payload: debug } = await resolveAnimeEngineDebug(requestedType, decodedId);
+    const { payload: debug } = await animeEngine.resolveDebug(requestedType, decodedId);
     animeDebugLog("debug.response", {
       type: requestedType,
       id: decodedId,
@@ -260,7 +249,7 @@ async function handleDebug(res, pathname) {
     return;
   }
 
-  const general = await resolveGeneralDebug(requestedType, decodedId);
+  const general = await generalEngine.resolveDebug(requestedType, decodedId);
   if (general.mode === "internal") {
     if (general.debug) {
       json(res, 200, {
@@ -305,13 +294,13 @@ async function handleProviderDebug(res, pathname) {
   const [, providerId, requestedType, rawId] = match;
   const decodedId = decodeURIComponent(rawId);
 
-  if (animeEngineEnabled && isAnimeEngineProviderId(providerId)) {
+  if (animeEngineEnabled && animeEngine.isProviderId(providerId)) {
     animeDebugLog("provider.debug.request", {
       providerId,
       type: requestedType,
       id: decodedId
     });
-    const debug = await resolveAnimeEngineProviderDebug(providerId, requestedType, decodedId);
+    const debug = await animeEngine.resolveProviderDebug(providerId, requestedType, decodedId);
     animeDebugLog("provider.debug.response", {
       providerId,
       type: requestedType,
@@ -329,7 +318,7 @@ async function handleProviderDebug(res, pathname) {
     return;
   }
 
-  const provider = getGeneralProviderById(providerId);
+  const provider = generalEngine.getProviderById(providerId);
 
   if (!provider) {
     json(res, 404, {
@@ -339,7 +328,7 @@ async function handleProviderDebug(res, pathname) {
     return;
   }
 
-  const debug = await resolveGeneralProviderDebug(providerId, requestedType, decodedId);
+  const debug = await generalEngine.resolveProviderDebug(providerId, requestedType, decodedId);
   if (debug?.mode === "internal") {
     json(res, 200, debug);
     return;
@@ -363,7 +352,7 @@ async function handleAnimeSearchDebug(res, pathname, searchParams) {
   }
 
   const [, providerId, requestedType, rawQuery] = match;
-  if (!animeEngineEnabled || !isAnimeEngineProviderId(providerId)) {
+  if (!animeEngineEnabled || !animeEngine.isProviderId(providerId)) {
     notFound(res);
     return;
   }
@@ -376,7 +365,7 @@ async function handleAnimeSearchDebug(res, pathname, searchParams) {
     query,
     genres
   });
-  const debug = await resolveAnimeEngineProviderSearchDebug(providerId, requestedType, query, genres);
+  const debug = await animeEngine.resolveProviderSearchDebug(providerId, requestedType, query, genres);
   animeDebugLog("provider.search.response", {
     providerId,
     type: requestedType,

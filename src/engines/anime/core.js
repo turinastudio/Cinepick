@@ -1,12 +1,12 @@
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
-const animeIds = require("../../anime/legacy/lib/ids.js");
-const animeProviders = require("../../anime/legacy/providers/registry.js");
-const animeProviderApi = require("../../anime/legacy/providers/index.js");
-const animeDebugService = require("../../anime/legacy/services/debug-service.js");
-const animeMetaService = require("../../anime/legacy/services/meta-service.js");
-const animeStreamService = require("../../anime/legacy/services/stream-service.js");
+const animeIds = require("./runtime/lib/ids.js");
+const animeProviders = require("./runtime/providers/registry.js");
+const animeProviderApi = require("./runtime/providers/index.js");
+const animeDebugService = require("./runtime/services/debug-service.js");
+const animeMetaService = require("./runtime/services/meta-service.js");
+const animeStreamService = require("./runtime/services/stream-service.js");
 const EXPLICIT_ANIME_PREFIXES = new Set(["animeflv", "animeav1", "henaojara", "anilist", "kitsu", "mal", "anidb"]);
 
 export function getAnimeProviderIds() {

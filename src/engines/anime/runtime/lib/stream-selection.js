@@ -26,7 +26,7 @@ const PROVIDER_SCORES = {
 const {
   dedupeStreamsByTarget,
   getCanonicalStreamTarget
-} = require("../../../shared/dedupe.cjs");
+} = require("../../../../shared/dedupe.cjs");
 
 function getSelectionMode() {
   return String(process.env.STREAM_SELECTION_MODE || "global").trim().toLowerCase();

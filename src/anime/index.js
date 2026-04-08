@@ -1,1 +1,1 @@
-export * from "../engines/anime/core.js";
+export * from "../engines/anime/index.js";

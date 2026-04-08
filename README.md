@@ -64,10 +64,6 @@ Addon de Stremio para combinar:
   - `src/server.js` y `src/manifest.js` quedan como wrappers de compatibilidad
   - el arranque principal del proyecto ahora apunta a `src/app/server.js`
 
-Detalle tecnico adicional:
-
-- [SESSION_CHANGES_2026-04-07.md](/C:/Users/lautaroturina/Desktop/Codex/CinePick/docs/SESSION_CHANGES_2026-04-07.md)
-
 La arquitectura actual mezcla lo mejor de dos mundos:
 
 - la estructura de addon, ranking y debug de este repo
@@ -449,4 +445,4 @@ Nota operativa:
 
 ## Documentacion adicional
 
-- [SESSION_CHANGES_2026-04-07.md](/C:/Users/lautaroturina/Desktop/Codex/CinePick/docs/SESSION_CHANGES_2026-04-07.md)
+- [CHANGELOG.md](/C:/Users/lautaroturina/Desktop/Codex/CinePick/docs/CHANGELOG.md)

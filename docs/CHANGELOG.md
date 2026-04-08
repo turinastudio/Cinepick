@@ -115,7 +115,7 @@
 - Se dejo documentado que:
   - Render toma variables desde `render.yaml`
   - Railway usa `railway.json` para build/start/healthcheck, pero las variables se cargan manualmente
-- Se agrego [ANTIGRAVITY_HANDOFF.md](/C:/Users/lautaroturina/Desktop/Codex/CinePick/docs/ANTIGRAVITY_HANDOFF.md) como guia de continuidad para trabajar desde otros agentes como Gemini o Claude.
+- Se agrego una guia de continuidad para trabajar desde otros agentes como Gemini o Claude.
 
 ## [Unreleased] - 2026-04-01
 

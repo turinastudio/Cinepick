@@ -1,4 +1,4 @@
-# CinePick
+# Cinepick
 
 Addon de Stremio para combinar:
 
@@ -9,7 +9,7 @@ Addon de Stremio para combinar:
 
 ## Cambios recientes
 
-### Sesion 2026-04-07
+### Sesion 2026-04-07 / 2026-04-08
 
 - identidad publica actualizada a `CinePick`
 - logo servido desde el propio addon usando `assets/Logo.png`
@@ -47,6 +47,22 @@ Addon de Stremio para combinar:
   - `verhdlink` y `cinehdplus` removidos del flujo activo y de `idPrefixes`
   - conflicto de alias `waaw` corregido en extractors
   - catalogs removidos del manifest y del server
+- integracion de motor anime dentro de Cinepick:
+  - port de AniPick como subsistema aislado en `src/anime/legacy`
+  - deteccion anime para ids explicitos (`animeflv:`, `animeav1:`, `henaojara:`, `anilist:`, `kitsu:`, `mal:`, `anidb:`)
+  - deteccion anime para `tt...` / `tmdb:...` usando senales fuertes desde TMDB
+  - `meta`, `stream`, debug global anime, debug por provider anime y debug de busqueda anime funcionando
+  - branding y CTA del motor anime alineados a `Cinepick`
+  - metadata anime enriquecida con `originalTitle` y aliases para mejorar matching ingles <-> romaji
+  - deduplicacion anime reforzada con target canonico
+  - matching anime relajado de forma controlada para aceptar candidatos correctos cuando el problema es falta de alias o diferencia ingles/romaji
+- reorganizacion estructural del repo para reflejar la arquitectura real:
+  - `src/app/` como contenedor del addon
+  - `src/engines/general/` para el motor general
+  - `src/engines/anime/` para el adaptador del motor anime
+  - `src/shared/` para utilidades comunes (`support`, `format`, `dedupe`, `debug`)
+  - `src/server.js` y `src/manifest.js` quedan como wrappers de compatibilidad
+  - el arranque principal del proyecto ahora apunta a `src/app/server.js`
 
 Detalle tecnico adicional:
 
@@ -75,6 +91,41 @@ La arquitectura actual mezcla lo mejor de dos mundos:
 - `cineplus123`
 - `serieskao`
 - `lacartoons`
+
+### Motor anime integrado
+
+El repo vuelve a tener soporte anime, pero ya no como los archivos viejos mezclados en `src/providers`.
+
+Ahora vive como subsistema encapsulado:
+
+- [src/anime/index.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/anime/index.js)
+- [src/anime/legacy](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/anime/legacy)
+
+Providers anime hoy integrados:
+
+- `animeflv`
+- `animeav1`
+- `henaojara`
+
+Capacidades ya soportadas:
+
+- `meta` anime
+- `stream` anime
+- debug global anime
+- debug por provider anime
+- debug de busqueda por provider anime
+
+Decision importante:
+
+- el motor anime usa su propio pipeline interno de resolucion y seleccion
+- no se mezclo a la fuerza con el scoring general de Cinepick
+- la integracion se hace por routing en `server.js`, no inyectando los providers anime dentro del core general
+
+Motivo:
+
+- reducir riesgo sobre el flujo ya estable de peliculas/series
+- mantener aislada la logica especifica de anime
+- poder depurar anime sin contaminar providers generales
 
 ### Providers animacion retro funcionando
 
@@ -109,11 +160,59 @@ Motivo:
 
 ## Arquitectura
 
-### Entrada principal
+### Contenedor
 
+- [src/app/server.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/app/server.js)
+- [src/app/manifest.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/app/manifest.js)
 - [src/server.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/server.js)
-- [src/providers/index.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/providers/index.js)
 - [src/manifest.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/manifest.js)
+
+`src/server.js` y `src/manifest.js` siguen existiendo para no romper entrypoints, pero ahora delegan en `src/app/`.
+
+### Motor general
+
+- [src/engines/general/index.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/engines/general/index.js)
+- [src/engines/general/providers/index.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/engines/general/providers/index.js)
+- [src/engines/general/providers/core.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/engines/general/providers/core.js)
+- [src/engines/general/providers/base.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/engines/general/providers/base.js)
+- [src/engines/general/providers/webstreambase.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/engines/general/providers/webstreambase.js)
+- [src/engines/general/scoring.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/engines/general/scoring.js)
+- [src/engines/general/scoring/core.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/engines/general/scoring/core.js)
+- [src/providers/index.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/providers/index.js)
+
+### Subsistema anime
+
+- [src/engines/anime/index.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/engines/anime/index.js)
+- [src/engines/anime/core.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/engines/anime/core.js)
+- [src/engines/anime/detection.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/engines/anime/detection.js)
+- [src/anime/index.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/anime/index.js)
+- [src/anime/detection.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/anime/detection.js)
+- [src/anime/legacy/lib/external-pipeline.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/anime/legacy/lib/external-pipeline.js)
+- [src/anime/legacy/lib/external-resolution.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/anime/legacy/lib/external-resolution.js)
+- [src/anime/legacy/lib/metadata.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/anime/legacy/lib/metadata.js)
+- [src/anime/legacy/lib/stream-selection.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/anime/legacy/lib/stream-selection.js)
+
+Flujo actual del motor anime:
+
+- Stremio manda un `id`
+- `server.js` decide si deriva al motor anime
+- si el id es anime explicito, entra directo
+- si el id es `tt...` o `tmdb:...`, [detection.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/anime/detection.js) usa TMDB para decidir si es anime
+- el motor anime resuelve metadata externa
+- la metadata se enriquece con `originalTitle` y aliases
+- luego se generan `searchTerms` en ingles, original, romaji y variantes
+- cada provider anime busca candidatos
+- el pipeline acepta candidatos correctos aunque el score no sea perfecto cuando la evidencia es suficiente
+- recien ahi se resuelven streams y se aplica la seleccion del motor anime
+
+### Shared
+
+- [src/shared/support-stream.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/shared/support-stream.js)
+- [src/shared/stream-format.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/shared/stream-format.js)
+- [src/shared/dedupe.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/shared/dedupe.js)
+- [src/shared/debug.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/shared/debug.js)
+
+Estas piezas ya se usan desde ambos motores para evitar duplicacion y preparar una migracion futura mas limpia.
 
 ### Capa HTTP nueva
 
@@ -157,6 +256,18 @@ npm install
 ```powershell
 $env:ADDON_URL='http://127.0.0.1:3000'
 $env:STREAM_SELECTION_MODE='global'
+npm start
+```
+
+`npm start` ahora arranca desde [src/app/server.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/app/server.js).
+
+### Inicio rapido con motor anime
+
+```powershell
+$env:ADDON_URL='http://127.0.0.1:3000'
+$env:STREAM_SELECTION_MODE='global'
+$env:ENABLE_ANIME_ENGINE='true'
+$env:ANIME_ENGINE_DEBUG='true'
 npm start
 ```
 
@@ -219,6 +330,8 @@ Healthcheck:
 - `WEBSTREAM_HTTP_TIMEOUT_MS`
 - `WEBSTREAM_HTTP_RETRIES`
 - `TMDB_API_KEY`
+- `ENABLE_ANIME_ENGINE`
+- `ANIME_ENGINE_DEBUG`
 
 ### HTTP providers
 
@@ -242,6 +355,12 @@ Healthcheck:
 
 - `LACARTOONS_BASE_URL`
 
+### Motor anime
+
+- `ANIMEFLV_BASE_URL`
+- `ANIMEAV1_BASE_URL`
+- `HENAOJARA_BASE_URL`
+
 ## Debug util
 
 Nota operativa:
@@ -258,6 +377,16 @@ Nota operativa:
 ### Debug por provider
 
 - [CineCalidad Matrix](http://127.0.0.1:3000/_debug/provider/cinecalidad/stream/movie/tt0133093.json)
+
+### Debug anime
+
+- [anime debug One Piece](http://127.0.0.1:3000/_debug/stream/series/tt0388629:1:1.json)
+- [anime debug Bunny Girl Senpai](http://127.0.0.1:3000/_debug/stream/series/tt8993398:1:1.json)
+- [anime provider animeflv One Piece](http://127.0.0.1:3000/_debug/provider/animeflv/stream/series/tt0388629:1:1.json)
+- [anime provider animeav1 One Piece](http://127.0.0.1:3000/_debug/provider/animeav1/stream/series/tt0388629:1:1.json)
+- [anime provider henaojara One Piece](http://127.0.0.1:3000/_debug/provider/henaojara/stream/series/tt0388629:1:1.json)
+- [anime search animeflv Bunny Girl Senpai](http://127.0.0.1:3000/_debug/search/animeflv/series/Rascal%20Does%20Not%20Dream%20of%20Bunny%20Girl%20Senpai.json)
+- [anime search animeav1 Bunny Girl Senpai](http://127.0.0.1:3000/_debug/search/animeav1/series/Rascal%20Does%20Not%20Dream%20of%20Bunny%20Girl%20Senpai.json)
 - [Cuevana Matrix](http://127.0.0.1:3000/_debug/provider/cuevana/stream/movie/tt0133093.json)
 - [HomeCine Enredados](http://127.0.0.1:3000/_debug/provider/homecine/stream/movie/tt0398286.json)
 - [TioPlus Hamnet](http://127.0.0.1:3000/_debug/provider/tioplus/stream/movie/tt14905854.json)

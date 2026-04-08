@@ -35,6 +35,123 @@ Documentar los cambios funcionales, visuales y de confiabilidad realizados sobre
 - la ruta `/catalog/...` fue removida del server
 - el addon queda enfocado solo en peliculas y series dentro del flujo general actual
 
+## Integracion de motor anime
+
+Luego de esa limpieza, se reintrodujo anime de forma mas segura como subsistema aislado en vez de volver a mezclar providers anime con el core general.
+
+Arquitectura nueva:
+
+- `src/anime/index.js` como adaptador ESM
+- `src/anime/detection.js` para decidir si un `tt...` / `tmdb:...` debe entrar al motor anime
+- `src/anime/legacy/` con el motor portado desde AniPick
+
+Providers anime embebidos:
+
+- `animeflv`
+- `animeav1`
+- `henaojara`
+
+Capacidades integradas:
+
+- `meta` anime
+- `stream` anime
+- debug global anime
+- debug por provider anime
+- debug de busqueda anime
+
+Flags:
+
+- `ENABLE_ANIME_ENGINE`
+- `ANIME_ENGINE_DEBUG`
+
+Regla de routing:
+
+- ids anime explicitos (`animeflv:`, `animeav1:`, `henaojara:`, `anilist:`, `kitsu:`, `mal:`, `anidb:`) entran directo al motor anime
+- ids `tt...` y `tmdb:...` se derivan al motor anime solo si TMDB da senales fuertes de anime
+- contenido general sigue yendo al flujo normal de Cinepick
+
+## Reorganizacion estructural
+
+Se empezo a reflejar la arquitectura real del addon sin romper compatibilidad externa.
+
+Nueva organizacion:
+
+- `src/app/`
+  - `server.js`
+  - `manifest.js`
+- `src/engines/general/`
+  - `providers/core.js`
+  - `providers/base.js`
+  - `providers/webstreambase.js`
+  - `scoring/core.js`
+  - entrypoints y adaptadores del motor general
+- `src/engines/anime/`
+  - `core.js`
+  - `detection.js`
+  - entrypoint del motor anime
+- `src/shared/`
+  - `support-stream`
+  - `stream-format`
+  - `dedupe`
+  - `debug`
+
+Compatibilidad mantenida:
+
+- `src/server.js` sigue existiendo, pero ahora delega en `src/app/server.js`
+- `src/manifest.js` sigue existiendo, pero ahora delega en `src/app/manifest.js`
+- `src/providers/*` y `src/lib/stream-scoring.js` siguen existiendo como wrappers donde hacia falta compatibilidad
+
+Arranque principal actualizado:
+
+- `package.json` ahora usa `src/app/server.js` como entrypoint real
+
+Beneficio:
+
+- el contenedor ya no conoce tanto detalle interno de cada motor
+- server y manifest quedan identificados como infraestructura de app
+- las piezas comunes empiezan a salir de la mezcla entre anime y general
+
+## Branding y salida anime
+
+- el nombre visible del motor anime se alineo a `Cinepick`
+- el CTA del motor anime ya no dice `Anipick`
+- el CTA ahora usa:
+  - `Apoyar Cinepick`
+  - `cinepick|support`
+
+## Matching anime
+
+Se corrigieron dos causas concretas de falsos negativos anime:
+
+1. matching demasiado estricto entre titulo ingles y romaji
+2. metadata externa demasiado pobre en aliases
+
+Mejoras aplicadas:
+
+- aceptacion controlada de candidatos correctos cuando:
+  - solo hay un resultado util
+  - o el mejor candidato domina claramente al segundo
+- metadata anime enriquecida con:
+  - `originalTitle`
+  - aliases
+  - alternativas y traducciones desde TMDB
+
+Impacto directo:
+
+- series como `Rascal Does Not Dream of Bunny Girl Senpai` (`tt8993398`) dejaron de depender de un solo titulo ingles para matchear con slugs romaji como `Seishun Buta Yarou wa Bunny Girl Senpai no Yume wo Minai`
+
+## Dedupe anime
+
+- la deduplicacion del motor anime paso a usar un target mas canonico
+- ahora contempla mejor `behaviorHints.filename`
+- reduce duplicados por cambios menores de titulo o query params en URLs
+
+## Nota sobre Henaojara
+
+- `henaojara` no se trato como provider roto
+- en varios casos simplemente no tiene candidato base suficientemente confiable
+- se prefirio devolver `no_candidate` antes que aceptar specials o peliculas equivocadas para series largas
+
 ## Presentacion de streams
 
 - la columna izquierda en Stremio ahora muestra `CinePick`

@@ -1,18 +1,19 @@
 {
   "name": "stremio-web-scraper-addon",
   "version": "0.1.1",
-  "description": "Stremio addon base for web providers ported from Aniyomi-style scrapers.",
+  "description": "Cinepick: addon de Stremio con motor general y motor anime integrados.",
   "type": "module",
-  "main": "src/server.js",
+  "main": "src/app/server.js",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "node --watch src/server.js",
+    "start": "node src/app/server.js",
+    "dev": "node --watch src/app/server.js",
     "test:provider": "node test.js"
   },
   "dependencies": {
     "axios": "^1.13.6",
     "cheerio-without-node-native": "^0.20.2",
-    "crypto-js": "^4.2.0"
+    "crypto-js": "^4.2.0",
+    "fuzzysort": "^3.1.0"
   },
   "engines": {
     "node": ">=20"

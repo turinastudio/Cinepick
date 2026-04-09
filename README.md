@@ -309,6 +309,11 @@ Nota:
 - `render.yaml` ya refleja el estado actual del addon
 - incluye motor anime habilitable, CTA, timeouts de extractor y `HENAOJARA_BASE_URL`
 
+### Chequeo remoto manual en GitHub
+
+- workflow: [remote-check.yml](/C:/Users/lautaroturina/Desktop/Codex/CinePick/.github/workflows/remote-check.yml)
+- uso: ejecutar `Remote Deploy Check` desde GitHub Actions y pasar la URL publica del addon
+
 ## Assets y runtime
 
 - logo publico: [public/assets/Logo.png](/C:/Users/lautaroturina/Desktop/Codex/CinePick/public/assets/Logo.png)

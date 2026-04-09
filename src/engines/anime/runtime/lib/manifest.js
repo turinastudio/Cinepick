@@ -29,7 +29,7 @@ async function buildManifest(origin = "") {
   const packageJson = await readPackageManifest();
 
   return {
-    id: "com.anipick.stremio.addon.v2",
+    id: "com.cinepick.stremio.anime.runtime",
     version: packageJson.version,
     name: "Cinepick",
     logo: absolutizeAsset(origin, "/logo.png", DEFAULT_LOGO),

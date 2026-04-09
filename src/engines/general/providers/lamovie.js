@@ -1,6 +1,7 @@
 import { buildStremioId } from "../../../lib/ids.js";
 import { buildStream, resolveExtractorStream } from "../../../lib/extractors.js";
 import { markSourceFailure, markSourceSuccess } from "../../../lib/penalty-reliability.js";
+import { fetchJson as sharedJsonFetch } from "../../../shared/fetch.js";
 import { analyzeScoredStreams, scoreAndSelectStreams } from "../scoring.js";
 import { fetchJson as sharedFetchJson, fetchText as sharedFetchText } from "../../../lib/webstreamer/http.js";
 import { Provider } from "./base.js";
@@ -1100,18 +1101,11 @@ export class LaMovieProvider extends Provider {
 
   async fetchCinemetaMeta(type, externalId) {
     try {
-      const response = await fetch(`https://v3-cinemeta.strem.io/meta/${type}/${externalId}.json`, {
+      const payload = await sharedJsonFetch(`https://v3-cinemeta.strem.io/meta/${type}/${externalId}.json`, {
         headers: {
-          "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-          accept: "application/json,text/plain;q=0.9,*/*;q=0.8"
+          Accept: "application/json,text/plain;q=0.9,*/*;q=0.8"
         }
       });
-
-      if (!response.ok) {
-        return null;
-      }
-
-      const payload = await response.json();
       return payload?.meta || null;
     } catch {
       return null;

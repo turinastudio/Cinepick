@@ -1,6 +1,7 @@
 import { buildStremioId } from "../../../lib/ids.js";
 import { buildStream, resolveExtractorStream } from "../../../lib/extractors.js";
 import { markSourceFailure, markSourceSuccess } from "../../../lib/penalty-reliability.js";
+import { fetchJson as sharedFetchJson } from "../../../shared/fetch.js";
 import { analyzeScoredStreams, scoreAndSelectStreams } from "../scoring.js";
 import { Provider } from "./base.js";
 
@@ -1105,25 +1106,16 @@ export class VerSeriesOnlineProvider extends Provider {
   }
 
   async fetchJson(url) {
-    let response;
-
     try {
-      response = await fetch(url, {
+      return await sharedFetchJson(url, {
         headers: {
-          "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-          accept: "application/json,text/plain;q=0.9,*/*;q=0.8"
+          Accept: "application/json,text/plain;q=0.9,*/*;q=0.8"
         }
       });
     } catch (error) {
       const details = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
       throw new Error(`No se pudo obtener JSON desde ${url}. ${details}`);
     }
-
-    if (!response.ok) {
-      throw new Error(`JSON respondio ${response.status} para ${url}`);
-    }
-
-    return response.json();
   }
 
   async fetchCinemetaMeta(type, externalId) {
@@ -1137,5 +1129,3 @@ export class VerSeriesOnlineProvider extends Provider {
     }
   }
 }
-
-import { fetchJson as fetchJsonShared } from "../../../shared/fetch.js";

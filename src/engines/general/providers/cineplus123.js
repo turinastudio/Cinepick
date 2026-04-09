@@ -1,6 +1,7 @@
 import { buildStremioId } from "../../../lib/ids.js";
 import { buildStream, resolveExtractorStream } from "../../../lib/extractors.js";
 import { markSourceFailure, markSourceSuccess } from "../../../lib/penalty-reliability.js";
+import { fetchJson as sharedFetchJson, fetchText as sharedFetchText } from "../../../shared/fetch.js";
 import { analyzeScoredStreams, scoreAndSelectStreams } from "../scoring.js";
 import { Provider } from "./base.js";
 
@@ -671,24 +672,17 @@ export class Cineplus123Provider extends Provider {
       type: String(player.dataType)
     }).toString();
 
-    const response = await fetch(`${this.baseUrl}/wp-admin/admin-ajax.php`, {
+    return sharedFetchText(`${this.baseUrl}/wp-admin/admin-ajax.php`, {
       method: "POST",
       headers: {
-        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        accept: "*/*",
-        "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
-        origin: this.baseUrl,
-        referer: `${this.baseUrl}/`,
-        "x-requested-with": "XMLHttpRequest"
+        Accept: "*/*",
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        Origin: this.baseUrl,
+        Referer: `${this.baseUrl}/`,
+        "X-Requested-With": "XMLHttpRequest"
       },
       body
     });
-
-    if (!response.ok) {
-      throw new Error(`Cineplus123 AJAX respondio ${response.status}`);
-    }
-
-    return response.text();
   }
 
   extractPlayerUrlFromAjax(text) {
@@ -1065,40 +1059,24 @@ export class Cineplus123Provider extends Provider {
   }
 
   async fetchText(url) {
-    let response;
-
     try {
-      response = await fetch(url, {
+      return await sharedFetchText(url, {
         headers: {
-          "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-          accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
         }
       });
     } catch (error) {
       const details = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
       throw new Error(`No se pudo conectar con Cineplus123 en ${url}. ${details}`);
     }
-
-    if (!response.ok) {
-      throw new Error(`Cineplus123 respondio ${response.status} para ${url}`);
-    }
-
-    return response.text();
   }
 
   async fetchJson(url) {
-    const response = await fetch(url, {
+    return sharedFetchJson(url, {
       headers: {
-        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        accept: "application/json,text/plain;q=0.9,*/*;q=0.8"
+        Accept: "application/json,text/plain;q=0.9,*/*;q=0.8"
       }
     });
-
-    if (!response.ok) {
-      throw new Error(`JSON respondio ${response.status} para ${url}`);
-    }
-
-    return response.json();
   }
 
   async fetchCinemetaMeta(type, externalId) {

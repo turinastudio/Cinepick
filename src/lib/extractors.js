@@ -13,6 +13,32 @@ function decodeHtmlEntities(value) {
     .replaceAll("&gt;", ">");
 }
 
+function normalizeEmbeddedUrl(value, baseUrl = "") {
+  const raw = decodeHtmlEntities(String(value || ""))
+    .replace(/\\\//g, "/")
+    .replace(/\\u002f/gi, "/")
+    .replace(/\\u0026/gi, "&")
+    .trim();
+
+  if (!raw) {
+    return "";
+  }
+
+  if (raw.startsWith("//")) {
+    return `https:${raw}`;
+  }
+
+  if (raw.startsWith("/") && baseUrl) {
+    try {
+      return new URL(raw, baseUrl).href;
+    } catch {
+      return raw;
+    }
+  }
+
+  return raw;
+}
+
 function isHttpUrl(value) {
   return /^https?:\/\//i.test(String(value || "").trim());
 }
@@ -247,6 +273,41 @@ function tryParseJson(text) {
   }
 }
 
+function extractM3u8UrlsFromText(text, baseUrl = "") {
+  const workingText = String(text || "");
+  if (!workingText) {
+    return [];
+  }
+
+  const unpacked = getAndUnpack(workingText);
+  const combined = [workingText, unpacked].filter(Boolean).join("\n");
+  const matches = new Set();
+
+  for (const match of combined.matchAll(/https?:\/\/[^"'\\\s]+\.m3u8(?:\?[^"'\\\s]*)?/gi)) {
+    const normalized = normalizeEmbeddedUrl(match[0], baseUrl);
+    if (isHttpUrl(normalized)) {
+      matches.add(normalized);
+    }
+  }
+
+  const quotedPatterns = [
+    /(?:file|src|source|wurl)\s*:\s*"([^"]+\.m3u8[^"]*)"/gi,
+    /(?:file|src|source|wurl)\s*:\s*'([^']+\.m3u8[^']*)'/gi,
+    /["']((?:https?:)?\/\/[^"'\\\s]+\.m3u8(?:\?[^"'\\\s]*)?)["']/gi
+  ];
+
+  for (const pattern of quotedPatterns) {
+    for (const match of combined.matchAll(pattern)) {
+      const normalized = normalizeEmbeddedUrl(match[1], baseUrl);
+      if (isHttpUrl(normalized)) {
+        matches.add(normalized);
+      }
+    }
+  }
+
+  return [...matches];
+}
+
 const PROVIDER_TIMEOUT_MS = Math.max(
   1000,
   Number.parseInt(process.env.PROVIDER_TIMEOUT_MS || "12000", 10) || 12000
@@ -422,8 +483,17 @@ async function extractDood(url, label) {
   const resolvedUrl = response.url;
   const html = await response.text();
 
-  const md5Path = html.match(/\/pass_md5\/[^']+/i)?.[0];
+  const md5Path =
+    html.match(/["'](\/pass_md5\/[^"']+)["']/i)?.[1] ||
+    html.match(/\/pass_md5\/[^"'\\<\s]+/i)?.[0];
   if (!md5Path) {
+    const fallbackMatches = extractM3u8UrlsFromText(html, resolvedUrl);
+    if (fallbackMatches.length > 0) {
+      const quality = pickQualityLabel(html, "video");
+      return fallbackMatches.map((streamUrl) =>
+        buildStream("Gnula", `${label} Doodstream ${quality}`.trim(), streamUrl, `${new URL(resolvedUrl).origin}/`)
+      );
+    }
     return [];
   }
 
@@ -435,7 +505,13 @@ async function extractDood(url, label) {
     return chars[Math.floor(Math.random() * chars.length)];
   }).join("");
   const expiry = Date.now();
-  const prefix = await fetchText(md5Url, { referer: resolvedUrl });
+  const prefix = String(await fetchText(md5Url, {
+    referer: resolvedUrl,
+    origin: resolved.origin
+  }) || "").trim();
+  if (!prefix) {
+    return [];
+  }
   const directUrl = `${prefix}${randomString}?token=${token}&expiry=${expiry}`;
   const quality = pickQualityLabel(html, "video");
 
@@ -870,11 +946,22 @@ async function extractFilemoon(url, label) {
     return [];
   }
 
-  const detailsText = await fetchText(`https://${parsed.host}/api/videos/${mediaId}/embed/details`);
-  const embedUrl = detailsText.match(/"embed_frame_url"\s*:\s*"([^"]+)"/i)?.[1];
+  const detailsText = await fetchText(`https://${parsed.host}/api/videos/${mediaId}/embed/details`, {
+    Referer: workingUrl,
+    Origin: parsed.origin,
+    Accept: "application/json,text/plain;q=0.9,*/*;q=0.8"
+  }).catch(() => "");
+  const detailsJson = tryParseJson(detailsText);
+  const embedUrl = normalizeEmbeddedUrl(
+    detailsJson?.embed_frame_url || detailsText.match(/"embed_frame_url"\s*:\s*"([^"]+)"/i)?.[1],
+    workingUrl
+  );
 
   if (!embedUrl) {
-    return [];
+    const fallbackMatches = extractM3u8UrlsFromText(initialHtml, workingUrl);
+    return fallbackMatches.map((streamUrl) =>
+      buildStream("Gnula", `${label} Filemoon HLS`.trim(), streamUrl, `https://${parsed.host}/`)
+    );
   }
 
   const embedHost = new URL(embedUrl).host;
@@ -892,16 +979,26 @@ async function extractFilemoon(url, label) {
     "Sec-Fetch-Site": "same-origin"
   });
 
-  let playbackJson = JSON.parse(playbackText);
-  let sources = playbackJson.sources;
+  let playbackJson = tryParseJson(playbackText);
+  let sources = Array.isArray(playbackJson?.sources) ? playbackJson.sources : null;
 
-  if ((!sources || !sources.length) && playbackJson.playback) {
-    const decrypted = decryptFilemoonPlayback(playbackJson.playback);
-    playbackJson = JSON.parse(decrypted);
-    sources = playbackJson.sources;
+  if ((!sources || !sources.length) && playbackJson?.playback) {
+    try {
+      const decrypted = decryptFilemoonPlayback(playbackJson.playback);
+      playbackJson = JSON.parse(decrypted);
+      sources = Array.isArray(playbackJson?.sources) ? playbackJson.sources : null;
+    } catch {
+      sources = null;
+    }
   }
 
   if (!sources?.length) {
+    const fallbackMatches = extractM3u8UrlsFromText(playbackText, embedUrl);
+    if (fallbackMatches.length > 0) {
+      return fallbackMatches.map((streamUrl) =>
+        buildStream("Gnula", `${label} Filemoon HLS`.trim(), streamUrl, `https://${parsed.host}/`)
+      );
+    }
     return [];
   }
 
@@ -1174,6 +1271,7 @@ async function extractNetuHqq(url, label) {
   })();
 
   let html = await fetchText(normalizedUrl, { Referer: normalizedUrl });
+  let effectiveReferer = normalizedUrl;
   const iframeUrl =
     html.match(/<iframe[^>]+src=["']([^"']+)["']/i)?.[1] ||
     html.match(/location\.href\s*=\s*["']([^"']+)["']/i)?.[1];
@@ -1183,22 +1281,20 @@ async function extractNetuHqq(url, label) {
       ? iframeUrl
       : new URL(iframeUrl, normalizedUrl).href;
     html = await fetchText(resolvedIframeUrl, { Referer: normalizedUrl });
+    effectiveReferer = resolvedIframeUrl;
   }
 
-  const directMatches = Array.from(
-    html.matchAll(/https?[^"'\\\s]+(?:master\.m3u8|\.m3u8)[^"'\\\s]*/gi),
-    (match) => decodeHtmlEntities(match[0])
-  );
+  const directMatches = extractM3u8UrlsFromText(html, effectiveReferer);
 
   if (directMatches.length) {
     return [...new Set(directMatches)].map((streamUrl) =>
-      buildStream("Gnula", `${label} Netu HLS`.trim(), streamUrl, normalizedUrl)
+      buildStream("Gnula", `${label} Netu HLS`.trim(), streamUrl, effectiveReferer)
     );
   }
 
   const cfMatch = html.match(/https?:\/\/[^"'\\\s]*cfglobalcdn\.com[^"'\\\s]*\.m3u8[^"'\\\s]*/i);
   if (cfMatch) {
-    return [buildStream("Gnula", `${label} Netu HLS`.trim(), decodeHtmlEntities(cfMatch[0]), normalizedUrl)];
+    return [buildStream("Gnula", `${label} Netu HLS`.trim(), normalizeEmbeddedUrl(cfMatch[0], effectiveReferer), effectiveReferer)];
   }
 
   return [];

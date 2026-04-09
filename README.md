@@ -157,6 +157,18 @@ Verifica:
 - anime para `One Piece`
 - anime para `Bunny Girl Senpai`
 
+### Config validation
+
+```powershell
+npm run test:config
+```
+
+Verifica:
+
+- `render.yaml`
+- `railway.json`
+- manifest canónico en `src/app/manifest.js`
+
 ## Variables importantes
 
 ### Core

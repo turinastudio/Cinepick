@@ -653,10 +653,9 @@ export class VerSeriesOnlineProvider extends Provider {
       _token: player.csrfToken
     }).toString();
 
-    const response = await fetch(`${this.baseUrl}/hashembedlink`, {
+    const payload = await fetchJsonShared(`${this.baseUrl}/hashembedlink`, {
       method: "POST",
       headers: {
-        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         accept: "application/json, text/plain, */*",
         "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
         "x-requested-with": "XMLHttpRequest",
@@ -668,12 +667,6 @@ export class VerSeriesOnlineProvider extends Provider {
       },
       body
     });
-
-    if (!response.ok) {
-      return null;
-    }
-
-    const payload = await response.json().catch(() => null);
     const link = String(payload?.link || "").trim();
     return /^https?:\/\//i.test(link) ? link : null;
   }
@@ -1145,3 +1138,4 @@ export class VerSeriesOnlineProvider extends Provider {
   }
 }
 
+import { fetchJson as fetchJsonShared } from "../../../shared/fetch.js";

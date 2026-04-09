@@ -1130,12 +1130,9 @@ export class SerieskaoProvider extends Provider {
   }
 
   async fetchText(url, extraHeaders = {}) {
-    let response;
-
     try {
-      response = await fetch(url, {
+      return await fetchTextShared(url, {
         headers: {
-          "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
           accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
           ...extraHeaders
         }
@@ -1144,27 +1141,14 @@ export class SerieskaoProvider extends Provider {
       const details = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
       throw new Error(`No se pudo conectar con SeriesKao en ${url}. ${details}`);
     }
-
-    if (!response.ok) {
-      throw new Error(`SeriesKao respondio ${response.status} para ${url}`);
-    }
-
-    return response.text();
   }
 
   async fetchJson(url) {
-    const response = await fetch(url, {
+    return fetchJsonShared(url, {
       headers: {
-        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         accept: "application/json,text/plain;q=0.9,*/*;q=0.8"
       }
     });
-
-    if (!response.ok) {
-      throw new Error(`JSON respondio ${response.status} para ${url}`);
-    }
-
-    return response.json();
   }
 
   async fetchCinemetaMeta(type, externalId) {
@@ -1178,3 +1162,4 @@ export class SerieskaoProvider extends Provider {
   }
 }
 
+import { fetchJson as fetchJsonShared, fetchText as fetchTextShared } from "../../../shared/fetch.js";

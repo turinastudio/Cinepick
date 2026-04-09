@@ -830,12 +830,9 @@ export class GnulaProvider extends Provider {
   }
 
   async fetchText(url) {
-    let response;
-
     try {
-      response = await fetch(url, {
+      return await fetchTextShared(url, {
         headers: {
-          "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
           accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
         }
       });
@@ -845,21 +842,12 @@ export class GnulaProvider extends Provider {
         : String(error);
       throw new Error(`No se pudo conectar con Gnula en ${url}. ${details}`);
     }
-
-    if (!response.ok) {
-      throw new Error(`Gnula respondio ${response.status} para ${url}`);
-    }
-
-    return response.text();
   }
 
   async fetchJson(url) {
-    let response;
-
     try {
-      response = await fetch(url, {
+      return await fetchJsonShared(url, {
         headers: {
-          "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
           accept: "application/json,text/plain;q=0.9,*/*;q=0.8"
         }
       });
@@ -869,12 +857,6 @@ export class GnulaProvider extends Provider {
         : String(error);
       throw new Error(`No se pudo obtener JSON desde ${url}. ${details}`);
     }
-
-    if (!response.ok) {
-      throw new Error(`JSON endpoint respondio ${response.status} para ${url}`);
-    }
-
-    return response.json();
   }
 
   async fetchCinemetaMeta(type, externalId) {
@@ -889,3 +871,4 @@ export class GnulaProvider extends Provider {
   }
 }
 
+import { fetchJson as fetchJsonShared, fetchText as fetchTextShared } from "../../../shared/fetch.js";

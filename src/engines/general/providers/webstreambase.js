@@ -111,6 +111,8 @@ export class WebstreamBaseProvider extends Provider {
       }
 
       queries.push(titleValue);
+      queries.push(titleValue.replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim());
+      queries.push(titleValue.split(":")[0].trim());
       const stripped = titleValue.replace(/^(the|a|an)\s+/i, "").trim();
       if (stripped && stripped !== titleValue) {
         queries.push(stripped);

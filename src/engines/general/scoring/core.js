@@ -142,6 +142,16 @@ function buildSourceKey(providerId, stream) {
   return `${effectiveProviderId}:${detectSourceLabel(stream)}`;
 }
 
+function streamPreferenceScore(stream) {
+  const target = String(stream._targetUrl || stream.url || stream.externalUrl || "");
+  const hasCanonicalTarget = target.length > 0 ? 2 : 0;
+  const prefersDirectMedia = /\.mp4(\?|$)/i.test(target) ? 3 : /\.m3u8(\?|$)/i.test(target) ? 2 : 0;
+  const fewerHeaders = Object.keys(stream._proxyHeaders || stream.behaviorHints?.proxyHeaders?.request || {}).length === 0 ? 1 : 0;
+  const webReadyBonus = stream.behaviorHints?.notWebReady ? 0 : 1;
+  const richerTitle = Math.min(getTitleText(stream).length, 120) / 120;
+  return hasCanonicalTarget + prefersDirectMedia + fewerHeaders + webReadyBonus + richerTitle;
+}
+
 function dedupeStreams(streams) {
   return dedupeStreamsByTarget(streams, {
     buildKey(stream, canonicalTarget) {
@@ -150,6 +160,9 @@ function dedupeStreams(streams) {
       return canonicalTarget
         ? `${languageTier}::${sourceLabel}::${canonicalTarget}`
         : `${languageTier}::${sourceLabel}::${stream.url || ""}::${stream.externalUrl || ""}::${getTitleText(stream)}`;
+    },
+    shouldReplace(existing, incoming) {
+      return streamPreferenceScore(incoming) > streamPreferenceScore(existing);
     },
     mapDuplicate(stream, key, canonicalTarget) {
       return {

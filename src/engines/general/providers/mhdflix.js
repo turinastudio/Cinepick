@@ -803,45 +803,29 @@ export class MhdflixProvider extends Provider {
 
   async fetchJson(url, options = {}) {
     const method = options.method || "GET";
-    const body = options.body
-      ? JSON.stringify(options.body)
-      : undefined;
-
-    const response = await fetch(url, {
+    return fetchJsonShared(url, {
       method,
       headers: {
-        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         Origin: this.baseUrl,
         Referer: `${this.baseUrl}/`,
         Accept: "application/json, text/plain, */*",
-        ...(body ? { "Content-Type": "application/json" } : {})
+        ...(options.body ? { "Content-Type": "application/json" } : {})
       },
-      body
+      body: options.body
+        ? JSON.stringify(options.body)
+        : undefined
     });
-
-    if (!response.ok) {
-      throw new Error(`MhdFlix respondio ${response.status} para ${url}`);
-    }
-
-    return response.json();
   }
 
   async fetchCinemetaMeta(type, externalId) {
     const url = `https://v3-cinemeta.strem.io/meta/${type}/${externalId}.json`;
 
     try {
-      const response = await fetch(url, {
+      const payload = await fetchJsonShared(url, {
         headers: {
-          "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
           accept: "application/json,text/plain;q=0.9,*/*;q=0.8"
         }
       });
-
-      if (!response.ok) {
-        return null;
-      }
-
-      const payload = await response.json();
       return payload?.meta || null;
     } catch {
       return null;
@@ -849,3 +833,4 @@ export class MhdflixProvider extends Provider {
   }
 }
 
+import { fetchJson as fetchJsonShared } from "../../../shared/fetch.js";

@@ -33,6 +33,20 @@ const INTERNAL_HOSTS = {
   }
 };
 
+function buildProxyPath(targetUrl, requestHeaders = {}) {
+  const payload = {
+    url: targetUrl,
+    headers: {
+      "User-Agent": DEFAULT_USER_AGENT,
+      ...(requestHeaders || {})
+    }
+  };
+  const encoded = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const extensionMatch = String(targetUrl || "").match(/(\.m3u8|\.mp4|\.ts|\.m4s|\.key|\.bin)(?:\?|$)/i);
+  const extension = extensionMatch?.[1]?.toLowerCase() || ".bin";
+  return `/p/${encoded}${extension}`;
+}
+
 function getLanguageLabel(isDub) {
   return isDub ? "Latino" : "Subtitulado";
 }
@@ -70,21 +84,23 @@ async function buildInternalStream({ providerLabel, bingePrefix, epName, source 
   const extraResponseHeaders = typeof hostConfig.responseHeaders === "function"
     ? hostConfig.responseHeaders(realURL)
     : (hostConfig.responseHeaders || {});
+  const requestHeaders = {
+    Referer: hostConfig.requestReferer,
+    "User-Agent": DEFAULT_USER_AGENT
+  };
 
   return {
-    url: realURL,
+    url: buildProxyPath(realURL, requestHeaders),
     name: STREAM_LIST_NAME,
     title: buildDisplayTitle(epName, providerLabel, source.name, Boolean(source.dub)),
     _dub: Boolean(source.dub),
+    _targetUrl: realURL,
     behaviorHints: {
       bingeGroup: `${bingePrefix}|${source.name}`,
       filename: realURL,
       notWebReady: true,
       proxyHeaders: {
-        request: {
-          Referer: hostConfig.requestReferer,
-          "User-Agent": DEFAULT_USER_AGENT
-        },
+        request: requestHeaders,
         response: {
           "User-Agent": DEFAULT_USER_AGENT,
           ...extraResponseHeaders

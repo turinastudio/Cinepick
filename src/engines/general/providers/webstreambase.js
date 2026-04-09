@@ -58,7 +58,7 @@ export class WebstreamBaseProvider extends Provider {
     if (itemId) {
       for (const language of ["es-MX", "es-ES", "en-US"]) {
         const details = await fetchJson(
-          `https://api.themoviedb.org/3/${mediaType}/${itemId}?api_key=${this.tmdbApiKey}&language=${language}`
+          `https://api.themoviedb.org/3/${mediaType}/${itemId}?api_key=${this.tmdbApiKey}&language=${language}&append_to_response=alternative_titles,translations`
         ).catch(() => null);
 
         if (!details) {
@@ -71,6 +71,24 @@ export class WebstreamBaseProvider extends Provider {
           details.original_title,
           details.original_name
         );
+
+        const alternativeTitles = Array.isArray(details.alternative_titles?.titles)
+          ? details.alternative_titles.titles
+          : Array.isArray(details.alternative_titles?.results)
+            ? details.alternative_titles.results
+            : [];
+
+        for (const alternative of alternativeTitles) {
+          values.push(alternative?.title, alternative?.name);
+        }
+
+        const translations = Array.isArray(details.translations?.translations)
+          ? details.translations.translations
+          : [];
+
+        for (const translation of translations) {
+          values.push(translation?.data?.title, translation?.data?.name);
+        }
       }
     }
 
@@ -79,17 +97,15 @@ export class WebstreamBaseProvider extends Provider {
 
   buildSearchQueries(externalMeta, extraTitles = []) {
     const queries = [];
-    const title = String(externalMeta?.name || "").trim();
-    if (title) {
-      queries.push(title);
-      const stripped = title.replace(/^(the|a|an)\s+/i, "").trim();
-      if (stripped && stripped !== title) {
-        queries.push(stripped);
-      }
-    }
+    const candidateTitles = [
+      externalMeta?.name,
+      externalMeta?.originalTitle,
+      ...(Array.isArray(externalMeta?.aliases) ? externalMeta.aliases : []),
+      ...extraTitles
+    ];
 
-    for (const extraTitle of extraTitles) {
-      const titleValue = String(extraTitle || "").trim();
+    for (const rawTitle of candidateTitles) {
+      const titleValue = String(rawTitle || "").trim();
       if (!titleValue) {
         continue;
       }
@@ -123,6 +139,7 @@ export class WebstreamBaseProvider extends Provider {
     const searchTitles = this.buildSearchQueries(externalMeta, externalMeta?._searchTitles || []);
     const expectedYear = buildYearFromMeta(externalMeta);
     let best = null;
+    let secondBest = null;
 
     for (const candidate of candidates) {
       const name = String(candidate?.name || "").trim().toLowerCase();
@@ -159,11 +176,31 @@ export class WebstreamBaseProvider extends Provider {
       }
 
       if (!best || score > best.score) {
+        secondBest = best;
         best = { candidate, score };
+      } else if (!secondBest || score > secondBest.score) {
+        secondBest = { candidate, score };
       }
     }
 
-    return best && best.score >= 5 ? best.candidate : null;
+    if (!best) {
+      return null;
+    }
+
+    if (best.score >= 5) {
+      return best.candidate;
+    }
+
+    if (candidates.length === 1 && best.score >= 3) {
+      return best.candidate;
+    }
+
+    const secondScore = secondBest?.score ?? Number.NEGATIVE_INFINITY;
+    if (best.score >= 4 && best.score - secondScore >= 3) {
+      return best.candidate;
+    }
+
+    return null;
   }
 
   sortStreams(streams) {

@@ -3,7 +3,7 @@ const path = require("path");
 const { buildCatalogs } = require("./catalog-definitions");
 
 const DEFAULT_LOGO = "https://play-lh.googleusercontent.com/ZIjIwO5FJe9R1rplSd4uz54OwBxQhwDcznjljSPl2MgHaCoyF3qG6R4kRMCB40f4l2A=w256";
-const DEFAULT_DESCRIPTION = "Olvidate de probar streams uno por uno. Anipick busca en multiples fuentes y elige automaticamente el mejor disponible. Gratis, sin anuncios, sin suscripcion. Te gusto? Podes invitarme un cafe y ayudar a mantener el proyecto vivo.";
+const DEFAULT_DESCRIPTION = "Olvidate de probar streams uno por uno. Cinepick busca en multiples fuentes y elige automaticamente el mejor disponible. Gratis, sin anuncios, sin suscripcion. Si te gusto, podes invitarme un cafe y ayudar a mantener el proyecto vivo.";
 
 async function readPackageManifest() {
   const packagePath = path.resolve(__dirname, "..", "..", "package.json");
@@ -31,7 +31,7 @@ async function buildManifest(origin = "") {
   return {
     id: "com.anipick.stremio.addon.v2",
     version: packageJson.version,
-    name: "Anipick",
+    name: "Cinepick",
     logo: absolutizeAsset(origin, "/logo.png", DEFAULT_LOGO),
     description: process.env.MANIFEST_DESCRIPTION || DEFAULT_DESCRIPTION,
     resources: ["stream", "meta", "catalog"],

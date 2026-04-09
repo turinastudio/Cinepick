@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 
 function getBaseUrl() {
-  const raw = String(process.env.TEST_BASE_URL || process.env.ADDON_URL || "").trim();
+  const raw = String(process.argv[2] || process.env.TEST_BASE_URL || process.env.ADDON_URL || "").trim();
   if (!raw) {
-    throw new Error("Define TEST_BASE_URL o ADDON_URL para ejecutar el test remoto");
+    throw new Error("Define TEST_BASE_URL, ADDON_URL o pasa la URL base como argumento para ejecutar el test remoto");
   }
 
   return raw.replace(/\/$/, "");
@@ -33,6 +33,7 @@ async function main() {
   const health = await fetchJson(`${baseUrl}/`);
   const manifest = await fetchJson(`${baseUrl}/manifest.json`);
   const movie = await fetchJson(`${baseUrl}/_debug/stream/movie/tt0133093.json`);
+  const series = await fetchJson(`${baseUrl}/_debug/stream/series/tt0903747:1:1.json`);
   const anime = await fetchJson(`${baseUrl}/_debug/stream/series/tt0388629:1:1.json`);
 
   assert.equal(health.ok, true);
@@ -40,6 +41,7 @@ async function main() {
   assert.equal(manifest.name, "Cinepick");
   assert.deepEqual(manifest.resources, ["meta", "stream"]);
   assert.equal(movie.mode, "external");
+  assert.equal(series.mode, "external");
   assert.equal(anime.mode, "anime");
 
   console.log(JSON.stringify({
@@ -55,6 +57,9 @@ async function main() {
     },
     movie: {
       mode: movie.mode
+    },
+    series: {
+      mode: series.mode
     },
     anime: {
       mode: anime.mode,

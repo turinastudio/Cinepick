@@ -28,7 +28,7 @@ Addon de Stremio para peliculas, series y anime con:
 
 ### Motor anime integrado
 
-Anime ya no vive mezclado dentro del core general. Ahora entra como subsistema separado.
+Anime vive como subsistema separado del core general.
 
 Providers anime integrados:
 
@@ -46,30 +46,11 @@ Capacidades:
 
 ## Arquitectura
 
-### App
+### Canonico
 
-- [src/app/server.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/app/server.js)
-- [src/app/manifest.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/app/manifest.js)
-
-### Motor general
-
-- [src/engines/general/index.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/engines/general/index.js)
-- [src/engines/general/providers/core.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/engines/general/providers/core.js)
-- [src/engines/general/scoring/core.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/engines/general/scoring/core.js)
-
-### Motor anime
-
-- [src/engines/anime/index.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/engines/anime/index.js)
-- [src/engines/anime/core.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/engines/anime/core.js)
-- [src/engines/anime/detection.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/engines/anime/detection.js)
-- [src/engines/anime/runtime](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/engines/anime/runtime)
-
-### Shared
-
-- [src/shared/support-stream.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/shared/support-stream.js)
-- [src/shared/stream-format.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/shared/stream-format.js)
-- [src/shared/dedupe.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/shared/dedupe.js)
-- [src/shared/debug.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/shared/debug.js)
+- `src/app`
+- `src/engines`
+- `src/shared`
 
 ### Compatibilidad
 
@@ -83,12 +64,6 @@ Estos wrappers siguen existiendo para no romper imports o entrypoints viejos:
 - [src/anime/index.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/anime/index.js)
 - [src/anime/detection.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/anime/detection.js)
 - [src/lib/stream-scoring.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/lib/stream-scoring.js)
-
-Ubicacion canonica actual:
-
-- `src/app`
-- `src/engines`
-- `src/shared`
 
 ## Ejecutar en local
 
@@ -126,13 +101,11 @@ Manifest local:
 - [manifest local](http://127.0.0.1:3000/manifest.json)
 - [manifest alt](http://127.0.0.1:3000/alt/manifest.json)
 
-## Tester CLI
+## Scripts utiles
 
-Script:
+### Provider tester
 
 - [scripts/test-provider.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/scripts/test-provider.js)
-
-Uso:
 
 ```powershell
 node scripts/test-provider.js <tmdbId> <movie|tv> [season] [episode] [provider] [basic|advanced]
@@ -157,8 +130,8 @@ Verifica:
 
 - imports canonicos y wrappers de compatibilidad
 - arranque real desde `src/app/server.js`
-- `movie` general
-- `series` general
+- dos `movie` generales
+- dos `series` generales
 - anime para `One Piece`
 - anime para `Bunny Girl Senpai`
 
@@ -172,7 +145,7 @@ Verifica:
 
 - `render.yaml`
 - `railway.json`
-- manifest canónico en `src/app/manifest.js`
+- manifest canonico en `src/app/manifest.js`
 
 ### Arquitectura
 
@@ -183,17 +156,7 @@ npm run test:arch
 Verifica:
 
 - que los wrappers de compatibilidad sigan existiendo
-- que el código canónico no vuelva a importar desde wrappers viejos
-
-### Test completo
-
-```powershell
-npm test
-```
-
-Nota:
-
-- el repo también corre estas validaciones automáticamente en GitHub Actions
+- que el codigo canonico no vuelva a importar desde wrappers viejos
 
 ### Test remoto
 
@@ -202,12 +165,37 @@ $env:TEST_BASE_URL='https://autostream-http-production.up.railway.app'
 npm run test:remote
 ```
 
+o:
+
+```powershell
+npm run test:remote -- https://autostream-http-production.up.railway.app
+```
+
 Verifica:
 
 - `/`
 - `/manifest.json`
 - debug movie general
+- debug series general
 - debug anime
+
+### Test completo
+
+```powershell
+npm test
+```
+
+Resumen rapido:
+
+- `npm run test:config`: valida deploy y manifest canonico
+- `npm run test:arch`: valida wrappers e imports internos
+- `npm run test:smoke`: valida arranque local y endpoints clave
+- `npm run test:remote`: valida un deploy publico
+- `npm test`: corre config + arquitectura + smoke
+
+Nota:
+
+- el repo tambien corre estas validaciones automaticamente en GitHub Actions
 
 ## Variables importantes
 

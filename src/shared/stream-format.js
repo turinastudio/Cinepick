@@ -82,7 +82,7 @@ function extractDisplayTitle(stream) {
 
 export function buildHttpStreamTitle(stream) {
   const currentTitle = String(stream.title || "");
-  if (/^[ðŸŒðŸ“º]/u.test(currentTitle) || currentTitle.includes("Apoyar CinePick") || currentTitle.includes("Apoyar Cinepick")) {
+  if (currentTitle.startsWith("Apoyar ")) {
     return currentTitle;
   }
 

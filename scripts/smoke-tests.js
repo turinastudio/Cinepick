@@ -114,14 +114,18 @@ async function runServerSmoke() {
   try {
     const health = await waitForServer(baseUrl);
     const movie = await fetchJson(`${baseUrl}/_debug/stream/movie/tt0133093.json`);
+    const movieAlt = await fetchJson(`${baseUrl}/_debug/stream/movie/tt26443597.json`);
     const series = await fetchJson(`${baseUrl}/_debug/stream/series/tt0903747:1:1.json`);
+    const seriesAlt = await fetchJson(`${baseUrl}/_debug/stream/series/tt0944947:1:1.json`);
     const animeOnePiece = await fetchJson(`${baseUrl}/_debug/stream/series/tt0388629:1:1.json`);
     const animeBunny = await fetchJson(`${baseUrl}/_debug/stream/series/tt8993398:1:1.json`);
 
     assert.equal(health.ok, true);
     assert.equal(health.name, "Cinepick");
     assert.equal(movie.mode, "external");
+    assert.equal(movieAlt.mode, "external");
     assert.equal(series.mode, "external");
+    assert.equal(seriesAlt.mode, "external");
     assert.equal(animeOnePiece.mode, "anime");
     assert.ok(Number(animeOnePiece.combinedStreamCount || 0) > 0);
     assert.equal(animeBunny.mode, "anime");

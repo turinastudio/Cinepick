@@ -98,6 +98,11 @@ Ubicacion canonica actual:
 npm install
 ```
 
+Version recomendada de Node:
+
+- `20`
+- el repo incluye [.nvmrc](/C:/Users/lautaroturina/Desktop/Codex/CinePick/.nvmrc) y [.node-version](/C:/Users/lautaroturina/Desktop/Codex/CinePick/.node-version)
+
 ### Inicio rapido
 
 ```powershell

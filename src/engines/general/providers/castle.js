@@ -1,5 +1,6 @@
 import { buildStream } from "../../../lib/extractors.js";
 import { scoreAndSelectStreams } from "../scoring.js";
+import { fetchJson as sharedFetchJson, fetchWithRetry as sharedFetchWithRetry } from "../../../shared/fetch.js";
 import { fetchTmdbMediaFromImdb, basicTitleSimilarity } from "../../../lib/tmdb.js";
 import { parseExternalStremioId } from "../../../lib/webstreamer/common.js";
 import { Provider } from "./base.js";
@@ -215,14 +216,11 @@ export class CastleProvider extends Provider {
   }
 
   async request(url, options = {}) {
-    const response = await fetch(url, {
+    const response = await sharedFetchWithRetry(url, {
       method: options.method || "GET",
       headers: { ...API_HEADERS, ...(options.headers || {}) },
       body: options.body
     });
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status} para ${url}`);
-    }
     return response;
   }
 
@@ -237,13 +235,14 @@ export class CastleProvider extends Provider {
   }
 
   async decryptCastle(encryptedB64, securityKeyB64) {
-    const response = await fetch("https://aesdec.nuvioapp.space/decrypt-castle", {
+    const payload = await sharedFetchJson("https://aesdec.nuvioapp.space/decrypt-castle", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json"
+      },
       body: JSON.stringify({ encryptedData: encryptedB64, securityKey: securityKeyB64 })
     });
-    if (!response.ok) throw new Error(`Decrypt HTTP ${response.status}`);
-    const payload = await response.json();
     if (payload.error) throw new Error(payload.error);
     return payload.decrypted;
   }

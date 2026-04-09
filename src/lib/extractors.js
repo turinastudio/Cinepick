@@ -258,24 +258,73 @@ const EXTRACTOR_TIMEOUT_MS = Math.max(
     PROVIDER_TIMEOUT_MS
   )
 );
+const EXTRACTOR_RETRY_COUNT = Math.max(
+  0,
+  Math.min(Number.parseInt(process.env.EXTRACTOR_RETRIES || "1", 10) || 1, 2)
+);
+const RETRYABLE_STATUS_CODES = new Set([403, 429, 502, 503, 504]);
+const RETRYABLE_ERROR_CODES = new Set([
+  "ECONNABORTED",
+  "ECONNRESET",
+  "ENOTFOUND",
+  "ETIMEDOUT",
+  "EAI_AGAIN"
+]);
+
+function isRetryableStatus(status) {
+  return RETRYABLE_STATUS_CODES.has(Number(status));
+}
+
+function isRetryableError(error) {
+  const code = String(error?.code || "").toUpperCase();
+  return RETRYABLE_ERROR_CODES.has(code);
+}
+
+async function wait(ms) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 async function fetchWithTimeout(url, options = {}) {
-  const controller = new AbortController();
-  const timeoutHandle = setTimeout(() => controller.abort(), EXTRACTOR_TIMEOUT_MS);
+  let lastError = null;
 
-  try {
-    return await fetch(url, {
-      ...options,
-      signal: controller.signal
-    });
-  } catch (error) {
-    if (error?.name === "AbortError") {
-      throw new Error(`Extractor timeout after ${EXTRACTOR_TIMEOUT_MS}ms para ${url}`);
+  for (let attempt = 0; attempt <= EXTRACTOR_RETRY_COUNT; attempt += 1) {
+    const controller = new AbortController();
+    const timeoutHandle = setTimeout(() => controller.abort(), EXTRACTOR_TIMEOUT_MS);
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutHandle);
+
+      if (attempt < EXTRACTOR_RETRY_COUNT && isRetryableStatus(response?.status)) {
+        await wait(200 * (attempt + 1));
+        continue;
+      }
+
+      return response;
+    } catch (error) {
+      clearTimeout(timeoutHandle);
+
+      if (error?.name === "AbortError") {
+        throw new Error(`Extractor timeout after ${EXTRACTOR_TIMEOUT_MS}ms para ${url}`);
+      }
+
+      lastError = error;
+
+      if (attempt >= EXTRACTOR_RETRY_COUNT || !isRetryableError(error)) {
+        throw error;
+      }
+
+      await wait(200 * (attempt + 1));
+    } finally {
+      clearTimeout(timeoutHandle);
     }
-    throw error;
-  } finally {
-    clearTimeout(timeoutHandle);
   }
+
+  throw lastError || new Error(`Extractor request failed for ${url}`);
 }
 
 async function fetchText(url, headers = {}) {

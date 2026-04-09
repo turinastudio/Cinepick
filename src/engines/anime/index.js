@@ -13,15 +13,15 @@ import { detectAnimeForExternalId } from "./detection.js";
 
 const ANIME_ID_PREFIXES = ["animeflv:", "animeav1:", "henaojara:", "anilist:", "kitsu:", "mal:", "anidb:"];
 
-export function getAnimeEngineIdPrefixes() {
+function getAnimeEngineIdPrefixes() {
   return [...ANIME_ID_PREFIXES];
 }
 
-export function isAnimeEngineProviderId(providerId) {
+function isAnimeEngineProviderId(providerId) {
   return isAnimeProviderId(providerId);
 }
 
-export function getAnimeEngineProviderIds() {
+function getAnimeEngineProviderIds() {
   return getAnimeProviderIds();
 }
 
@@ -68,20 +68,12 @@ export async function resolveMeta(type, id) {
   };
 }
 
-export async function resolveAnimeEngineMeta(type, id) {
-  return resolveMeta(type, id);
-}
-
 export async function resolveStreams(type, id) {
   const payload = await resolveAnimeStreamPayload(type, id);
   return {
     mode: "anime",
     payload
   };
-}
-
-export async function resolveAnimeEngineStreams(type, id) {
-  return resolveStreams(type, id);
 }
 
 export async function resolveDebug(type, id) {
@@ -92,22 +84,20 @@ export async function resolveDebug(type, id) {
   };
 }
 
-export async function resolveAnimeEngineDebug(type, id) {
-  return resolveDebug(type, id);
-}
-
 export async function resolveProviderDebug(providerId, type, id) {
   return debugAnimeProviderStreams(providerId, type, id);
-}
-
-export async function resolveAnimeEngineProviderDebug(providerId, type, id) {
-  return resolveProviderDebug(providerId, type, id);
 }
 
 export async function resolveProviderSearchDebug(providerId, type, query, genres = []) {
   return debugAnimeProviderSearch(providerId, type, query, genres);
 }
 
-export async function resolveAnimeEngineProviderSearchDebug(providerId, type, query, genres = []) {
-  return resolveProviderSearchDebug(providerId, type, query, genres);
-}
+// Deprecated aliases kept for compatibility with older imports.
+export { getAnimeEngineIdPrefixes };
+export { isAnimeEngineProviderId };
+export { getAnimeEngineProviderIds };
+export { resolveMeta as resolveAnimeEngineMeta };
+export { resolveStreams as resolveAnimeEngineStreams };
+export { resolveDebug as resolveAnimeEngineDebug };
+export { resolveProviderDebug as resolveAnimeEngineProviderDebug };
+export { resolveProviderSearchDebug as resolveAnimeEngineProviderSearchDebug };

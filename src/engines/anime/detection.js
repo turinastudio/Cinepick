@@ -1,3 +1,5 @@
+import { fetchJson } from "../../shared/fetch.js";
+
 const TMDB_API_BASE = "https://api.themoviedb.org/3";
 const DEFAULT_TMDB_API_KEY = "439c478a771f35c05022f9feabcca01c";
 
@@ -16,12 +18,7 @@ function hasJapaneseScript(value) {
 
 async function fetchTmdbJson(url) {
   const headers = getTmdbHeaders();
-  const response = await fetch(url, Object.keys(headers).length > 0 ? { headers } : {});
-  if (!response.ok) {
-    throw new Error(`TMDB HTTP ${response.status}`);
-  }
-
-  return response.json();
+  return fetchJson(url, Object.keys(headers).length > 0 ? { headers } : {});
 }
 
 async function resolveTmdbTarget(type, externalId) {

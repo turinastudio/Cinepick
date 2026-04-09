@@ -6,7 +6,7 @@ import {
   resolveStreamsFromExternalId
 } from "./providers/core.js";
 
-export function getGeneralEngineIdPrefixes() {
+function getGeneralEngineIdPrefixes() {
   return [];
 }
 
@@ -14,7 +14,7 @@ export function getIdPrefixes() {
   return getGeneralEngineIdPrefixes();
 }
 
-export function isGeneralInternalId(type, id) {
+function isGeneralInternalId(type, id) {
   const resolved = resolveProviderFromMetaId(id);
   return Boolean(resolved && resolved.type === type);
 }
@@ -23,7 +23,7 @@ export function isProviderId(providerId) {
   return Boolean(getProviderByIdInternal(providerId));
 }
 
-export function resolveGeneralMetaTarget(type, id) {
+function resolveGeneralMetaTarget(type, id) {
   const resolved = resolveProviderFromMetaId(id);
   if (!resolved || resolved.type !== type) {
     return null;
@@ -32,7 +32,7 @@ export function resolveGeneralMetaTarget(type, id) {
   return resolved;
 }
 
-export async function resolveGeneralMeta(type, id) {
+export async function resolveMeta(type, id) {
   const resolved = resolveGeneralMetaTarget(type, id);
   if (!resolved) {
     return { mode: "unhandled", meta: null };
@@ -50,11 +50,7 @@ export async function resolveGeneralMeta(type, id) {
   };
 }
 
-export async function resolveMeta(type, id) {
-  return resolveGeneralMeta(type, id);
-}
-
-export async function resolveGeneralStreams(type, id) {
+export async function resolveStreams(type, id) {
   const resolved = resolveGeneralMetaTarget(type, id);
 
   if (!resolved) {
@@ -77,11 +73,7 @@ export async function resolveGeneralStreams(type, id) {
   };
 }
 
-export async function resolveStreams(type, id) {
-  return resolveGeneralStreams(type, id);
-}
-
-export async function resolveGeneralDebug(type, id) {
+export async function resolveDebug(type, id) {
   const resolved = resolveGeneralMetaTarget(type, id);
 
   if (resolved) {
@@ -106,11 +98,7 @@ export async function resolveGeneralDebug(type, id) {
   };
 }
 
-export async function resolveDebug(type, id) {
-  return resolveGeneralDebug(type, id);
-}
-
-export async function resolveGeneralProviderDebug(providerId, type, id) {
+export async function resolveProviderDebug(providerId, type, id) {
   const provider = getProviderById(providerId);
   if (!provider) {
     return {
@@ -140,13 +128,18 @@ export async function resolveGeneralProviderDebug(providerId, type, id) {
   return debugProviderStreamsFromExternalId(providerId, type, id);
 }
 
-export async function resolveProviderDebug(providerId, type, id) {
-  return resolveGeneralProviderDebug(providerId, type, id);
-}
-
 export function getProviderById(providerId) {
   return getProviderByIdInternal(providerId);
 }
+
+// Deprecated aliases kept for compatibility with older imports.
+export { getGeneralEngineIdPrefixes };
+export { isGeneralInternalId };
+export { resolveGeneralMetaTarget };
+export { resolveMeta as resolveGeneralMeta };
+export { resolveStreams as resolveGeneralStreams };
+export { resolveDebug as resolveGeneralDebug };
+export { resolveProviderDebug as resolveGeneralProviderDebug };
 
 export function getGeneralProviderById(providerId) {
   return getProviderByIdInternal(providerId);

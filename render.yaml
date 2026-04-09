@@ -9,16 +9,34 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 20
+      - key: NODE_ENV
+        value: production
+      - key: ADDON_URL
+        value: https://stremio-web-scraper-addon.onrender.com
       - key: STREAM_SELECTION_MODE
         value: global
       - key: STREAM_MAX_RESULTS
         value: 2
+      - key: SHOW_SUPPORT_STREAM
+        value: true
+      - key: SUPPORT_URL
+        value: https://ko-fi.com/turinastudio
       - key: PROVIDER_TIMEOUT_MS
         value: 25000
       - key: PROVIDER_DEBUG_TIMEOUT_MS
         value: 40000
+      - key: EXTRACTOR_TIMEOUT_MS
+        value: 3500
+      - key: EXTRACTOR_CANDIDATE_TIMEOUT_MS
+        value: 5000
+      - key: WEBSTREAM_HTTP_RETRIES
+        value: 1
       - key: TMDB_API_KEY
         value: 439c478a771f35c05022f9feabcca01c
+      - key: ENABLE_ANIME_ENGINE
+        value: true
+      - key: ANIME_ENGINE_DEBUG
+        value: false
       - key: GNULA_BASE_URL
         value: https://gnula.life
       - key: CINECALIDAD_BASE_URL
@@ -35,10 +53,6 @@ services:
         value: https://homecine.to
       - key: TIOPLUS_BASE_URL
         value: https://tioplus.app
-      - key: VERHDLINK_BASE_URL
-        value: https://verhdlink.com
-      - key: CINEHDPLUS_BASE_URL
-        value: https://cinehdplus.gratis
       - key: MHDFLIX_BASE_URL
         value: https://ww1.mhdflix.com
       - key: MHDFLIX_API_URL
@@ -57,7 +71,7 @@ services:
         value: https://animeav1.com
       - key: ANIMEFLV_BASE_URL
         value: https://www3.animeflv.net
+      - key: HENAOJARA_BASE_URL
+        value: https://ww1.henaojara.net
       - key: LACARTOONS_BASE_URL
         value: https://www.lacartoons.com
-      - key: ADDON_URL
-        value: https://stremio-web-scraper-addon.onrender.com

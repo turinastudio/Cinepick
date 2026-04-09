@@ -78,7 +78,17 @@ Estos wrappers siguen existiendo para no romper imports o entrypoints viejos:
 - [src/server.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/server.js)
 - [src/manifest.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/manifest.js)
 - [src/providers/index.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/providers/index.js)
+- [src/providers/base.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/providers/base.js)
+- [src/providers/webstreambase.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/providers/webstreambase.js)
+- [src/anime/index.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/anime/index.js)
+- [src/anime/detection.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/anime/detection.js)
 - [src/lib/stream-scoring.js](/C:/Users/lautaroturina/Desktop/Codex/CinePick/src/lib/stream-scoring.js)
+
+Ubicacion canonica actual:
+
+- `src/app`
+- `src/engines`
+- `src/shared`
 
 ## Ejecutar en local
 
@@ -227,6 +237,22 @@ Variables recomendadas:
 - `EXTRACTOR_TIMEOUT_MS=3500`
 - `EXTRACTOR_CANDIDATE_TIMEOUT_MS=5000`
 - `WEBSTREAM_HTTP_RETRIES=1`
+
+Nota:
+
+- Railway no toma variables desde `railway.json`
+- cargalas desde `Variables` -> `Raw Editor` en el panel
+
+### Render
+
+Archivo:
+
+- [render.yaml](/C:/Users/lautaroturina/Desktop/Codex/CinePick/render.yaml)
+
+Nota:
+
+- `render.yaml` ya refleja el estado actual del addon
+- incluye motor anime habilitable, CTA, timeouts de extractor y `HENAOJARA_BASE_URL`
 
 ## Assets y runtime
 

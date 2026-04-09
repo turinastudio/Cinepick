@@ -169,6 +169,16 @@ Verifica:
 - `railway.json`
 - manifest canónico en `src/app/manifest.js`
 
+### Test completo
+
+```powershell
+npm test
+```
+
+Nota:
+
+- el repo también corre estas validaciones automáticamente en GitHub Actions
+
 ## Variables importantes
 
 ### Core

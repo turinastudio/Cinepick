@@ -169,6 +169,17 @@ Verifica:
 - `railway.json`
 - manifest canónico en `src/app/manifest.js`
 
+### Arquitectura
+
+```powershell
+npm run test:arch
+```
+
+Verifica:
+
+- que los wrappers de compatibilidad sigan existiendo
+- que el código canónico no vuelva a importar desde wrappers viejos
+
 ### Test completo
 
 ```powershell

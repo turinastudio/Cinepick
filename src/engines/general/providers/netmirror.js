@@ -1,6 +1,6 @@
 import axios from "axios";
 import { buildStream } from "../../../lib/extractors.js";
-import { scoreAndSelectStreams } from "../../../lib/stream-scoring.js";
+import { scoreAndSelectStreams } from "../scoring.js";
 import { fetchTmdbMediaFromImdb, basicTitleSimilarity, normalizeMediaTitle } from "../../../lib/tmdb.js";
 import { parseExternalStremioId } from "../../../lib/webstreamer/common.js";
 import { Provider } from "./base.js";

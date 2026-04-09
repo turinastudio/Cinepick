@@ -142,6 +142,21 @@ npm run test:provider -- 1396 tv 1 1 seriesmetro
 npm run test:provider -- 1396 tv 1 1 netmirror advanced
 ```
 
+### Smoke tests
+
+```powershell
+npm run test:smoke
+```
+
+Verifica:
+
+- imports canonicos y wrappers de compatibilidad
+- arranque real desde `src/app/server.js`
+- `movie` general
+- `series` general
+- anime para `One Piece`
+- anime para `Bunny Girl Senpai`
+
 ## Variables importantes
 
 ### Core

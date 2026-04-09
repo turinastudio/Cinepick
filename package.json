@@ -10,6 +10,7 @@
     "test": "npm run test:config && npm run test:arch && npm run test:smoke",
     "test:arch": "node scripts/validate-architecture.js",
     "test:provider": "node scripts/test-provider.js",
+    "test:regression": "node scripts/test-regressions.js",
     "test:smoke": "node scripts/smoke-tests.js",
     "test:config": "node scripts/validate-config.js",
     "test:remote": "node scripts/test-remote.js"

@@ -179,6 +179,23 @@ Verifica:
 - debug series general
 - debug anime
 
+### Regresion por providers criticos
+
+```powershell
+npm run test:regression
+```
+
+Verifica:
+
+- `cinecalidad`
+- `gnula`
+- `animeflv`
+- `animeav1`
+
+Nota:
+
+- no corre en el CI principal porque depende de fuentes externas mas fragiles
+
 ### Test completo
 
 ```powershell

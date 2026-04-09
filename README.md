@@ -179,6 +179,20 @@ Nota:
 
 - el repo también corre estas validaciones automáticamente en GitHub Actions
 
+### Test remoto
+
+```powershell
+$env:TEST_BASE_URL='https://autostream-http-production.up.railway.app'
+npm run test:remote
+```
+
+Verifica:
+
+- `/`
+- `/manifest.json`
+- debug movie general
+- debug anime
+
 ## Variables importantes
 
 ### Core

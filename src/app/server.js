@@ -1,6 +1,7 @@
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
+import { URLSearchParams } from "node:url";
 import { manifest } from "./manifest.js";
 import {
   animeEngine,
@@ -14,13 +15,14 @@ import {
 } from "../lib/http.js";
 import { appendSupportStream } from "../lib/support-stream.js";
 import { createDebugLogger } from "../shared/debug.js";
+import { resolveConfiguredPath, buildConfigureState, hashAddonConfig } from "../config/addon-config.js";
 
 const host = process.env.HOST || "0.0.0.0";
 const port = Number.parseInt(process.env.PORT || "3000", 10) || 3000;
 const PUBLIC_STREAM_NAME = "Cinepick";
 const logoPath = path.resolve(process.cwd(), "public", "assets", "Logo.png");
 const addonUrlOverride = String(process.env.ADDON_URL || "").trim().replace(/\/$/, "");
-const animeEngineEnabled = /^(1|true|yes)$/i.test(String(process.env.ENABLE_ANIME_ENGINE || "").trim());
+const animeEngineEnabled = !/^(0|false|no)$/i.test(String(process.env.ENABLE_ANIME_ENGINE || "true").trim());
 const animeEngineDebugEnabled = /^(1|true|yes)$/i.test(String(process.env.ANIME_ENGINE_DEBUG || "").trim());
 const animeDebugLog = createDebugLogger("anime-engine", () => animeEngineDebugEnabled);
 
@@ -64,13 +66,41 @@ function getRequestOrigin(req) {
   return `${proto}://${reqHost}`;
 }
 
-function buildManifest(req) {
+function buildManifest(req, requestConfig, basePathPrefix = "") {
   const origin = getRequestOrigin(req);
-  const animeIdPrefixes = animeEngineEnabled ? animeEngine.getIdPrefixes() : [];
+  const animeEnabled = Boolean(requestConfig?.engines?.anime) && animeEngineEnabled;
+  const generalEnabled = Boolean(requestConfig?.engines?.general);
+  const basePrefixes = (manifest.idPrefixes || []).filter((prefix) => {
+    if (prefix === "tt") {
+      return animeEnabled || generalEnabled;
+    }
+
+    if (!prefix.endsWith(":")) {
+      return true;
+    }
+
+    const providerId = prefix.slice(0, -1);
+    
+    // Anime prefixes filtering
+    if (["animeflv", "animeav1", "henaojara"].includes(providerId)) {
+      return animeEnabled ? requestConfig?.providers?.anime?.[providerId] !== false : false;
+    }
+
+    // General prefixes filtering
+    return generalEnabled
+      ? requestConfig?.providers?.general?.[providerId] !== false
+      : false;
+  });
+  const animeIdPrefixes = animeEnabled ? animeEngine.getIdPrefixes() : [];
+  const manifestId = basePathPrefix
+    ? `${manifest.id}.${hashAddonConfig(requestConfig)}`
+    : manifest.id;
   return {
     ...manifest,
-    idPrefixes: [...new Set([...(manifest.idPrefixes || []), ...animeIdPrefixes])],
-    logo: `${origin}/logo.png`
+    id: manifestId,
+    catalogs: animeEnabled ? manifest.catalogs : [],
+    idPrefixes: [...new Set([...basePrefixes, ...animeIdPrefixes])],
+    logo: `${origin}${basePathPrefix}/logo.png`
   };
 }
 
@@ -121,7 +151,7 @@ function sanitizeDebugStreams(streams) {
   });
 }
 
-async function handleMeta(res, pathname) {
+async function handleMeta(res, pathname, requestConfig = null) {
   const match = pathname.match(/^\/meta\/([^/]+)\/(.+)\.json$/);
 
   if (!match) {
@@ -132,7 +162,7 @@ async function handleMeta(res, pathname) {
   const [, requestedType, rawId] = match;
   const decodedId = decodeURIComponent(rawId);
   const animeDecision = await animeEngine.shouldUseAnimeEngine(requestedType, decodedId, {
-    enabled: animeEngineEnabled
+    enabled: animeEngineEnabled && (requestConfig ? Boolean(requestConfig?.engines?.anime) : true)
   });
 
   animeDebugLog("meta.route", {
@@ -162,7 +192,7 @@ async function handleMeta(res, pathname) {
   json(res, 200, { meta: general.meta ? createMetaResponse(general.meta).meta : null });
 }
 
-async function handleStream(req, res, pathname) {
+async function handleStream(req, res, pathname, requestConfig = null) {
   const match = pathname.match(/^\/stream\/([^/]+)\/(.+)\.json$/);
 
   if (!match) {
@@ -173,7 +203,7 @@ async function handleStream(req, res, pathname) {
   const [, requestedType, rawId] = match;
   const decodedId = decodeURIComponent(rawId);
   const animeDecision = await animeEngine.shouldUseAnimeEngine(requestedType, decodedId, {
-    enabled: animeEngineEnabled
+    enabled: animeEngineEnabled && (requestConfig ? Boolean(requestConfig?.engines?.anime) : true)
   });
 
   animeDebugLog("stream.route", {
@@ -207,7 +237,69 @@ async function handleStream(req, res, pathname) {
   });
 }
 
-async function handleDebug(res, pathname) {
+async function handleCatalog(req, res, pathname, requestConfig = null) {
+  const match = pathname.match(/^\/catalog\/([^/]+)\/([^/]+)(?:\/([^/]+))?\.json$/);
+
+  if (!match) {
+    notFound(res);
+    return;
+  }
+
+  let [, requestedType, rawId, extraArgs] = match;
+  let decodedId = decodeURIComponent(rawId);
+  const extraParams = new URLSearchParams(extraArgs ? decodeURIComponent(extraArgs.replace(/\.json$/, "")) : "");
+  
+  if (!animeEngineEnabled || (requestConfig && !requestConfig?.engines?.anime)) {
+    json(res, 200, { metas: [] });
+    return;
+  }
+
+  try {
+    let metas = [];
+    const searchParam = extraParams.get("search");
+    
+    if (decodedId.startsWith("animeav1")) {
+      const animeav1 = require("../engines/anime/runtime/providers/animeav1-client.js");
+      if (searchParam) {
+        metas = await animeav1.searchAnimeAV1(searchParam).catch(() => []);
+      } else {
+        metas = await animeav1.getAnimeAV1AiringTitles().catch(() => []);
+      }
+    } else if (decodedId.startsWith("animeflv")) {
+      const animeflv = require("../engines/anime/runtime/providers/animeflv-client.js");
+      if (searchParam) {
+        metas = await animeflv.searchAnimeFLV(searchParam).catch(() => []);
+      } else {
+        metas = await animeflv.getAnimeFLVAiringTitles().catch(() => []);
+      }
+    } else if (decodedId.startsWith("henaojara")) {
+      const henaojara = require("../engines/anime/runtime/providers/henaojara-client.js");
+      if (searchParam) {
+        metas = await henaojara.searchHenaojara(searchParam).catch(() => []);
+      } else {
+        metas = await henaojara.getHenaojaraAiringTitles().catch(() => []);
+      }
+    }
+
+    if (metas && metas.length > 0) {
+      metas = metas.map((meta) => ({
+        id: meta.slug ? `${decodedId.split('|')[0]}:${meta.slug}` : meta.id,
+        type: meta.type || requestedType,
+        name: meta.title || meta.name,
+        poster: meta.poster,
+        description: meta.overview || meta.description,
+        genres: meta.genres ? meta.genres.map(g => g.charAt(0).toUpperCase() + g.slice(1)) : undefined
+      }));
+    }
+
+    res.setHeader("Cache-Control", "max-age=259200, stale-while-revalidate=86400, stale-if-error=259200");
+    json(res, 200, { metas: metas || [] });
+  } catch (err) {
+    json(res, 200, { metas: [] });
+  }
+}
+
+async function handleDebug(res, pathname, requestConfig = null) {
   const match = pathname.match(/^\/_debug\/stream\/([^/]+)\/(.+)\.json$/);
 
   if (!match) {
@@ -218,7 +310,7 @@ async function handleDebug(res, pathname) {
   const [, requestedType, rawId] = match;
   const decodedId = decodeURIComponent(rawId);
   const animeDecision = await animeEngine.shouldUseAnimeEngine(requestedType, decodedId, {
-    enabled: animeEngineEnabled
+    enabled: animeEngineEnabled && (requestConfig ? Boolean(requestConfig?.engines?.anime) : true)
   });
 
   animeDebugLog("debug.route", {
@@ -283,7 +375,7 @@ async function handleDebug(res, pathname) {
   });
 }
 
-async function handleProviderDebug(res, pathname) {
+async function handleProviderDebug(res, pathname, requestConfig = null) {
   const match = pathname.match(/^\/_debug\/provider\/([^/]+)\/stream\/([^/]+)\/(.+)\.json$/);
 
   if (!match) {
@@ -343,7 +435,7 @@ async function handleProviderDebug(res, pathname) {
   });
 }
 
-async function handleAnimeSearchDebug(res, pathname, searchParams) {
+async function handleAnimeSearchDebug(res, pathname, searchParams, requestConfig = null) {
   const match = pathname.match(/^\/_debug\/search\/([^/]+)\/([^/]+)\/(.+)\.json$/);
 
   if (!match) {
@@ -414,18 +506,47 @@ const server = http.createServer(async (req, res) => {
 
   try {
     const url = parseUrl(req);
-    const normalizedPathname = normalizeAddonPath(url.pathname);
+    const originPathname = normalizeAddonPath(url.pathname);
+    const resolvedPath = resolveConfiguredPath(originPathname);
+    const requestConfig = resolvedPath.config;
+    const normalizedPathname = resolvedPath.pathname;
+
+    if (req.method === "GET" && originPathname === "/configure") {
+      res.writeHead(200, { "Content-Type": "text/html" });
+      res.end(fs.readFileSync(path.join(process.cwd(), "public/configure/index.html")));
+      return;
+    }
+
+    if (req.method === "GET" && originPathname === "/configure/app.js") {
+      res.writeHead(200, { "Content-Type": "application/javascript" });
+      res.end(fs.readFileSync(path.join(process.cwd(), "public/configure/app.js")));
+      return;
+    }
+
+    if (req.method === "GET" && originPathname === "/configure/styles.css") {
+      res.writeHead(200, { "Content-Type": "text/css" });
+      res.end(fs.readFileSync(path.join(process.cwd(), "public/configure/styles.css")));
+      return;
+    }
+
+    if (req.method === "GET" && originPathname === "/configure/state.json") {
+      json(res, 200, buildConfigureState(getRequestOrigin(req), requestConfig));
+      return;
+    }
 
     if (req.method === "GET" && normalizedPathname === "/manifest.json") {
-      json(res, 200, buildManifest(req));
+      json(res, 200, buildManifest(req, requestConfig, resolvedPath.basePathPrefix), {
+        "Cache-Control": "max-age=300, stale-while-revalidate=86400"
+      });
       return;
     }
 
     if (req.method === "GET" && normalizedPathname === "/") {
+      const builtManifest = buildManifest(req, requestConfig, resolvedPath.basePathPrefix);
       json(res, 200, {
         ok: true,
-        name: buildManifest(req).name,
-        version: buildManifest(req).version
+        name: builtManifest.name,
+        version: builtManifest.version
       });
       return;
     }
@@ -441,27 +562,32 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && /^\/meta\/[^/]+\/.+\.json$/.test(normalizedPathname)) {
-      await handleMeta(res, normalizedPathname);
+      await handleMeta(res, normalizedPathname, requestConfig);
       return;
     }
 
     if (req.method === "GET" && /^\/stream\/[^/]+\/.+\.json$/.test(normalizedPathname)) {
-      await handleStream(req, res, normalizedPathname);
+      await handleStream(req, res, normalizedPathname, requestConfig);
       return;
     }
 
     if (req.method === "GET" && /^\/_debug\/stream\/[^/]+\/.+\.json$/.test(normalizedPathname)) {
-      await handleDebug(res, normalizedPathname);
+      await handleDebug(res, normalizedPathname, requestConfig);
       return;
     }
 
     if (req.method === "GET" && /^\/_debug\/provider\/[^/]+\/stream\/[^/]+\/.+\.json$/.test(normalizedPathname)) {
-      await handleProviderDebug(res, normalizedPathname);
+      await handleProviderDebug(res, normalizedPathname, requestConfig);
+      return;
+    }
+
+    if (req.method === "GET" && /^\/catalog\/[^/]+\/[^/]+(?:\/[^/]+)?\.json$/.test(normalizedPathname)) {
+      await handleCatalog(req, res, normalizedPathname, requestConfig);
       return;
     }
 
     if (req.method === "GET" && /^\/_debug\/search\/[^/]+\/[^/]+\/.+\.json$/.test(normalizedPathname)) {
-      await handleAnimeSearchDebug(res, normalizedPathname, url.searchParams);
+      await handleAnimeSearchDebug(res, normalizedPathname, url.searchParams, requestConfig);
       return;
     }
 

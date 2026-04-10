@@ -1,5 +1,26 @@
 const { fetchText } = require("../../../../shared/fetch.cjs");
 
+async function resolveViaGeneralExtractor(url, label) {
+  const { resolveExtractorStream } = await import("../../../../lib/extractors.js");
+  const streams = await resolveExtractorStream(url, label, false);
+  const firstStream = Array.isArray(streams) ? streams.find((item) => item?.url) : null;
+
+  if (!firstStream?.url) {
+    return undefined;
+  }
+
+  return {
+    url: firstStream._targetUrl || firstStream.url,
+    requestHeaders:
+      firstStream.behaviorHints?.proxyHeaders?.request
+      || firstStream._proxyHeaders
+      || undefined,
+    responseHeaders:
+      firstStream.behaviorHints?.proxyHeaders?.response
+      || undefined
+  };
+}
+
 function getStreamTapeLink(url) {
   const requestUrl = url.replace("/e/", "/v/");
 
@@ -86,10 +107,20 @@ function getMP4UploadLink(url) {
     });
 }
 
+function getNetuLink(url) {
+  return resolveViaGeneralExtractor(url, "Anime");
+}
+
+function getUqloadLink(url) {
+  return resolveViaGeneralExtractor(url, "Anime");
+}
+
 module.exports = {
   getHLSLink,
   getMP4UploadLink,
+  getNetuLink,
   getPDrainLink,
+  getUqloadLink,
   getStreamTapeLink,
   getYourUploadLink
 };

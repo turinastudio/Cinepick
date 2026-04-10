@@ -263,6 +263,7 @@ function evaluateCandidates(providerId, results, term, type) {
 async function resolveCandidateForProvider(provider, type, resolvedMetadata) {
   const searchTerm = buildSearchTerm(resolvedMetadata);
   const searchTerms = buildSearchTerms(resolvedMetadata);
+  const requestedSeason = Number.parseInt(resolvedMetadata?.season, 10);
   let bestCandidate = null;
   let bestScore = Number.NEGATIVE_INFINITY;
   const attempts = [];
@@ -292,6 +293,24 @@ async function resolveCandidateForProvider(provider, type, resolvedMetadata) {
     if (pickedCandidate && score > bestScore) {
       bestCandidate = pickedCandidate;
       bestScore = score;
+    }
+  }
+
+  if (provider.id === "henaojara" && Number.isInteger(requestedSeason) && requestedSeason > 1) {
+    const seasonAwareAttempts = attempts.filter((attempt) => {
+      const normalizedTerm = normalizeText(attempt.term);
+      return normalizedTerm.includes(` ${requestedSeason}`)
+        || normalizedTerm.includes(`season ${requestedSeason}`)
+        || normalizedTerm.includes(`temporada ${requestedSeason}`);
+    });
+
+    const acceptedSeasonAware = seasonAwareAttempts
+      .filter((attempt) => attempt.accepted && attempt.pickedCandidate)
+      .sort((left, right) => (right.score ?? Number.NEGATIVE_INFINITY) - (left.score ?? Number.NEGATIVE_INFINITY));
+
+    if (acceptedSeasonAware[0]?.pickedCandidate) {
+      bestCandidate = acceptedSeasonAware[0].pickedCandidate;
+      bestScore = acceptedSeasonAware[0].score ?? bestScore;
     }
   }
 

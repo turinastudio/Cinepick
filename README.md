@@ -100,6 +100,18 @@ Manifest local:
 
 - [manifest local](http://127.0.0.1:3000/manifest.json)
 - [manifest alt](http://127.0.0.1:3000/alt/manifest.json)
+- [panel de configuracion](http://127.0.0.1:3000/configure)
+
+## Panel de configuracion
+
+Cinepick expone un panel web en `/configure` para:
+
+- activar o desactivar motores
+- activar o desactivar providers
+- activar o desactivar extractors
+- ajustar seleccion de streams y stream de apoyo
+
+El panel genera una URL instalable propia en formato `/c/<config>/manifest.json`, para que cada instalacion de Stremio quede ligada a esa configuracion.
 
 ## Scripts utiles
 

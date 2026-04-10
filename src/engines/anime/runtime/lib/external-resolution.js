@@ -127,9 +127,53 @@ function normalizeText(value) {
     .trim();
 }
 
+function extractRequestedSeason(searchTerm) {
+  const normalized = normalizeText(searchTerm);
+  const explicitSeasonMatch = normalized.match(/\bseason\s+(\d+)\b/);
+  if (explicitSeasonMatch?.[1]) {
+    return Number.parseInt(explicitSeasonMatch[1], 10);
+  }
+
+  const trailingNumberMatch = normalized.match(/(?:^|\s)(\d+)\s*$/);
+  if (trailingNumberMatch?.[1]) {
+    return Number.parseInt(trailingNumberMatch[1], 10);
+  }
+
+  return null;
+}
+
+function extractCandidateSeasonSignals(candidate) {
+  const title = normalizeText(candidate?.title);
+  const slug = normalizeText(String(candidate?.slug || "").replace(/-/g, " "));
+  const combined = `${title} ${slug}`.trim();
+  const signals = {
+    combined,
+    hasFinalSeason: /\bfinal\s+season\b/.test(combined),
+    seasonNumber: null,
+    hasAltVariantPenalty: /\b(hla|ona|memories|training|special|specials|ova|oad|movie|film|pelicula)\b/.test(combined)
+  };
+
+  const seasonPatterns = [
+    /\b(\d+)(?:st|nd|rd|th)\s+season\b/,
+    /\bseason\s+(\d+)\b/,
+    /\btemporada\s+(\d+)\b/
+  ];
+
+  for (const pattern of seasonPatterns) {
+    const match = combined.match(pattern);
+    if (match?.[1]) {
+      signals.seasonNumber = Number.parseInt(match[1], 10);
+      break;
+    }
+  }
+
+  return signals;
+}
+
 function pickHenaojaraCandidate(results, searchTerm, type) {
   const target = normalizeText(searchTerm);
   const targetWords = new Set(target.split(" ").filter(Boolean));
+  const requestedSeason = extractRequestedSeason(searchTerm);
   const candidates = Array.isArray(results) ? results : [];
   const scored = candidates
     .map((candidate) => {
@@ -142,6 +186,7 @@ function pickHenaojaraCandidate(results, searchTerm, type) {
       const hasSpecialPenalty = extraWords.some((word) =>
         ["special", "especial", "movie", "film", "pelicula", "latino", "ova", "oad", "stampede", "gold", "episode", "episodio"].includes(word)
       );
+      const seasonSignals = extractCandidateSeasonSignals(candidate);
       let score = 0;
 
       if (title === target) score += 1200;
@@ -152,6 +197,23 @@ function pickHenaojaraCandidate(results, searchTerm, type) {
       else if (candidate?.type) score -= 220;
       score -= extraWords.length * 14;
       if (hasSpecialPenalty) score -= 260;
+
+      if (requestedSeason) {
+        if (seasonSignals.seasonNumber === requestedSeason) {
+          score += 420;
+        } else if (
+          requestedSeason >= 8
+          && seasonSignals.hasFinalSeason
+        ) {
+          score += 360;
+        } else if (seasonSignals.seasonNumber && seasonSignals.seasonNumber !== requestedSeason) {
+          score -= 320;
+        }
+
+        if (seasonSignals.hasAltVariantPenalty) {
+          score -= 280;
+        }
+      }
 
       return { candidate, score };
     })

@@ -314,7 +314,7 @@ async function buildInternalStreams(epName, servers) {
     bingePrefix: "henaojara",
     epName,
     servers,
-    supportedHosts: ["YourUpload", "MP4Upload", "PDrain", "HLS"]
+    supportedHosts: ["YourUpload", "MP4Upload", "PDrain", "Uqload"]
   });
 }
 

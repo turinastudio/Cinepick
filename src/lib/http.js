@@ -1,12 +1,13 @@
 import { buildProxiedUrl } from "./extractors.js";
 
-export function json(res, statusCode, payload) {
+export function json(res, statusCode, payload, extraHeaders = {}) {
   const body = JSON.stringify(payload);
 
   res.writeHead(statusCode, {
     "Content-Type": "application/json; charset=utf-8",
     "Access-Control-Allow-Origin": "*",
-    "Cache-Control": "no-store"
+    "Cache-Control": "no-store",
+    ...extraHeaders
   });
 
   res.end(body);

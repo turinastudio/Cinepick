@@ -1,9 +1,11 @@
 const DEFAULT_SUPPORT_URL = "https://ko-fi.com/turinastudio";
 const DEFAULT_SUPPORT_NAME = "Cinepick";
 const DEFAULT_SUPPORT_BINGE_GROUP = "cinepick|support";
+const { shouldShowSupportStream: shouldShowConfiguredSupportStream } = require("../config/request-context.cjs");
 
 function shouldShowSupportStream() {
-  return !/^(0|false|no)$/i.test(String(process.env.SHOW_SUPPORT_STREAM || "true").trim());
+  const envEnabled = !/^(0|false|no)$/i.test(String(process.env.SHOW_SUPPORT_STREAM || "true").trim());
+  return shouldShowConfiguredSupportStream(envEnabled);
 }
 
 function buildSupportStream(options = {}) {

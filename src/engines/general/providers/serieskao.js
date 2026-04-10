@@ -751,13 +751,17 @@ export class SerieskaoProvider extends Provider {
   }
 
   async runSearchQueries(type, queries) {
-    const deduped = new Map();
+    const settled = await Promise.allSettled(
+      queries.map((query) => this.search({ type, query }).catch(() => []))
+    );
 
-    for (const query of queries) {
-      const results = await this.search({ type, query });
-      for (const result of results) {
-        if (!deduped.has(result.id)) {
-          deduped.set(result.id, result);
+    const deduped = new Map();
+    for (const result of settled) {
+      if (result.status === "fulfilled") {
+        for (const item of result.value) {
+          if (!deduped.has(item.id)) {
+            deduped.set(item.id, item);
+          }
         }
       }
     }

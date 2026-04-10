@@ -1,8 +1,11 @@
 import crypto from "node:crypto";
+import requestContextShared from "../config/request-context.cjs";
 
 // Cloudstream is the source of truth for extractor behavior.
 // These implementations are JS ports/adaptations of Cloudstream extractors
 // for use inside this Stremio addon runtime.
+
+const { isExtractorEnabled } = requestContextShared;
 
 function decodeHtmlEntities(value) {
   return value
@@ -1835,6 +1838,10 @@ export function matchExtractorByUrl(url) {
 
 export async function resolveExtractorStream(url, label, shouldProxy = false) {
   const matchedExtractor = matchExtractorByUrl(url);
+  if (matchedExtractor && !isExtractorEnabled(matchedExtractor.id)) {
+    return [];
+  }
+
   let streams = [];
   let extractorFailed = false;
 

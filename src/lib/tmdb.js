@@ -1,4 +1,5 @@
 import { fetchJson } from "./webstreamer/http.js";
+import { tmdbCache } from "../shared/cache.js";
 
 const DEFAULT_TMDB_API_KEY = process.env.TMDB_API_KEY || "439c478a771f35c05022f9feabcca01c";
 
@@ -8,9 +9,12 @@ export async function fetchTmdbMediaFromImdb(type, imdbId, apiKey = DEFAULT_TMDB
   }
 
   const mediaType = type === "series" ? "tv" : "movie";
-  const findPayload = await fetchJson(
-    `https://api.themoviedb.org/3/find/${imdbId}?api_key=${apiKey}&external_source=imdb_id&language=es-ES`
-  ).catch(() => null);
+  const findCacheKey = `tmdb:find:${imdbId}`;
+  const findPayload = await tmdbCache.getOrSet(findCacheKey, async () => {
+    return fetchJson(
+      `https://api.themoviedb.org/3/find/${imdbId}?api_key=${apiKey}&external_source=imdb_id&language=es-ES`
+    ).catch(() => null);
+  });
 
   if (!findPayload) {
     return null;
@@ -33,11 +37,20 @@ export async function fetchTmdbMediaFromImdb(type, imdbId, apiKey = DEFAULT_TMDB
   let originalTitle = item.original_title || item.original_name || localizedTitle;
   let releaseDate = item.release_date || item.first_air_date || "";
 
-  for (const language of ["es-MX", "es-ES", "en-US"]) {
-    const details = await fetchJson(
-      `https://api.themoviedb.org/3/${mediaType}/${item.id}?api_key=${apiKey}&language=${language}`
-    ).catch(() => null);
+  // Fetch all 3 languages in parallel instead of sequentially.
+  const languages = ["es-MX", "es-ES", "en-US"];
+  const detailsResults = await Promise.all(
+    languages.map((language) => {
+      const detailCacheKey = `tmdb:details:${mediaType}:${item.id}:${language}`;
+      return tmdbCache.getOrSet(detailCacheKey, async () => {
+        return fetchJson(
+          `https://api.themoviedb.org/3/${mediaType}/${item.id}?api_key=${apiKey}&language=${language}`
+        ).catch(() => null);
+      });
+    })
+  );
 
+  for (const details of detailsResults) {
     if (!details) {
       continue;
     }

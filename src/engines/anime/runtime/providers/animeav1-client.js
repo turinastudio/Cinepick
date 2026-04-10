@@ -344,14 +344,14 @@ function buildExternalStreams(epName, servers) {
 }
 
   async function buildInternalStreams(epName, servers) {
-    return buildProviderInternalStreams({
-      providerLabel: "AnimeAV1",
-      bingePrefix: "animeAV1",
-      epName,
-      servers,
-      supportedHosts: ["YourUpload", "MP4Upload", "HLS"]
-    });
-  }
+  return buildProviderInternalStreams({
+    providerLabel: "AnimeAV1",
+    bingePrefix: "animeAV1",
+    epName,
+    servers,
+    supportedHosts: ["YourUpload", "MP4Upload"]
+  });
+}
 
 async function getAnimeAV1Streams(slug, episodeNumber = 1) {
   const html = await fetchHtml(buildEpisodeUrl(slug, episodeNumber || 1));

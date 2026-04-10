@@ -1,4 +1,10 @@
 const DEFAULT_MAX_RESULTS = 2;
+const {
+  getSelectionMaxResults,
+  getSelectionMode,
+  isExtractorEnabled,
+  isInternalOnlyEnabled
+} = require("../../../../config/request-context.cjs");
 
 const HOST_SCORES = {
   yourupload: 92,
@@ -28,30 +34,13 @@ const {
   getCanonicalStreamTarget
 } = require("../../../../shared/dedupe.cjs");
 
-function getSelectionMode() {
-  return String(process.env.STREAM_SELECTION_MODE || "global").trim().toLowerCase();
-}
-
 function getMaxResults(options = {}) {
-  const envValue = Number.parseInt(process.env.STREAM_MAX_RESULTS || "", 10);
-  if (Number.isInteger(envValue) && envValue > 0) {
-    return envValue;
-  }
-
   if (Number.isInteger(options.maxResults) && options.maxResults > 0) {
     return options.maxResults;
   }
 
-  return DEFAULT_MAX_RESULTS;
-}
-
-function isInternalOnlyEnabled(options = {}) {
-  if (typeof options.internalOnly === "boolean") {
-    return options.internalOnly;
-  }
-
-  const raw = String(process.env.STREAM_INTERNAL_ONLY || "true").trim();
-  return !/^(0|false|no)$/i.test(raw);
+  const envValue = Number.parseInt(process.env.STREAM_MAX_RESULTS || "", 10);
+  return getSelectionMaxResults(Number.isInteger(envValue) && envValue > 0 ? envValue : DEFAULT_MAX_RESULTS);
 }
 
 function dedupeStreams(streams) {
@@ -227,11 +216,12 @@ function prepareStreams(streams, options = {}) {
   const internalOnly = isInternalOnlyEnabled(options);
   const dedupeState = dedupeStreams(Array.isArray(streams) ? streams : []);
   const deduped = dedupeState.deduped;
+  const extractorFiltered = deduped.filter((stream) => isExtractorEnabled(detectSourceLabel(stream)));
   const filtered = internalOnly
-    ? deduped.filter((stream) => typeof stream.url === "string" && !stream.externalUrl)
-    : deduped;
+    ? extractorFiltered.filter((stream) => typeof stream.url === "string" && !stream.externalUrl)
+    : extractorFiltered;
   const filteredOutExternal = internalOnly
-    ? deduped.filter((stream) => !(typeof stream.url === "string" && !stream.externalUrl))
+    ? extractorFiltered.filter((stream) => !(typeof stream.url === "string" && !stream.externalUrl))
     : [];
 
   const scored = filtered
@@ -240,7 +230,7 @@ function prepareStreams(streams, options = {}) {
 
   return {
     inputCount: Array.isArray(streams) ? streams.length : 0,
-    dedupedCount: deduped.length,
+    dedupedCount: extractorFiltered.length,
     duplicateEntries: dedupeState.duplicates,
     filteredOutExternalCount: filteredOutExternal.length,
     filteredOutExternal,

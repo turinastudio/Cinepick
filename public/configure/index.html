@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Configurar Cinepick</title>
+    <link rel="stylesheet" href="/configure/styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <p class="eyebrow">Panel de configuracion</p>
+        <h1>Configura Cinepick para instalarlo en Stremio</h1>
+        <p class="hero-copy">
+          Activa o desactiva motores, providers y extractors. El addon se instala con una URL configurada, sin cuentas ni base de datos.
+        </p>
+        <div class="hero-actions">
+          <a id="install-link" class="button button-primary" href="#" target="_blank" rel="noreferrer">Instalar configuracion</a>
+          <button id="copy-link" class="button button-secondary" type="button">Copiar URL</button>
+          <button id="reset-button" class="button button-ghost" type="button">Restaurar recomendado</button>
+        </div>
+      </section>
+
+      <section class="summary-card">
+        <div>
+          <p class="summary-label">URL instalable</p>
+          <code id="manifest-url">Cargando...</code>
+        </div>
+        <div class="summary-grid">
+          <div>
+            <p class="summary-label">Motores activos</p>
+            <strong id="summary-engines">-</strong>
+          </div>
+          <div>
+            <p class="summary-label">Providers activos</p>
+            <strong id="summary-providers">-</strong>
+          </div>
+          <div>
+            <p class="summary-label">Extractors activos</p>
+            <strong id="summary-extractors">-</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel-grid">
+        <section class="panel-card">
+          <h2>General</h2>
+          <div id="general-section" class="stack"></div>
+        </section>
+
+        <section class="panel-card">
+          <h2>Motores</h2>
+          <div id="engines-section" class="stack"></div>
+        </section>
+
+        <section class="panel-card panel-card-wide">
+          <div class="section-head">
+            <h2>Providers generales</h2>
+            <div class="section-actions">
+              <button class="button button-small button-ghost" type="button" data-action="all-general-on">Activar todos</button>
+              <button class="button button-small button-ghost" type="button" data-action="general-reset">Restaurar recomendados</button>
+            </div>
+          </div>
+          <div id="providers-general-section" class="switch-grid"></div>
+        </section>
+
+        <section class="panel-card panel-card-wide">
+          <div class="section-head">
+            <h2>Providers anime</h2>
+            <div class="section-actions">
+              <button class="button button-small button-ghost" type="button" data-action="all-anime-on">Activar todos</button>
+              <button class="button button-small button-ghost" type="button" data-action="anime-reset">Restaurar recomendados</button>
+            </div>
+          </div>
+          <div id="providers-anime-section" class="switch-grid"></div>
+        </section>
+
+        <section class="panel-card panel-card-wide">
+          <h2>Extractors confiables</h2>
+          <div id="extractors-reliable-section" class="switch-grid"></div>
+        </section>
+
+        <section class="panel-card panel-card-wide">
+          <h2>Extractors experimentales</h2>
+          <p class="section-note">Pueden ampliar cobertura, pero tambien introducir streams mas fragiles o menos estables.</p>
+          <div id="extractors-experimental-section" class="switch-grid"></div>
+        </section>
+      </section>
+    </main>
+
+    <script type="module" src="/configure/app.js"></script>
+  </body>
+  </html>

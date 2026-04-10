@@ -1,0 +1,257 @@
+:root {
+  --bg: #f3ead8;
+  --bg-soft: #fffaf1;
+  --ink: #1d2430;
+  --muted: #5f6775;
+  --line: #d5c6ad;
+  --accent: #cb5a2f;
+  --accent-strong: #9f3411;
+  --card: #fffaf3;
+  --chip: #f0e1c9;
+  --success: #264f3f;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", "Trebuchet MS", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at top left, rgba(203, 90, 47, 0.18), transparent 28%),
+    radial-gradient(circle at top right, rgba(38, 79, 63, 0.12), transparent 24%),
+    linear-gradient(180deg, #f8f1e3 0%, #f1e4cc 100%);
+}
+
+.page {
+  width: min(1180px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 32px 0 64px;
+}
+
+.hero,
+.summary-card,
+.panel-card {
+  background: rgba(255, 250, 243, 0.92);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  box-shadow: 0 18px 45px rgba(54, 41, 16, 0.08);
+}
+
+.hero {
+  padding: 28px;
+}
+
+.eyebrow {
+  margin: 0 0 10px;
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent-strong);
+}
+
+h1,
+h2 {
+  margin: 0;
+  line-height: 1.05;
+}
+
+h1 {
+  max-width: 700px;
+  font-size: clamp(2rem, 4vw, 3.5rem);
+}
+
+h2 {
+  font-size: 1.35rem;
+}
+
+.hero-copy,
+.section-note,
+.toggle-copy,
+.summary-label,
+.switch-meta,
+.install-hint {
+  color: var(--muted);
+}
+
+.hero-copy {
+  max-width: 760px;
+  font-size: 1.05rem;
+}
+
+.hero-actions,
+.section-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.button {
+  border: none;
+  border-radius: 999px;
+  padding: 12px 18px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 120ms ease, opacity 120ms ease, background-color 120ms ease;
+}
+
+.button:hover {
+  transform: translateY(-1px);
+}
+
+.button-primary {
+  background: var(--accent);
+  color: white;
+}
+
+.button-secondary {
+  background: var(--success);
+  color: white;
+}
+
+.button-ghost {
+  background: var(--chip);
+  color: var(--ink);
+}
+
+.button-small {
+  padding: 8px 12px;
+  font-size: 0.82rem;
+}
+
+.summary-card {
+  margin-top: 18px;
+  padding: 20px 22px;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.summary-label {
+  margin: 0 0 4px;
+  font-size: 0.84rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+code {
+  display: block;
+  padding: 14px 16px;
+  margin-top: 10px;
+  overflow-wrap: anywhere;
+  border-radius: 16px;
+  background: #221d17;
+  color: #fff5dd;
+  font-size: 0.92rem;
+}
+
+.panel-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.panel-card {
+  padding: 22px;
+}
+
+.panel-card-wide {
+  grid-column: 1 / -1;
+}
+
+.stack {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.switch-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.toggle-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--bg-soft);
+}
+
+.toggle-row[data-disabled="true"] {
+  opacity: 0.56;
+}
+
+.toggle-copy strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.switch-meta {
+  font-size: 0.88rem;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: var(--chip);
+  color: var(--accent-strong);
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+select,
+input[type="number"] {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: white;
+  color: var(--ink);
+  font-size: 0.95rem;
+}
+
+input[type="checkbox"] {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--accent);
+}
+
+@media (max-width: 900px) {
+  .panel-grid,
+  .summary-grid,
+  .switch-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .section-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

@@ -1,5 +1,7 @@
 import { parseStremioId } from "../../../lib/ids.js";
 import { analyzeScoredStreams, scoreAndSelectStreams } from "../scoring.js";
+import { streamResultCache } from "../../../shared/cache.js";
+import requestContextShared from "../../../config/request-context.cjs";
 import { LaCartoonsProvider } from "./lacartoons.js";
 import { CinecalidadProvider } from "./cinecalidad.js";
 import { Cineplus123Provider } from "./cineplus123.js";
@@ -15,7 +17,7 @@ import { SerieskaoProvider } from "./serieskao.js";
 import { TioPlusProvider } from "./tioplus.js";
 import { VerSeriesOnlineProvider } from "./verseriesonline.js";
 
-const baseProviders = [
+export const providers = [
   new LaCartoonsProvider(),
   new GnulaProvider(),
   new CinecalidadProvider(),
@@ -31,6 +33,7 @@ const baseProviders = [
   new LaMovieProvider(),
   new SerieskaoProvider()
 ];
+const { getSelectionMode, isProviderEnabled } = requestContextShared;
 const activeProviderFilter = String(
   process.env.ACTIVE_PROVIDERS ||
   process.env.ENABLED_PROVIDERS ||
@@ -39,15 +42,26 @@ const activeProviderFilter = String(
   .split(",")
   .map((value) => value.trim().toLowerCase())
   .filter(Boolean);
-const providers = activeProviderFilter.length > 0
-  ? baseProviders.filter((provider) => activeProviderFilter.includes(provider.id))
-  : baseProviders;
-const streamSelectionMode = String(process.env.STREAM_SELECTION_MODE || "global").trim().toLowerCase();
+const availableProviders = activeProviderFilter.length > 0
+  ? providers.filter((provider) => activeProviderFilter.includes(provider.id))
+  : providers;
 const providerTimeoutMs = Math.max(1000, Number(process.env.PROVIDER_TIMEOUT_MS || 12000) || 12000);
 const providerDebugTimeoutMs = Math.max(providerTimeoutMs, Number(process.env.PROVIDER_DEBUG_TIMEOUT_MS || 18000) || 18000);
 
+function getActiveProviders() {
+  return availableProviders.filter((provider) => isProviderEnabled("general", provider.id));
+}
+
 export function getProviderById(providerId) {
-  return providers.find((provider) => provider.id === providerId) ?? null;
+  return getActiveProviders().find((provider) => provider.id === providerId) ?? null;
+}
+
+export function getAllProviders() {
+  return [...providers];
+}
+
+export function getAvailableProviders() {
+  return [...availableProviders];
 }
 
 export function resolveProviderFromMetaId(id) {
@@ -71,27 +85,50 @@ export function resolveProviderFromMetaId(id) {
 }
 
 export async function resolveStreamsFromExternalId(type, id) {
+  const cacheKey = `streams:general:${type}:${id}`;
+  const cached = streamResultCache.get(cacheKey);
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  const providers = getActiveProviders();
   const routing = buildDefaultRouting(type, id);
   const collected = await collectStreamsFromProviders(providers, type, id);
+  const streamSelectionMode = getSelectionMode(String(process.env.STREAM_SELECTION_MODE || "global"));
 
-  if (streamSelectionMode === "per_provider") {
-    return collected.map((stream) => {
+  let result;
+  if (streamSelectionMode === "off") {
+    result = collected.map((stream) => {
       const { _providerId, ...rest } = stream;
       return rest;
     });
+  } else if (streamSelectionMode === "per_provider") {
+    result = collected.map((stream) => {
+      const { _providerId, ...rest } = stream;
+      return rest;
+    });
+  } else {
+    result = scoreAndSelectStreams("global", collected, {
+      contentKind: routing.kind
+    });
   }
 
-  return scoreAndSelectStreams("global", collected, {
-    contentKind: routing.kind
-  });
+  // Only cache when we got actual results.
+  if (result.length > 0) {
+    streamResultCache.set(cacheKey, result);
+  }
+
+  return result;
 }
 
 export async function debugStreamsFromExternalId(type, id) {
   const routing = buildDefaultRouting(type, id);
+  const providers = getActiveProviders();
   const run = await debugProviders(providers, type, id);
   const results = [...run.results];
   const collected = [...run.collected];
   const usedFallback = false;
+  const streamSelectionMode = getSelectionMode(String(process.env.STREAM_SELECTION_MODE || "global"));
 
   const globalScoredStreams = analyzeScoredStreams("global", collected, {
     contentKind: routing.kind

@@ -1,9 +1,15 @@
 import { getPenaltyForSource } from "../../../lib/penalty-reliability.js";
 import { buildHttpStreamTitle } from "../../../shared/stream-format.js";
 import { dedupeStreamsByTarget } from "../../../shared/dedupe.js";
+import requestContextShared from "../../../config/request-context.cjs";
 
 const DEFAULT_MAX_RESULTS = 2;
 const DEFAULT_DISABLED_SOURCES = new Set(["netu", "hqq", "waaw", "waaw.tv"]);
+const {
+  getSelectionMaxResults,
+  isExtractorEnabled,
+  isInternalOnlyEnabled
+} = requestContextShared;
 
 const HOST_SCORES = {
   vidhide: 100,
@@ -233,9 +239,14 @@ function selectWithProviderDiversity(scoredItems, maxResults) {
 
 export function analyzeScoredStreams(providerId, streams, options = {}) {
   const disabledSources = getDisabledSourceSet();
+  const internalOnly = isInternalOnlyEnabled(false);
 
   return dedupeStreams(streams)
     .filter((stream) => {
+      if (internalOnly && !isValidStreamTarget(stream.url)) {
+        return false;
+      }
+
       if (isValidStreamTarget(stream.url)) {
         return true;
       }
@@ -244,7 +255,7 @@ export function analyzeScoredStreams(providerId, streams, options = {}) {
     })
     .filter((stream) => {
       const sourceLabel = detectSourceLabel(stream);
-      return !disabledSources.has(sourceLabel);
+      return !disabledSources.has(sourceLabel) && isExtractorEnabled(sourceLabel);
     })
     .map((stream) => {
       const sourceLabel = detectSourceLabel(stream);
@@ -298,7 +309,12 @@ export function analyzeScoredStreams(providerId, streams, options = {}) {
 }
 
 export function scoreAndSelectStreams(providerId, streams, options = {}) {
-  const maxResults = Number.parseInt(process.env.STREAM_MAX_RESULTS || "", 10) || options.maxResults || DEFAULT_MAX_RESULTS;
+  const envMaxResults = Number.parseInt(process.env.STREAM_MAX_RESULTS || "", 10);
+  const maxResults = getSelectionMaxResults(
+    Number.isInteger(envMaxResults) && envMaxResults > 0
+      ? envMaxResults
+      : options.maxResults || DEFAULT_MAX_RESULTS
+  );
   const cleaned = analyzeScoredStreams(providerId, streams, options);
   const selected = providerId === "global"
     ? selectWithProviderDiversity(cleaned, maxResults)

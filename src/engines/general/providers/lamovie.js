@@ -679,11 +679,17 @@ export class LaMovieProvider extends Provider {
       }
     }
 
-    for (const query of this.buildSearchQueries(externalMeta, extraTitles)) {
-      const results = await this.search({ type, query }).catch(() => []);
-      for (const result of results) {
-        if (!deduped.has(result.id)) {
-          deduped.set(result.id, result);
+    const queries = this.buildSearchQueries(externalMeta, extraTitles);
+    const settled = await Promise.allSettled(
+      queries.map((query) => this.search({ type, query }).catch(() => []))
+    );
+
+    for (const result of settled) {
+      if (result.status === "fulfilled") {
+        for (const item of result.value) {
+          if (!deduped.has(item.id)) {
+            deduped.set(item.id, item);
+          }
         }
       }
     }

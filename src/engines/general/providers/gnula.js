@@ -315,14 +315,17 @@ export class GnulaProvider extends Provider {
 
   async searchWithFallbackQueries({ type, externalMeta }) {
     const queries = this.buildSearchQueries(externalMeta);
+    const settled = await Promise.allSettled(
+      queries.map((query) => this.search({ type, query }).catch(() => []))
+    );
+
     const deduped = new Map();
-
-    for (const query of queries) {
-      const results = await this.search({ type, query });
-
-      for (const result of results) {
-        if (!deduped.has(result.id)) {
-          deduped.set(result.id, result);
+    for (const result of settled) {
+      if (result.status === "fulfilled") {
+        for (const item of result.value) {
+          if (!deduped.has(item.id)) {
+            deduped.set(item.id, item);
+          }
         }
       }
     }

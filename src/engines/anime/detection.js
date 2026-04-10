@@ -1,4 +1,5 @@
 import { fetchJson } from "../../shared/fetch.js";
+import { tmdbCache, animeDetectionCache } from "../../shared/cache.js";
 
 const TMDB_API_BASE = "https://api.themoviedb.org/3";
 const DEFAULT_TMDB_API_KEY = "439c478a771f35c05022f9feabcca01c";
@@ -38,9 +39,13 @@ async function resolveTmdbTarget(type, externalId) {
   }
 
   const imdbId = raw.split(":")[0];
-  const findPayload = await fetchTmdbJson(
-    `${TMDB_API_BASE}/find/${imdbId}?external_source=imdb_id&language=en-US&api_key=${apiKey}`
-  );
+  const findCacheKey = `tmdb:find:${imdbId}`;
+  const findPayload = await tmdbCache.getOrSet(findCacheKey, async () => {
+    return fetchTmdbJson(
+      `${TMDB_API_BASE}/find/${imdbId}?external_source=imdb_id&language=en-US&api_key=${apiKey}`
+    );
+  }).catch(() => null);
+
   const results = mediaType === "tv" ? findPayload?.tv_results : findPayload?.movie_results;
   const tmdbId = Array.isArray(results) && results[0]?.id ? String(results[0].id) : "";
 
@@ -55,6 +60,15 @@ async function resolveTmdbTarget(type, externalId) {
 }
 
 export async function detectAnimeForExternalId(type, externalId) {
+  const baseId = String(externalId || "").split(":")[0];
+  const cacheKey = `anime:detect:${type}:${baseId}`;
+
+  return animeDetectionCache.getOrSet(cacheKey, async () => {
+    return _detectAnimeUncached(type, externalId);
+  });
+}
+
+async function _detectAnimeUncached(type, externalId) {
   const resolved = await resolveTmdbTarget(type, externalId).catch(() => null);
   if (!resolved?.tmdbId) {
     return {
@@ -64,9 +78,12 @@ export async function detectAnimeForExternalId(type, externalId) {
   }
 
   const apiKey = getTmdbApiKey();
-  const details = await fetchTmdbJson(
-    `${TMDB_API_BASE}/${resolved.mediaType}/${resolved.tmdbId}?language=en-US&api_key=${apiKey}`
-  ).catch(() => null);
+  const detailCacheKey = `tmdb:anime:details:${resolved.mediaType}:${resolved.tmdbId}`;
+  const details = await tmdbCache.getOrSet(detailCacheKey, async () => {
+    return fetchTmdbJson(
+      `${TMDB_API_BASE}/${resolved.mediaType}/${resolved.tmdbId}?language=en-US&api_key=${apiKey}`
+    ).catch(() => null);
+  });
 
   if (!details) {
     return {

@@ -1,6 +1,7 @@
 const { AnimeFLVProvider } = require("./animeflv");
 const { AnimeAV1Provider } = require("./animeav1");
 const { HenaojaraProvider } = require("./henaojara");
+const { isProviderEnabled } = require("../../../../config/request-context.cjs");
 
 const providers = [
   new AnimeFLVProvider(),
@@ -10,8 +11,12 @@ const providers = [
 
 const providerOrder = ["animeflv", "animeav1", "henaojara"];
 
+function getConfiguredProviders() {
+  return providers.filter((provider) => isProviderEnabled("anime", provider.id));
+}
+
 function getProviderById(providerId) {
-  return providers.find((provider) => provider.id === providerId) || null;
+  return getConfiguredProviders().find((provider) => provider.id === providerId) || null;
 }
 
 function getOrderedProviders() {
@@ -21,6 +26,7 @@ function getOrderedProviders() {
 module.exports = {
   getOrderedProviders,
   getProviderById,
+  getConfiguredProviders,
   providerOrder,
   providers
 };

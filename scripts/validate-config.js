@@ -2,6 +2,12 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { manifest } from "../src/app/manifest.js";
+import {
+  decodeAddonConfig,
+  encodeAddonConfig,
+  getConfigCapabilities,
+  getDefaultAddonConfig
+} from "../src/config/addon-config.js";
 
 const ROOT = process.cwd();
 
@@ -89,13 +95,13 @@ function validateRailway() {
 
 function validateManifest() {
   assert.equal(manifest.name, "Cinepick", "manifest.name debe ser Cinepick");
-  assert.deepEqual(manifest.resources, ["meta", "stream"], "manifest.resources debe exponer solo meta y stream");
+  assert.deepEqual(manifest.resources, ["meta", "stream", "catalog"], "manifest.resources debe exponer catalogos");
   assert.deepEqual(manifest.types, ["movie", "series"], "manifest.types debe ser movie/series");
-  assert.ok(Array.isArray(manifest.catalogs) && manifest.catalogs.length === 0, "manifest.catalogs debe estar vacio");
+  assert.ok(Array.isArray(manifest.catalogs) && manifest.catalogs.length > 0, "manifest.catalogs debe exponer onair y search");
   assert.ok(manifest.idPrefixes.includes("tt"), "manifest.idPrefixes debe incluir tt");
-  assert.ok(!manifest.idPrefixes.includes("animeflv:"), "manifest base no debe publicar animeflv sin flag");
-  assert.ok(!manifest.idPrefixes.includes("animeav1:"), "manifest base no debe publicar animeav1 sin flag");
-  assert.ok(!manifest.idPrefixes.includes("henaojara:"), "manifest base no debe publicar henaojara sin flag");
+  assert.ok(manifest.idPrefixes.includes("animeflv:"), "manifest base debe publicar animeflv");
+  assert.ok(manifest.idPrefixes.includes("animeav1:"), "manifest base debe publicar animeav1");
+  assert.ok(manifest.idPrefixes.includes("henaojara:"), "manifest base debe publicar henaojara");
 
   return {
     resourceCount: manifest.resources.length,
@@ -104,15 +110,37 @@ function validateManifest() {
   };
 }
 
+function validateAddonConfig() {
+  const defaults = getDefaultAddonConfig();
+  const capabilities = getConfigCapabilities();
+  const encoded = encodeAddonConfig(defaults);
+  const decoded = decodeAddonConfig(encoded);
+
+  assert.equal(defaults.version, 1, "default addon config debe tener version 1");
+  assert.equal(defaults.preset, "recommended", "default addon config debe usar preset recommended");
+  assert.deepEqual(decoded, defaults, "encode/decode de config debe ser estable");
+  assert.ok(Array.isArray(capabilities.engines) && capabilities.engines.length >= 2, "capabilities debe exponer engines");
+  assert.ok(Array.isArray(capabilities.providers.general) && capabilities.providers.general.length > 0, "capabilities debe exponer providers generales");
+  assert.ok(Array.isArray(capabilities.extractors) && capabilities.extractors.length > 0, "capabilities debe exponer extractors");
+
+  return {
+    extractorCount: capabilities.extractors.length,
+    generalProviderCount: capabilities.providers.general.length,
+    animeProviderCount: capabilities.providers.anime.length
+  };
+}
+
 function main() {
   const render = validateRender();
   const railway = validateRailway();
   const manifestState = validateManifest();
+  const addonConfig = validateAddonConfig();
 
   console.log(JSON.stringify({
     render,
     railway,
-    manifest: manifestState
+    manifest: manifestState,
+    addonConfig
   }, null, 2));
 }
 

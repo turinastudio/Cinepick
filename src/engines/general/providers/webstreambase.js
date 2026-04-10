@@ -1,6 +1,7 @@
 import { fetchJson } from "../../../lib/webstreamer/http.js";
 import { buildYearFromMeta, parseExternalStremioId, stripTags } from "../../../lib/webstreamer/common.js";
 import { scoreAndSelectStreams } from "../scoring.js";
+import { cinemetaCache, tmdbCache } from "../../../shared/cache.js";
 import { Provider } from "./base.js";
 
 function tokenizeTitle(value) {
@@ -24,18 +25,31 @@ export class WebstreamBaseProvider extends Provider {
   }
 
   async fetchCinemetaMeta(type, externalId) {
-    const payload = await fetchJson(
-      `https://v3-cinemeta.strem.io/meta/${type}/${externalId}.json`
-    ).catch(() => null);
+    const cacheKey = `cinemeta:${type}:${externalId}`;
+    return cinemetaCache.getOrSet(cacheKey, async () => {
+      const payload = await fetchJson(
+        `https://v3-cinemeta.strem.io/meta/${type}/${externalId}.json`
+      ).catch(() => null);
 
-    return payload?.meta || null;
+      return payload?.meta || null;
+    });
   }
 
   async fetchTmdbSearchTitles(type, externalId) {
+    const cacheKey = `tmdb:titles:${type}:${externalId}`;
+    return tmdbCache.getOrSet(cacheKey, async () => {
+      return this._fetchTmdbSearchTitlesUncached(type, externalId);
+    });
+  }
+
+  async _fetchTmdbSearchTitlesUncached(type, externalId) {
     const mediaType = type === "series" ? "tv" : "movie";
-    const payload = await fetchJson(
-      `https://api.themoviedb.org/3/find/${externalId}?api_key=${this.tmdbApiKey}&external_source=imdb_id&language=es-ES`
-    ).catch(() => null);
+    const findCacheKey = `tmdb:find:${externalId}`;
+    const payload = await tmdbCache.getOrSet(findCacheKey, async () => {
+      return fetchJson(
+        `https://api.themoviedb.org/3/find/${externalId}?api_key=${this.tmdbApiKey}&external_source=imdb_id&language=es-ES`
+      ).catch(() => null);
+    });
 
     if (!payload) {
       return [];
@@ -56,11 +70,20 @@ export class WebstreamBaseProvider extends Provider {
 
     const itemId = item.id;
     if (itemId) {
-      for (const language of ["es-MX", "es-ES", "en-US"]) {
-        const details = await fetchJson(
-          `https://api.themoviedb.org/3/${mediaType}/${itemId}?api_key=${this.tmdbApiKey}&language=${language}&append_to_response=alternative_titles,translations`
-        ).catch(() => null);
+      // Fetch all 3 languages in parallel instead of sequentially.
+      const languages = ["es-MX", "es-ES", "en-US"];
+      const detailsResults = await Promise.all(
+        languages.map((language) => {
+          const detailCacheKey = `tmdb:details:${mediaType}:${itemId}:${language}`;
+          return tmdbCache.getOrSet(detailCacheKey, async () => {
+            return fetchJson(
+              `https://api.themoviedb.org/3/${mediaType}/${itemId}?api_key=${this.tmdbApiKey}&language=${language}&append_to_response=alternative_titles,translations`
+            ).catch(() => null);
+          });
+        })
+      );
 
+      for (const details of detailsResults) {
         if (!details) {
           continue;
         }
@@ -125,12 +148,16 @@ export class WebstreamBaseProvider extends Provider {
   async searchWithFallbackQueries({ type, externalMeta }) {
     const extraTitles = await this.fetchTmdbSearchTitles(type, externalMeta.id || "").catch(() => []);
     externalMeta._searchTitles = extraTitles;
-    const items = [];
+    const queries = this.buildSearchQueries(externalMeta, extraTitles);
 
-    for (const query of this.buildSearchQueries(externalMeta, extraTitles)) {
-      const results = await this.search({ type, query }).catch(() => []);
-      if (results.length > 0) {
-        items.push(...results);
+    const settled = await Promise.allSettled(
+      queries.map((query) => this.search({ type, query }).catch(() => []))
+    );
+
+    const items = [];
+    for (const result of settled) {
+      if (result.status === "fulfilled" && result.value.length > 0) {
+        items.push(...result.value);
       }
     }
 

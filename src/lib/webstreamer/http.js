@@ -1,4 +1,11 @@
+import http from "node:http";
+import https from "node:https";
 import axios from "axios";
+
+const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 32 });
+const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 32 });
+axios.defaults.httpAgent = httpAgent;
+axios.defaults.httpsAgent = httpsAgent;
 
 const DEFAULT_HEADERS = {
   "User-Agent":

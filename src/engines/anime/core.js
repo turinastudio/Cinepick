@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { streamResultCache } from "../../shared/cache.js";
 
 const require = createRequire(import.meta.url);
 const animeIds = require("./runtime/lib/ids.js");
@@ -36,7 +37,19 @@ export function supportsAnimeEngineVideoId(videoId) {
 }
 
 export async function resolveAnimeStreamPayload(type, videoId) {
-  return animeStreamService.resolveStreamResponse(type, videoId);
+  const cacheKey = `streams:anime:${type}:${videoId}`;
+  const cached = streamResultCache.get(cacheKey);
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  const result = await animeStreamService.resolveStreamResponse(type, videoId);
+
+  if (result && Array.isArray(result.streams) && result.streams.length > 0) {
+    streamResultCache.set(cacheKey, result);
+  }
+
+  return result;
 }
 
 export async function resolveAnimeMetaPayload(type, videoId) {

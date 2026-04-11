@@ -256,26 +256,37 @@ async function handleCatalog(req, res, pathname, requestConfig = null) {
 
   try {
     let metas = [];
-    const searchParam = extraParams.get("search");
+    const searchParam = extraParams.get("search") || null;
+    let genresParam = extraParams.getAll("genre");
+    genresParam = genresParam.length > 0 ? genresParam : null;
+    const rawSkip = extraParams.get("skip");
+    const skip = rawSkip ? parseInt(rawSkip, 10) : 0;
+
     
     if (decodedId.startsWith("animeav1")) {
       const animeav1 = await import("../engines/anime/runtime/providers/animeav1-client.js");
-      if (searchParam) {
-        metas = await animeav1.searchAnimeAV1(searchParam).catch(() => []);
+      const page = skip ? Math.floor(skip / 20) + 1 : undefined;
+      const gottenItems = skip ? skip % 20 : undefined;
+      if (searchParam || genresParam) {
+        metas = await animeav1.searchAnimeAV1(searchParam, undefined, genresParam, page, gottenItems).catch(() => []);
       } else {
         metas = await animeav1.getAnimeAV1AiringTitles().catch(() => []);
       }
     } else if (decodedId.startsWith("animeflv")) {
       const animeflv = await import("../engines/anime/runtime/providers/animeflv-client.js");
-      if (searchParam) {
-        metas = await animeflv.searchAnimeFLV(searchParam).catch(() => []);
+      const page = skip ? Math.floor(skip / 24) + 1 : undefined;
+      const gottenItems = skip ? skip % 24 : undefined;
+      if (searchParam || genresParam) {
+        metas = await animeflv.searchAnimeFLV(searchParam, genresParam, undefined, page, gottenItems).catch(() => []);
       } else {
         metas = await animeflv.getAnimeFLVAiringTitles().catch(() => []);
       }
     } else if (decodedId.startsWith("henaojara")) {
       const henaojara = await import("../engines/anime/runtime/providers/henaojara-client.js");
-      if (searchParam) {
-        metas = await henaojara.searchHenaojara(searchParam).catch(() => []);
+      const page = skip ? Math.floor(skip / 24) + 1 : undefined;
+      const gottenItems = skip ? skip % 24 : undefined;
+      if (searchParam || genresParam) {
+        metas = await henaojara.searchHenaojara(searchParam, genresParam, undefined, page, gottenItems).catch(() => []);
       } else {
         metas = await henaojara.getHenaojaraAiringTitles().catch(() => []);
       }

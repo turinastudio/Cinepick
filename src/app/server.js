@@ -259,21 +259,21 @@ async function handleCatalog(req, res, pathname, requestConfig = null) {
     const searchParam = extraParams.get("search");
     
     if (decodedId.startsWith("animeav1")) {
-      const animeav1 = require("../engines/anime/runtime/providers/animeav1-client.js");
+      const animeav1 = await import("../engines/anime/runtime/providers/animeav1-client.js");
       if (searchParam) {
         metas = await animeav1.searchAnimeAV1(searchParam).catch(() => []);
       } else {
         metas = await animeav1.getAnimeAV1AiringTitles().catch(() => []);
       }
     } else if (decodedId.startsWith("animeflv")) {
-      const animeflv = require("../engines/anime/runtime/providers/animeflv-client.js");
+      const animeflv = await import("../engines/anime/runtime/providers/animeflv-client.js");
       if (searchParam) {
         metas = await animeflv.searchAnimeFLV(searchParam).catch(() => []);
       } else {
         metas = await animeflv.getAnimeFLVAiringTitles().catch(() => []);
       }
     } else if (decodedId.startsWith("henaojara")) {
-      const henaojara = require("../engines/anime/runtime/providers/henaojara-client.js");
+      const henaojara = await import("../engines/anime/runtime/providers/henaojara-client.js");
       if (searchParam) {
         metas = await henaojara.searchHenaojara(searchParam).catch(() => []);
       } else {

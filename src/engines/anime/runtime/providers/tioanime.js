@@ -3,23 +3,15 @@ const { getTioAnimeStreams, getTioAnimeMeta, searchTioAnime, getTioAnimeAiringTi
 
 class TioAnimeProvider extends NativeAnimeProvider {
   constructor() {
-    super("tioanime", "TioAnime", "tioanime:");
-  }
-
-  async getStreams(slug, episodeNumber) {
-    return getTioAnimeStreams(slug, episodeNumber);
-  }
-
-  async getMeta(slug) {
-    return getTioAnimeMeta(slug);
-  }
-
-  async search(query, genres, page, gottenItems) {
-    return searchTioAnime(query, genres, page, gottenItems);
-  }
-
-  async getAiringTitles() {
-    return getTioAnimeAiringTitles();
+    super({
+      id: "tioanime",
+      name: "TioAnime",
+      nativeAiring: () => getTioAnimeAiringTitles(),
+      nativeSearch: ({ query, genres, page, gottenItems }) =>
+        searchTioAnime(query, genres, page, gottenItems),
+      nativeMeta: ({ slug }) => getTioAnimeMeta(slug),
+      nativeStreams: ({ slug, episode }) => getTioAnimeStreams(slug, episode)
+    });
   }
 }
 

@@ -8,7 +8,7 @@ function parseVideoId(videoId) {
 }
 
 function isNativeProviderId(prefix) {
-  return ["animeflv", "animeav1", "henaojara"].includes(String(prefix || ""));
+  return ["animeflv", "animeav1", "henaojara", "tioanime"].includes(String(prefix || ""));
 }
 
 function getNativeSlugAndEpisode(videoId) {

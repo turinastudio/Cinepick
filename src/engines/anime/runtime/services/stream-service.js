@@ -6,11 +6,12 @@ const { getExternalStreams, getProviderById } = require("../providers");
 
 async function getNativeStreams(videoId) {
   const native = getNativeSlugAndEpisode(videoId);
-  const providerIds = ["animeflv", "animeav1", "henaojara"];
+  const providerIds = ["animeflv", "animeav1", "henaojara", "tioanime"];
   const settled = await Promise.allSettled([
     getProviderById("animeflv").getStreams({ slug: native.slug, episode: native.episode }),
     getProviderById("animeav1").getStreams({ slug: native.slug, episode: native.episode }),
-    getProviderById("henaojara").getStreams({ slug: native.slug, episode: native.episode })
+    getProviderById("henaojara").getStreams({ slug: native.slug, episode: native.episode }),
+    getProviderById("tioanime").getStreams({ slug: native.slug, episode: native.episode })
   ]);
 
   const combined = combineStreams(

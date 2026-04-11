@@ -27,7 +27,8 @@ const HOST_SCORES = {
 const PROVIDER_SCORES = {
   animeflv: 12,
   animeav1: 8,
-  henaojara: 4
+  henaojara: 4,
+  tioanime: 6
 };
 const {
   dedupeStreamsByTarget,

@@ -396,7 +396,7 @@ async function collectStreamGroups(candidates, episode) {
 }
 
 function getExternalMetaSource(candidates) {
-  const providerOrder = ["animeflv", "animeav1", "henaojara"];
+  const providerOrder = ["animeflv", "animeav1", "henaojara", "tioanime"];
   const providerId = providerOrder.find((id) => candidates[id]?.slug) || "animeflv";
   const selected = candidates[providerId];
   return {

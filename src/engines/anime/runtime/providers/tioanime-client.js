@@ -251,8 +251,15 @@ function getServerTitle(serverDomain) {
 
 async function parseEpisodeLinks(html, slug, episodeNumber = 1) {
   const $ = cheerio.load(html);
+  
+  // Correction: TioAnime uses .anime-title for episode pages
+  let rawTitle = $(".anime-title").text() || $("#tioanime > div > div > aside > h1.title").text();
+  
+  // Clean episode number from title if present (e.g. "Naruto Shippuden 1" -> "Naruto Shippuden")
+  let cleanTitle = rawTitle.replace(new RegExp(`\\s+${episodeNumber}$`), "").trim();
+
   const episodeLinks = {
-    title: $("#tioanime > div > div > aside > h1.title").text(),
+    title: cleanTitle || rawTitle,
     number: episodeNumber,
     servers: []
   };

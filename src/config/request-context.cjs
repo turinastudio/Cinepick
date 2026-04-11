@@ -18,9 +18,9 @@ const FALLBACK_CONFIG = {
     enabled: {}
   },
   selection: {
-    mode: "global",
-    maxResults: 2,
-    internalOnly: true
+    mode: process.env.DEFAULT_SELECTION_MODE || "global",
+    maxResults: parseInt(process.env.DEFAULT_MAX_RESULTS, 10) || 2,
+    internalOnly: process.env.DEFAULT_INTERNAL_ONLY !== "false"
   },
   support: {
     showSupportStream: true

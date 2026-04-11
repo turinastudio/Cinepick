@@ -8,7 +8,7 @@ const animeProviderApi = require("./runtime/providers/index.js");
 const animeDebugService = require("./runtime/services/debug-service.js");
 const animeMetaService = require("./runtime/services/meta-service.js");
 const animeStreamService = require("./runtime/services/stream-service.js");
-const EXPLICIT_ANIME_PREFIXES = new Set(["animeflv", "animeav1", "henaojara", "anilist", "kitsu", "mal", "anidb"]);
+const EXPLICIT_ANIME_PREFIXES = new Set(["animeflv", "animeav1", "henaojara", "tioanime", "anilist", "kitsu", "mal", "anidb"]);
 
 export function getAnimeProviderIds() {
   return (animeProviders.providers || []).map((provider) => provider.id);

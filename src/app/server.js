@@ -290,6 +290,15 @@ async function handleCatalog(req, res, pathname, requestConfig = null) {
       } else {
         metas = await henaojara.getHenaojaraAiringTitles().catch(() => []);
       }
+    } else if (decodedId.startsWith("tioanime")) {
+      const tioanime = await import("../engines/anime/runtime/providers/tioanime-client.js");
+      const page = skip ? Math.floor(skip / 24) + 1 : undefined;
+      const gottenItems = skip ? skip % 24 : undefined;
+      if (searchParam || genresParam) {
+        metas = await tioanime.searchTioAnime(searchParam, genresParam, page, gottenItems).catch(() => []);
+      } else {
+        metas = await tioanime.getTioAnimeAiringTitles().catch(() => []);
+      }
     }
 
     if (metas && metas.length > 0) {

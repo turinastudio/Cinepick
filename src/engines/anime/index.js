@@ -11,7 +11,7 @@ import {
 } from "./core.js";
 import { detectAnimeForExternalId } from "./detection.js";
 
-const ANIME_ID_PREFIXES = ["animeflv:", "animeav1:", "henaojara:", "anilist:", "kitsu:", "mal:", "anidb:"];
+const ANIME_ID_PREFIXES = ["animeflv:", "animeav1:", "henaojara:", "tioanime:", "anilist:", "kitsu:", "mal:", "anidb:"];
 
 function getAnimeEngineIdPrefixes() {
   return [...ANIME_ID_PREFIXES];

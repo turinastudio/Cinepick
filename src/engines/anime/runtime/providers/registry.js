@@ -1,15 +1,17 @@
 const { AnimeFLVProvider } = require("./animeflv");
 const { AnimeAV1Provider } = require("./animeav1");
 const { HenaojaraProvider } = require("./henaojara");
+const { TioAnimeProvider } = require("./tioanime");
 const { isProviderEnabled } = require("../../../../config/request-context.cjs");
 
 const providers = [
   new AnimeFLVProvider(),
   new AnimeAV1Provider(),
-  new HenaojaraProvider()
+  new HenaojaraProvider(),
+  new TioAnimeProvider()
 ];
 
-const providerOrder = ["animeflv", "animeav1", "henaojara"];
+const providerOrder = ["animeflv", "animeav1", "henaojara", "tioanime"];
 
 function getConfiguredProviders() {
   return providers.filter((provider) => isProviderEnabled("anime", provider.id));

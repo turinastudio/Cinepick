@@ -7,6 +7,7 @@ import { Provider } from "./base.js";
 
 const TMDB_API_KEY = process.env.TMDB_API_KEY || "439c478a771f35c05022f9feabcca01c";
 const CASTLE_BASE = process.env.CASTLE_BASE_URL || "https://api.fstcy.com";
+const CASTLE_DECRYPT_URL = process.env.CASTLE_DECRYPT_URL || "https://aesdec.nuvioapp.space/decrypt-castle";
 const PKG = "com.external.castle";
 const CHANNEL = "IndiaA";
 const CLIENT = "1";
@@ -235,16 +236,21 @@ export class CastleProvider extends Provider {
   }
 
   async decryptCastle(encryptedB64, securityKeyB64) {
-    const payload = await sharedFetchJson("https://aesdec.nuvioapp.space/decrypt-castle", {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ encryptedData: encryptedB64, securityKey: securityKeyB64 })
-    });
-    if (payload.error) throw new Error(payload.error);
-    return payload.decrypted;
+    try {
+      const payload = await sharedFetchJson(CASTLE_DECRYPT_URL, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ encryptedData: encryptedB64, securityKey: securityKeyB64 })
+      });
+      if (payload.error) throw new Error(payload.error);
+      return payload.decrypted;
+    } catch (err) {
+      console.error(`[castle] Decryption service failed: ${err.message}`);
+      return null;
+    }
   }
 
   async getSecurityKey() {

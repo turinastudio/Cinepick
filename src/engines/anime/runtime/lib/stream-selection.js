@@ -4,30 +4,13 @@ import {
   isExtractorEnabled,
   isInternalOnlyEnabled
 } from "../../../../config/request-context.cjs";
+import { HOST_SCORES } from "../../../../config/scoring-config.js";
 import {
   dedupeStreamsByTarget,
   getCanonicalStreamTarget
 } from "../../../../shared/dedupe.cjs";
 
 const DEFAULT_MAX_RESULTS = 2;
-
-const HOST_SCORES = {
-  yourupload: 92,
-  mp4upload: 86,
-  pdrain: 84,
-  hls: 82,
-  streamwish: 78,
-  sw: 78,
-  filemoon: 76,
-  voe: 74,
-  mixdrop: 68,
-  okru: 66,
-  mega: 64,
-  netu: 60,
-  fembed: 58,
-  stape: 56,
-  uqload: 54
-};
 
 const PROVIDER_SCORES = {
   animeflv: 12,
@@ -313,6 +296,7 @@ function debugSelectStreams(streams, options = {}) {
 }
 
 export {
+  HOST_SCORES,
   debugSelectStreams,
   selectStreams
 };

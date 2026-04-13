@@ -1,4 +1,4 @@
-function normalizeTypeLabel(value) {
+export function normalizeTypeLabel(value) {
   return String(value || "")
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -7,12 +7,7 @@ function normalizeTypeLabel(value) {
     .toLowerCase();
 }
 
-function isMovieTypeLabel(value) {
+export function isMovieTypeLabel(value) {
   const normalized = normalizeTypeLabel(value);
   return normalized === "pelicula" || normalized === "especial" || normalized === "movie";
 }
-
-module.exports = {
-  isMovieTypeLabel,
-  normalizeTypeLabel
-};

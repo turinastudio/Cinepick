@@ -1,9 +1,9 @@
-const cheerio = require("cheerio-without-node-native");
-const { fetchText } = require("../../../../shared/fetch.cjs");
-const {
-  buildExternalStreams: buildProviderExternalStreams,
-  buildInternalStreams: buildProviderInternalStreams
-} = require("../lib/provider-streams");
+import cheerio from "cheerio-without-node-native";
+import { fetchText } from "../../../../shared/fetch.cjs";
+import {
+  buildExternalStreams as buildProviderExternalStreams,
+  buildInternalStreams as buildProviderInternalStreams
+} from "../lib/provider-streams.js";
 
 const TIOANIME_BASE = process.env.TIOANIME_BASE_URL || "https://tioanime.com";
 
@@ -320,7 +320,7 @@ async function getTioAnimeStreams(slug, episodeNumber = 1) {
   return internalStreams.concat(externalStreams);
 }
 
-module.exports = {
+export {
   getTioAnimeAiringTitles,
   getTioAnimeMeta,
   getTioAnimeStreams,

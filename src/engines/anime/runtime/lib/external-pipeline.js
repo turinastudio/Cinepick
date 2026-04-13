@@ -1,9 +1,9 @@
-const {
+import {
   buildSearchTerm,
   buildSearchTerms,
   pickCandidateForProvider
-} = require("./external-resolution");
-const { getOrderedProviders, getProviderById } = require("../providers/registry");
+} from "./external-resolution.js";
+import { getOrderedProviders, getProviderById } from "../providers/registry.js";
 
 const STRONG_MOVIE_TOKENS = new Set([
   "movie",
@@ -420,7 +420,7 @@ async function getExternalMetaFromCandidates(candidates) {
   };
 }
 
-module.exports = {
+export {
   collectStreamGroups,
   getExternalMetaFromCandidates,
   getExternalMetaSource,

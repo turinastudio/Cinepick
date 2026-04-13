@@ -1,10 +1,10 @@
-const cheerio = require("cheerio-without-node-native");
-const { fetchText } = require("../../../../shared/fetch.cjs");
-const {
-  buildExternalStreams: buildProviderExternalStreams,
-  buildInternalStreams: buildProviderInternalStreams
-} = require("../lib/provider-streams");
-const { isMovieTypeLabel, normalizeTypeLabel } = require("../lib/anime-types");
+import cheerio from "cheerio-without-node-native";
+import { fetchText } from "../../../../shared/fetch.cjs";
+import {
+  buildExternalStreams as buildProviderExternalStreams,
+  buildInternalStreams as buildProviderInternalStreams
+} from "../lib/provider-streams.js";
+import { isMovieTypeLabel, normalizeTypeLabel } from "../lib/anime-types.js";
 
 const HENAOJARA_BASE = process.env.HENAOJARA_BASE_URL || "https://ww1.henaojara.net";
 
@@ -332,7 +332,7 @@ async function getHenaojaraStreams(slug, episodeNumber = 1) {
   return internalStreams.concat(externalStreams);
 }
 
-module.exports = {
+export {
   getHenaojaraAiringTitles,
   getHenaojaraMeta,
   getHenaojaraStreams,

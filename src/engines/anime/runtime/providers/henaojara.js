@@ -1,12 +1,12 @@
-const { NativeAnimeProvider } = require("./native-anime-provider");
-const {
+import { NativeAnimeProvider } from "./native-anime-provider.js";
+import {
   getHenaojaraAiringTitles,
   getHenaojaraMeta,
   getHenaojaraStreams,
   searchHenaojara
-} = require("./henaojara-client");
+} from "./henaojara-client.js";
 
-class HenaojaraProvider extends NativeAnimeProvider {
+export class HenaojaraProvider extends NativeAnimeProvider {
   constructor() {
     super({
       id: "henaojara",
@@ -19,7 +19,3 @@ class HenaojaraProvider extends NativeAnimeProvider {
     });
   }
 }
-
-module.exports = {
-  HenaojaraProvider
-};

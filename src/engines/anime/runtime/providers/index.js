@@ -1,17 +1,17 @@
-const {
+import {
   resolveExternalMetadata
-} = require("../lib/external-resolution");
-const {
+} from "../lib/external-resolution.js";
+import {
   collectStreamGroups,
   getExternalMetaFromCandidates,
   getExternalMetaSource,
   resolveProviderCandidates,
   resolveProviderCandidatesDetailed
-} = require("../lib/external-pipeline");
-const { combineStreams } = require("../lib/stream-combiner");
-const { debugSelectStreams, selectStreams } = require("../lib/stream-selection");
-const { debugSupportStream } = require("../lib/support-stream");
-const { getProviderById, providers } = require("./registry");
+} from "../lib/external-pipeline.js";
+import { combineStreams } from "../lib/stream-combiner.js";
+import { debugSelectStreams, selectStreams } from "../lib/stream-selection.js";
+import { debugSupportStream } from "../lib/support-stream.js";
+import { getProviderById, providers } from "./registry.js";
 
 async function getExternalStreams(type, videoId) {
   const resolvedMetadata = await resolveExternalMetadata(type, videoId);
@@ -83,7 +83,7 @@ async function debugExternalResolution(type, videoId) {
   };
 }
 
-module.exports = {
+export {
   combineStreams,
   debugExternalResolution,
   getExternalMeta,

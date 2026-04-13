@@ -1,17 +1,21 @@
-const fsPromises = require("fs/promises");
-const path = require("path");
-const { buildCatalogs } = require("./catalog-definitions");
+import fsPromises from "fs/promises";
+import path from "path";
+import { fileURLToPath } from "url";
+import { buildCatalogs } from "./catalog-definitions.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const DEFAULT_LOGO = "https://play-lh.googleusercontent.com/ZIjIwO5FJe9R1rplSd4uz54OwBxQhwDcznjljSPl2MgHaCoyF3qG6R4kRMCB40f4l2A=w256";
 const DEFAULT_DESCRIPTION = "Olvidate de probar streams uno por uno. Cinepick busca en multiples fuentes y elige automaticamente el mejor disponible. Gratis, sin anuncios, sin suscripcion. Si te gusto, podes invitarme un cafe y ayudar a mantener el proyecto vivo.";
 
-async function readPackageManifest() {
+export async function readPackageManifest() {
   const packagePath = path.resolve(__dirname, "..", "..", "package.json");
   const raw = await fsPromises.readFile(packagePath, "utf8");
   return JSON.parse(raw);
 }
 
-function absolutizeAsset(origin, assetPath, fallback) {
+export function absolutizeAsset(origin, assetPath, fallback) {
   const normalized = String(assetPath || "").trim();
   if (!normalized) {
     return fallback;
@@ -25,7 +29,7 @@ function absolutizeAsset(origin, assetPath, fallback) {
   return safeOrigin ? `${safeOrigin}${normalized}` : fallback;
 }
 
-async function buildManifest(origin = "") {
+export async function buildManifest(origin = "") {
   const packageJson = await readPackageManifest();
 
   return {
@@ -53,7 +57,3 @@ async function buildManifest(origin = "") {
     }
   };
 }
-
-module.exports = {
-  buildManifest
-};

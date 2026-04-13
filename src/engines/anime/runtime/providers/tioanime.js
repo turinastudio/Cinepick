@@ -1,7 +1,7 @@
-const { NativeAnimeProvider } = require("./native-anime-provider");
-const { getTioAnimeStreams, getTioAnimeMeta, searchTioAnime, getTioAnimeAiringTitles } = require("./tioanime-client");
+import { NativeAnimeProvider } from "./native-anime-provider.js";
+import { getTioAnimeStreams, getTioAnimeMeta, searchTioAnime, getTioAnimeAiringTitles } from "./tioanime-client.js";
 
-class TioAnimeProvider extends NativeAnimeProvider {
+export class TioAnimeProvider extends NativeAnimeProvider {
   constructor() {
     super({
       id: "tioanime",
@@ -14,7 +14,3 @@ class TioAnimeProvider extends NativeAnimeProvider {
     });
   }
 }
-
-module.exports = {
-  TioAnimeProvider
-};

@@ -1,4 +1,4 @@
-function parseVideoId(videoId) {
+export function parseVideoId(videoId) {
   const parts = String(videoId || "").split(":");
   return {
     parts,
@@ -7,11 +7,11 @@ function parseVideoId(videoId) {
   };
 }
 
-function isNativeProviderId(prefix) {
+export function isNativeProviderId(prefix) {
   return ["animeflv", "animeav1", "henaojara", "tioanime"].includes(String(prefix || ""));
 }
 
-function getNativeSlugAndEpisode(videoId) {
+export function getNativeSlugAndEpisode(videoId) {
   const parsed = parseVideoId(videoId);
   return {
     providerId: parsed.prefix,
@@ -20,7 +20,7 @@ function getNativeSlugAndEpisode(videoId) {
   };
 }
 
-function getExternalIdDetails(videoId) {
+export function getExternalIdDetails(videoId) {
   const parsed = parseVideoId(videoId);
   const prefix = parsed.prefix;
 
@@ -53,10 +53,3 @@ function getExternalIdDetails(videoId) {
 
   return null;
 }
-
-module.exports = {
-  getExternalIdDetails,
-  getNativeSlugAndEpisode,
-  isNativeProviderId,
-  parseVideoId
-};

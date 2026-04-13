@@ -1,12 +1,12 @@
-const { NativeAnimeProvider } = require("./native-anime-provider");
-const {
+import { NativeAnimeProvider } from "./native-anime-provider.js";
+import {
   getAnimeAV1AiringTitles,
   getAnimeAV1Meta,
   getAnimeAV1Streams,
   searchAnimeAV1
-} = require("./animeav1-client");
+} from "./animeav1-client.js";
 
-class AnimeAV1Provider extends NativeAnimeProvider {
+export class AnimeAV1Provider extends NativeAnimeProvider {
   constructor() {
     super({
       id: "animeav1",
@@ -19,7 +19,3 @@ class AnimeAV1Provider extends NativeAnimeProvider {
     });
   }
 }
-
-module.exports = {
-  AnimeAV1Provider
-};

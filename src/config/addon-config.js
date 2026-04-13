@@ -1,7 +1,8 @@
 import crypto from "node:crypto";
+import zlib from "node:zlib";
 import extractorCatalogShared from "./extractor-catalog.cjs";
 import { providers as generalBaseProviders } from "../engines/general/providers/core.js";
-import animeRegistryShared from "../engines/anime/runtime/providers/registry.js";
+import { providers as animeRegistryShared } from "../engines/anime/runtime/providers/registry.js";
 
 const { getExtractorDefinitions } = extractorCatalogShared;
 const { providers: animeBaseProviders = [] } = animeRegistryShared;
@@ -108,7 +109,7 @@ export function getDefaultAddonConfig() {
   const extractors = Object.fromEntries(
     capabilities.extractors.map((extractor) => [
       extractor.id,
-      extractor.available && RECOMMENDED_EXTRACTOR_IDS.has(extractor.id)
+      extractor.available  // All extractors enabled by default
     ])
   );
 
@@ -202,7 +203,10 @@ export function normalizeAddonConfig(rawConfig = {}) {
 
 export function encodeAddonConfig(config) {
   const normalized = normalizeAddonConfig(config);
-  return Buffer.from(JSON.stringify(normalized)).toString("base64url");
+  const json = JSON.stringify(normalized);
+  // Gzip + base64url for shorter URLs
+  const compressed = zlib.gzipSync(json);
+  return compressed.toString("base64url");
 }
 
 export function decodeAddonConfig(encoded) {
@@ -211,8 +215,16 @@ export function decodeAddonConfig(encoded) {
   }
 
   try {
-    const decoded = Buffer.from(String(encoded), "base64url").toString("utf8");
-    return normalizeAddonConfig(JSON.parse(decoded));
+    const raw = Buffer.from(String(encoded), "base64url");
+
+    // Try gzip decompression first (new format)
+    try {
+      const decompressed = zlib.gunzipSync(raw);
+      return normalizeAddonConfig(JSON.parse(decompressed.toString("utf8")));
+    } catch {
+      // Fallback: try plain JSON (old format, backward compatibility)
+      return normalizeAddonConfig(JSON.parse(raw.toString("utf8")));
+    }
   } catch {
     return null;
   }

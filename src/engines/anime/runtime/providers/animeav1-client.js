@@ -1,10 +1,10 @@
-const cheerio = require("cheerio-without-node-native");
-const { fetchText } = require("../../../../shared/fetch.cjs");
-const {
-  buildExternalStreams: buildProviderExternalStreams,
-  buildInternalStreams: buildProviderInternalStreams
-} = require("../lib/provider-streams");
-const { isMovieTypeLabel, normalizeTypeLabel } = require("../lib/anime-types");
+import cheerio from "cheerio-without-node-native";
+import { fetchText } from "../../../../shared/fetch.cjs";
+import {
+  buildExternalStreams as buildProviderExternalStreams,
+  buildInternalStreams as buildProviderInternalStreams
+} from "../lib/provider-streams.js";
+import { isMovieTypeLabel, normalizeTypeLabel } from "../lib/anime-types.js";
 
 const ANIMEAV1_BASE = process.env.ANIMEAV1_BASE_URL || "https://animeav1.com";
 
@@ -367,7 +367,7 @@ async function getAnimeAV1Streams(slug, episodeNumber = 1) {
   return internalStreams.concat(externalStreams);
 }
 
-module.exports = {
+export {
   getAnimeAV1AiringTitles,
   getAnimeAV1Meta,
   getAnimeAV1Streams,

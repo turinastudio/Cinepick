@@ -1,7 +1,7 @@
-const { Provider } = require("./base");
-const { readAiringCache } = require("../lib/airing-cache");
+import { Provider } from "./base.js";
+import { readAiringCache } from "../lib/airing-cache.js";
 
-class NativeAnimeProvider extends Provider {
+export class NativeAnimeProvider extends Provider {
   constructor({
     id,
     name,
@@ -37,7 +37,3 @@ class NativeAnimeProvider extends Provider {
     return this.nativeStreams(params);
   }
 }
-
-module.exports = {
-  NativeAnimeProvider
-};

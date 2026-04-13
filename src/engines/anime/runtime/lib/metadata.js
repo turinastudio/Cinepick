@@ -1,5 +1,6 @@
+import { fetchJson } from "../../../../shared/fetch.cjs";
+
 const DEFAULT_TMDB_API_KEY = "439c478a771f35c05022f9feabcca01c";
-const { fetchJson } = require("../../../../shared/fetch.cjs");
 
 function hasTmdbCredentials() {
   return Boolean(
@@ -203,7 +204,7 @@ async function getCinemetaMeta(imdbId, type = "movie") {
   return parseCinemetaMeta(data.meta);
 }
 
-module.exports = {
+export {
   Metadata,
   getCinemetaMeta,
   getImdbIdFromTmdbId,

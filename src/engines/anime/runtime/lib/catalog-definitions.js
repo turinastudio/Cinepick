@@ -1,4 +1,4 @@
-const ANIMEFLV_GENRES = [
+export const ANIMEFLV_GENRES = [
   "accion", "artes-marciales", "aventura", "carreras", "ciencia-ficcion", "comedia",
   "demencia", "demonios", "deportes", "drama", "ecchi", "escolares", "espacial", "fantasia",
   "harem", "historico", "infantil", "josei", "juegos", "magia", "mecha", "militar", "misterio",
@@ -7,7 +7,7 @@ const ANIMEFLV_GENRES = [
   "yaoi", "yuri"
 ];
 
-const HENAOJARA_GENRES = [
+export const HENAOJARA_GENRES = [
   "accion", "aenime", "anime-latino", "artes-marciales", "aventura", "aventuras", "blu-ray",
   "carreras", "castellano", "ciencia-ficcion", "comedia", "comida", "cyberpunk", "demencia", "dementia",
   "demonios", "deportes", "drama", "ecchi", "escolares", "escuela", "espacial", "fantasia", "gore",
@@ -18,7 +18,7 @@ const HENAOJARA_GENRES = [
   "vampiros", "yaoi", "yuri"
 ];
 
-function buildSearchCatalog(id, type, genreOptions) {
+export function buildSearchCatalog(id, type, genreOptions) {
   return {
     id,
     type,
@@ -36,7 +36,7 @@ function buildSearchCatalog(id, type, genreOptions) {
   };
 }
 
-function buildGenreCatalog(id, type, name, genreOptions) {
+export function buildGenreCatalog(id, type, name, genreOptions) {
   return {
     id,
     type,
@@ -53,7 +53,7 @@ function buildGenreCatalog(id, type, name, genreOptions) {
   };
 }
 
-function buildCatalogs() {
+export function buildCatalogs() {
   return [
     buildSearchCatalog("animeflv", "AnimeFLV", ANIMEFLV_GENRES),
     buildSearchCatalog("animeav1", "AnimeAV1", ANIMEFLV_GENRES),
@@ -74,9 +74,3 @@ function buildCatalogs() {
     }
   ];
 }
-
-module.exports = {
-  ANIMEFLV_GENRES,
-  HENAOJARA_GENRES,
-  buildCatalogs
-};

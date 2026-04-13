@@ -1,11 +1,11 @@
-const { parseVideoId, isNativeProviderId, getNativeSlugAndEpisode } = require("../lib/ids");
-const { combineStreams } = require("../lib/stream-combiner");
-const { debugSelectStreams } = require("../lib/stream-selection");
-const { debugSupportStream } = require("../lib/support-stream");
-const {
+import { parseVideoId, isNativeProviderId, getNativeSlugAndEpisode } from "../lib/ids.js";
+import { combineStreams } from "../lib/stream-combiner.js";
+import { debugSelectStreams } from "../lib/stream-selection.js";
+import { debugSupportStream } from "../lib/support-stream.js";
+import {
   debugExternalResolution,
   getProviderById
-} = require("../providers");
+} from "../providers/index.js";
 
 async function debugNativeResolution(videoId) {
   const native = getNativeSlugAndEpisode(videoId);
@@ -100,7 +100,7 @@ async function debugProviderSearch(providerId, type, query, genres = []) {
   };
 }
 
-module.exports = {
+export {
   debugProviderSearch,
   resolveDebugResponse
 };

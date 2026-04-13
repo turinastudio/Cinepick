@@ -1,12 +1,12 @@
-const { NativeAnimeProvider } = require("./native-anime-provider");
-const {
+import { NativeAnimeProvider } from "./native-anime-provider.js";
+import {
   getAnimeFLVAiringTitles,
   getAnimeFLVMeta,
   getAnimeFLVStreams,
   searchAnimeFLV
-} = require("./animeflv-client");
+} from "./animeflv-client.js";
 
-class AnimeFLVProvider extends NativeAnimeProvider {
+export class AnimeFLVProvider extends NativeAnimeProvider {
   constructor() {
     super({
       id: "animeflv",
@@ -19,7 +19,3 @@ class AnimeFLVProvider extends NativeAnimeProvider {
     });
   }
 }
-
-module.exports = {
-  AnimeFLVProvider
-};

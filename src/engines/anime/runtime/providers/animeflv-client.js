@@ -1,10 +1,10 @@
-const cheerio = require("cheerio-without-node-native");
-const { fetchText } = require("../../../../shared/fetch.cjs");
-const {
-  buildExternalStreams: buildProviderExternalStreams,
-  buildInternalStreams: buildProviderInternalStreams
-} = require("../lib/provider-streams");
-const { isMovieTypeLabel } = require("../lib/anime-types");
+import cheerio from "cheerio-without-node-native";
+import { fetchText } from "../../../../shared/fetch.cjs";
+import {
+  buildExternalStreams as buildProviderExternalStreams,
+  buildInternalStreams as buildProviderInternalStreams
+} from "../lib/provider-streams.js";
+import { isMovieTypeLabel } from "../lib/anime-types.js";
 
 const ANIMEFLV_BASE = process.env.ANIMEFLV_BASE_URL || "https://www3.animeflv.net";
 const ANIMEFLV_HEADERS = {
@@ -408,7 +408,7 @@ async function getAnimeFLVStreams(slug, episodeNumber = 1) {
   throw lastError || new Error("AnimeFLV streams not found");
 }
 
-module.exports = {
+export {
   getAnimeFLVAiringTitles,
   getAnimeFLVMeta,
   getAnimeFLVStreams,

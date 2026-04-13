@@ -1,7 +1,7 @@
-const fuzzysort = require("fuzzysort");
-const { getExternalIdDetails } = require("./ids");
-const { getCinemetaMeta, getImdbIdFromTmdbId, getTmdbMeta, hasTmdbCredentials } = require("./metadata");
-const { getImdbIdFromAnimeId } = require("./relations");
+import fuzzysort from "fuzzysort";
+import { getExternalIdDetails } from "./ids.js";
+import { getCinemetaMeta, getImdbIdFromTmdbId, getTmdbMeta, hasTmdbCredentials } from "./metadata.js";
+import { getImdbIdFromAnimeId } from "./relations.js";
 
 async function resolveImdbId(type, videoId) {
   const details = getExternalIdDetails(videoId);
@@ -238,7 +238,7 @@ function pickCandidateForProvider(providerId, results, searchTerm, type) {
   return pickDefaultCandidate(results, searchTerm);
 }
 
-module.exports = {
+export {
   buildSearchTerm,
   buildSearchTerms,
   pickCandidateForProvider,

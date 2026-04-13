@@ -1,5 +1,9 @@
-const fsPromises = require("fs/promises");
-const path = require("path");
+import fsPromises from "fs/promises";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const cacheFiles = {
   animeflv: "onair_titles.json",
@@ -7,7 +11,7 @@ const cacheFiles = {
   henaojara: "onairHENAOJARA_titles.json"
 };
 
-function getCachePath(providerId) {
+export function getCachePath(providerId) {
   const filename = cacheFiles[providerId];
   if (!filename) {
     throw new Error(`Unknown provider cache file for ${providerId}`);
@@ -16,15 +20,15 @@ function getCachePath(providerId) {
   return path.resolve(__dirname, "..", "..", filename);
 }
 
-function getBackupCachePath(providerId) {
+export function getBackupCachePath(providerId) {
   return `${getCachePath(providerId)}.bak`;
 }
 
-function getTempCachePath(providerId) {
+export function getTempCachePath(providerId) {
   return `${getCachePath(providerId)}.tmp`;
 }
 
-async function parseAiringCacheFile(filePath, providerId) {
+export async function parseAiringCacheFile(filePath, providerId) {
   const raw = await fsPromises.readFile(filePath, "utf8");
   const parsed = JSON.parse(raw);
 
@@ -35,7 +39,7 @@ async function parseAiringCacheFile(filePath, providerId) {
   return parsed;
 }
 
-async function readAiringCache(providerId) {
+export async function readAiringCache(providerId) {
   const primaryPath = getCachePath(providerId);
   try {
     return await parseAiringCacheFile(primaryPath, providerId);
@@ -49,7 +53,7 @@ async function readAiringCache(providerId) {
   }
 }
 
-async function writeAiringCache(providerId, titles) {
+export async function writeAiringCache(providerId, titles) {
   const filePath = getCachePath(providerId);
   const tempPath = getTempCachePath(providerId);
   const backupPath = getBackupCachePath(providerId);
@@ -60,8 +64,3 @@ async function writeAiringCache(providerId, titles) {
   await fsPromises.rename(tempPath, filePath);
   await fsPromises.writeFile(backupPath, payload, "utf8");
 }
-
-module.exports = {
-  readAiringCache,
-  writeAiringCache
-};

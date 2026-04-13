@@ -1,4 +1,4 @@
-function parseExtraParams(extraParams, multipleGenres = false) {
+export function parseExtraParams(extraParams, multipleGenres = false) {
   if (extraParams === undefined) {
     return {};
   }
@@ -26,7 +26,3 @@ function parseExtraParams(extraParams, multipleGenres = false) {
   }
   return result;
 }
-
-module.exports = {
-  parseExtraParams
-};

@@ -1,10 +1,15 @@
-const DEFAULT_MAX_RESULTS = 2;
-const {
+import {
   getSelectionMaxResults,
   getSelectionMode,
   isExtractorEnabled,
   isInternalOnlyEnabled
-} = require("../../../../config/request-context.cjs");
+} from "../../../../config/request-context.cjs";
+import {
+  dedupeStreamsByTarget,
+  getCanonicalStreamTarget
+} from "../../../../shared/dedupe.cjs";
+
+const DEFAULT_MAX_RESULTS = 2;
 
 const HOST_SCORES = {
   yourupload: 92,
@@ -30,18 +35,12 @@ const PROVIDER_SCORES = {
   henaojara: 4,
   tioanime: 6
 };
-const {
-  dedupeStreamsByTarget,
-  getCanonicalStreamTarget
-} = require("../../../../shared/dedupe.cjs");
 
 function getMaxResults(options = {}) {
   if (Number.isInteger(options.maxResults) && options.maxResults > 0) {
     return options.maxResults;
   }
-
-  const envValue = Number.parseInt(process.env.STREAM_MAX_RESULTS || "", 10);
-  return getSelectionMaxResults(Number.isInteger(envValue) && envValue > 0 ? envValue : DEFAULT_MAX_RESULTS);
+  return getSelectionMaxResults(DEFAULT_MAX_RESULTS);
 }
 
 function dedupeStreams(streams) {
@@ -313,7 +312,7 @@ function debugSelectStreams(streams, options = {}) {
   };
 }
 
-module.exports = {
+export {
   debugSelectStreams,
   selectStreams
 };

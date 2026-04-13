@@ -1,8 +1,8 @@
-const { getProviderById } = require("../providers");
-const { getCinemetaMeta, getTmdbMeta } = require("../lib/metadata");
-const { getImdbIdFromAnimeId } = require("../lib/relations");
-const { resolveExternalMetadata } = require("../lib/external-resolution");
-const { getExternalMetaFromCandidates, resolveProviderCandidates } = require("../lib/external-pipeline");
+import { getProviderById } from "../providers/index.js";
+import { getCinemetaMeta, getTmdbMeta } from "../lib/metadata.js";
+import { getImdbIdFromAnimeId } from "../lib/relations.js";
+import { resolveExternalMetadata } from "../lib/external-resolution.js";
+import { getExternalMetaFromCandidates, resolveProviderCandidates } from "../lib/external-pipeline.js";
 
 function mapCatalogMeta(providerId, anime) {
   const rawSlug = String(anime.slug || "");
@@ -111,7 +111,7 @@ async function resolveCalendarVideos(calendarVideosIds) {
   };
 }
 
-module.exports = {
+export {
   resolveCalendarVideos,
   resolveCatalogResponse
 };

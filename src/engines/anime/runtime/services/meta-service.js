@@ -1,8 +1,8 @@
-const { getNativeSlugAndEpisode, isNativeProviderId, parseVideoId } = require("../lib/ids");
-const { getExternalMeta, getProviderById } = require("../providers");
-const { readAiringCache } = require("../lib/airing-cache");
-const { getOrderedProviders } = require("../providers/registry");
-const { pickCandidateForProvider } = require("../lib/external-resolution");
+import { getNativeSlugAndEpisode, isNativeProviderId, parseVideoId } from "../lib/ids.js";
+import { getExternalMeta, getProviderById } from "../providers/index.js";
+import { readAiringCache } from "../lib/airing-cache.js";
+import { getOrderedProviders } from "../providers/registry.js";
+import { pickCandidateForProvider } from "../lib/external-resolution.js";
 
 function buildSlugCandidates(slug) {
   const normalized = String(slug || "").trim();
@@ -113,6 +113,6 @@ async function resolveMetaResponse(type, videoId) {
   };
 }
 
-module.exports = {
+export {
   resolveMetaResponse
 };

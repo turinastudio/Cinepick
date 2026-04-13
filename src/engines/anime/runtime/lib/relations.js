@@ -1,7 +1,8 @@
-const ID_RELATIONS_API_BASE = "https://relations.yuna.moe/api/v2";
-const { fetchJson } = require("../../../../shared/fetch.cjs");
+import { fetchJson } from "../../../../shared/fetch.cjs";
 
-async function getImdbIdFromAnimeId(idType, id) {
+const ID_RELATIONS_API_BASE = "https://relations.yuna.moe/api/v2";
+
+export async function getImdbIdFromAnimeId(idType, id) {
   const source = idType === "mal" ? "myanimelist" : idType;
   const url = `${ID_RELATIONS_API_BASE}/ids?source=${source}&id=${id}&include=imdb`;
   const data = await fetchJson(url);
@@ -11,7 +12,3 @@ async function getImdbIdFromAnimeId(idType, id) {
 
   return data.imdb;
 }
-
-module.exports = {
-  getImdbIdFromAnimeId
-};

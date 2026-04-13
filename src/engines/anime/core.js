@@ -1,17 +1,37 @@
-import { createRequire } from "node:module";
+import { parseVideoId, isNativeProviderId, getNativeSlugAndEpisode, getExternalIdDetails } from "./runtime/lib/ids.js";
+import { providers as animeProviders, getProviderById } from "./runtime/providers/registry.js";
+import {
+  getProviderById as animeProviderApiGetProviderById,
+  debugExternalResolution as animeProviderApiDebugExternalResolution,
+  resolveExternalMetadata as animeProviderApiResolveExternalMetadata,
+  resolveProviderCandidatesDetailed as animeProviderApiResolveProviderCandidatesDetailed
+} from "./runtime/providers/index.js";
+import { resolveDebugResponse, debugProviderSearch } from "./runtime/services/debug-service.js";
+import { resolveMetaResponse } from "./runtime/services/meta-service.js";
+import { resolveStreamResponse } from "./runtime/services/stream-service.js";
 import { streamResultCache } from "../../shared/cache.js";
 
-const require = createRequire(import.meta.url);
-const animeIds = require("./runtime/lib/ids.js");
-const animeProviders = require("./runtime/providers/registry.js");
-const animeProviderApi = require("./runtime/providers/index.js");
-const animeDebugService = require("./runtime/services/debug-service.js");
-const animeMetaService = require("./runtime/services/meta-service.js");
-const animeStreamService = require("./runtime/services/stream-service.js");
 const EXPLICIT_ANIME_PREFIXES = new Set(["animeflv", "animeav1", "henaojara", "tioanime", "anilist", "kitsu", "mal", "anidb"]);
 
+// Re-export ids utilities for internal use
+const animeIds = { parseVideoId, isNativeProviderId, getNativeSlugAndEpisode, getExternalIdDetails };
+const animeProviderApi = {
+  getProviderById: animeProviderApiGetProviderById,
+  debugExternalResolution: animeProviderApiDebugExternalResolution,
+  resolveExternalMetadata: animeProviderApiResolveExternalMetadata,
+  resolveProviderCandidatesDetailed: animeProviderApiResolveProviderCandidatesDetailed
+};
+
+/**
+ * Re-throws an error with a clean message.
+ * Normalizes non-Error objects to Error instances.
+ */
+function rethrowError(error) {
+  throw new Error(error instanceof Error ? error.message : String(error));
+}
+
 export function getAnimeProviderIds() {
-  return (animeProviders.providers || []).map((provider) => provider.id);
+  return (animeProviders || []).map((provider) => provider.id);
 }
 
 export function getAnimeProviderById(providerId) {
@@ -43,9 +63,9 @@ export async function resolveAnimeStreamPayload(type, videoId) {
     return cached;
   }
 
-  const result = await animeStreamService.resolveStreamResponse(type, videoId);
+  const result = await resolveStreamResponse(type, videoId);
 
-  if (result && Array.isArray(result.streams) && result.streams.length > 0) {
+  if (result?.streams?.length > 0) {
     streamResultCache.set(cacheKey, result);
   }
 
@@ -53,11 +73,11 @@ export async function resolveAnimeStreamPayload(type, videoId) {
 }
 
 export async function resolveAnimeMetaPayload(type, videoId) {
-  return animeMetaService.resolveMetaResponse(type, videoId);
+  return resolveMetaResponse(type, videoId);
 }
 
 export async function resolveAnimeDebugPayload(type, videoId) {
-  return animeDebugService.resolveDebugResponse(type, videoId);
+  return resolveDebugResponse(type, videoId);
 }
 
 export async function debugAnimeExternalResolution(type, videoId) {
@@ -65,7 +85,7 @@ export async function debugAnimeExternalResolution(type, videoId) {
 }
 
 export async function debugAnimeProviderSearch(providerId, type, query, genres = []) {
-  return animeDebugService.debugProviderSearch(providerId, type, query, genres);
+  return debugProviderSearch(providerId, type, query, genres);
 }
 
 export async function debugAnimeProviderStreams(providerId, type, videoId) {
@@ -98,9 +118,7 @@ export async function debugAnimeProviderStreams(providerId, type, videoId) {
     const streams = await provider.getStreams({
       slug: native.slug,
       episode: native.episode
-    }).catch((error) => {
-      throw new Error(error instanceof Error ? error.message : String(error));
-    });
+    }).catch(rethrowError);
 
     return {
       provider: providerId,
@@ -143,9 +161,7 @@ export async function debugAnimeProviderStreams(providerId, type, videoId) {
   const streams = await provider.getStreams({
     slug: candidate.slug,
     episode: resolvedMetadata.episode
-  }).catch((error) => {
-    throw new Error(error instanceof Error ? error.message : String(error));
-  });
+  }).catch(rethrowError);
 
   return {
     provider: providerId,

@@ -1,6 +1,6 @@
-const { fetchText } = require("../../../../shared/fetch.cjs");
+import { fetchText } from "../../../../shared/fetch.cjs";
 
-async function resolveViaGeneralExtractor(url, label) {
+export async function resolveViaGeneralExtractor(url, label) {
   const { resolveExtractorStream } = await import("../../../../lib/extractors.js");
   const streams = await resolveExtractorStream(url, label, false);
   const firstStream = Array.isArray(streams) ? streams.find((item) => item?.url) : null;
@@ -21,7 +21,7 @@ async function resolveViaGeneralExtractor(url, label) {
   };
 }
 
-function getStreamTapeLink(url) {
+export function getStreamTapeLink(url) {
   const requestUrl = url.replace("/e/", "/v/");
 
   return fetchText(requestUrl)
@@ -53,7 +53,7 @@ function getStreamTapeLink(url) {
     });
 }
 
-function getYourUploadLink(url) {
+export function getYourUploadLink(url) {
   return fetchText(url)
     .then((data) => {
       const metaPattern = /property\s*=\s*"og:video"/g;
@@ -74,7 +74,7 @@ function getYourUploadLink(url) {
     });
 }
 
-function getHLSLink(url) {
+export function getHLSLink(url) {
   if (url.includes("/play/") || url.includes("/m3u8/")) {
     return Promise.resolve(url.replace("/play/", "/m3u8/"));
   }
@@ -82,7 +82,7 @@ function getHLSLink(url) {
   return Promise.reject(new Error("No video link"));
 }
 
-function getPDrainLink(url) {
+export function getPDrainLink(url) {
   const metaPattern = /(.+?:\/\/.+?)\/.+?\/(.+?)(?:\?embed)?$/g;
   const metaMatch = metaPattern.exec(url);
 
@@ -93,7 +93,7 @@ function getPDrainLink(url) {
   return Promise.reject(new Error("No video link"));
 }
 
-function getMP4UploadLink(url) {
+export function getMP4UploadLink(url) {
   return fetchText(url)
     .then((data) => {
       const metaPattern = /<script(?:.|\n)+?src:(?:.|\n)*?"(.+?\.mp4)"/g;
@@ -107,20 +107,10 @@ function getMP4UploadLink(url) {
     });
 }
 
-function getNetuLink(url) {
+export function getNetuLink(url) {
   return resolveViaGeneralExtractor(url, "Anime");
 }
 
-function getUqloadLink(url) {
+export function getUqloadLink(url) {
   return resolveViaGeneralExtractor(url, "Anime");
 }
-
-module.exports = {
-  getHLSLink,
-  getMP4UploadLink,
-  getNetuLink,
-  getPDrainLink,
-  getUqloadLink,
-  getStreamTapeLink,
-  getYourUploadLink
-};

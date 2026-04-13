@@ -1,8 +1,8 @@
-const { getNativeSlugAndEpisode, isNativeProviderId, parseVideoId } = require("../lib/ids");
-const { combineStreams } = require("../lib/stream-combiner");
-const { selectStreams } = require("../lib/stream-selection");
-const { appendSupportStream } = require("../lib/support-stream");
-const { getExternalStreams, getProviderById } = require("../providers");
+import { getNativeSlugAndEpisode, isNativeProviderId, parseVideoId } from "../lib/ids.js";
+import { combineStreams } from "../lib/stream-combiner.js";
+import { selectStreams } from "../lib/stream-selection.js";
+import { appendSupportStream } from "../lib/support-stream.js";
+import { getExternalStreams, getProviderById } from "../providers/index.js";
 
 async function getNativeStreams(videoId) {
   const native = getNativeSlugAndEpisode(videoId);
@@ -47,6 +47,6 @@ async function resolveStreamResponse(type, videoId) {
   };
 }
 
-module.exports = {
+export {
   resolveStreamResponse
 };

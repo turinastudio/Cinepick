@@ -1,5 +1,5 @@
-const { writeAiringCache } = require("./airing-cache");
-const { getProviderById } = require("../providers/registry");
+import { writeAiringCache } from "./airing-cache.js";
+import { getProviderById } from "../providers/registry.js";
 
 function scheduleDailyRefresh(task) {
   return task().then(() => {
@@ -7,7 +7,7 @@ function scheduleDailyRefresh(task) {
   });
 }
 
-async function refreshProviderAiring(providerId) {
+export async function refreshProviderAiring(providerId) {
   const provider = getProviderById(providerId);
   if (!provider) {
     throw new Error(`Unknown provider ${providerId}`);
@@ -21,7 +21,7 @@ async function refreshProviderAiring(providerId) {
   await writeAiringCache(providerId, titles);
 }
 
-function startAiringRefreshJobs() {
+export function startAiringRefreshJobs() {
   scheduleDailyRefresh(() => refreshProviderAiring("animeflv"))
     .then(() => console.log('\x1b[32mOn Air titles "cached" successfully!\x1b[39m'))
     .catch((error) => console.error('\x1b[31mFailed "caching" titles:\x1b[39m ' + error));
@@ -32,8 +32,3 @@ function startAiringRefreshJobs() {
     .then(() => console.log('\x1b[32mOn Air Henaojara titles "cached" successfully!\x1b[39m'))
     .catch((error) => console.error('\x1b[31mFailed "caching" titles:\x1b[39m ' + error));
 }
-
-module.exports = {
-  refreshProviderAiring,
-  startAiringRefreshJobs
-};

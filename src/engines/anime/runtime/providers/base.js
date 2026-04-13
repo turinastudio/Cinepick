@@ -1,4 +1,4 @@
-class Provider {
+export class Provider {
   constructor({ id, name }) {
     this.id = id;
     this.name = name;
@@ -20,7 +20,3 @@ class Provider {
     throw new Error("Provider.getStreams not implemented");
   }
 }
-
-module.exports = {
-  Provider
-};

@@ -1,12 +1,12 @@
-const {
+import {
   getHLSLink,
   getMP4UploadLink,
   getNetuLink,
   getPDrainLink,
   getUqloadLink,
   getYourUploadLink
-} = require("./stream-hosts");
-const { isExtractorEnabled } = require("../../../../config/request-context.cjs");
+} from "./stream-hosts.js";
+import { isExtractorEnabled } from "../../../../config/request-context.cjs";
 
 const DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36";
 const STREAM_LIST_NAME = "Cinepick";
@@ -48,15 +48,15 @@ const INTERNAL_HOSTS = {
   }
 };
 
-function getLanguageLabel(isDub) {
+export function getLanguageLabel(isDub) {
   return isDub ? "Latino" : "Subtitulado";
 }
 
-function buildDisplayTitle(epName, providerLabel, sourceName, isDub) {
+export function buildDisplayTitle(epName, providerLabel, sourceName, isDub) {
   return `${epName}\n${getLanguageLabel(isDub)}\n${providerLabel} - ${sourceName}`;
 }
 
-function buildExternalStreams({ providerLabel, bingePrefix, epName, servers }) {
+export function buildExternalStreams({ providerLabel, bingePrefix, epName, servers }) {
   return servers
     .filter((source) => source.embed !== undefined && isExtractorEnabled(source.name))
     .map((source) => ({
@@ -71,7 +71,7 @@ function buildExternalStreams({ providerLabel, bingePrefix, epName, servers }) {
     }));
 }
 
-async function buildInternalStream({ providerLabel, bingePrefix, epName, source }) {
+export async function buildInternalStream({ providerLabel, bingePrefix, epName, source }) {
   const hostConfig = INTERNAL_HOSTS[source.name];
   if (!hostConfig || source.embed === undefined || !isExtractorEnabled(hostConfig.extractorId || source.name)) {
     return undefined;
@@ -121,7 +121,7 @@ async function buildInternalStream({ providerLabel, bingePrefix, epName, source 
   };
 }
 
-async function buildInternalStreams({
+export async function buildInternalStreams({
   providerLabel,
   bingePrefix,
   epName,
@@ -143,8 +143,3 @@ async function buildInternalStreams({
     .filter((item) => item.status === "fulfilled" && item.value)
     .map((item) => item.value);
 }
-
-module.exports = {
-  buildExternalStreams,
-  buildInternalStreams
-};

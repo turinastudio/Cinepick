@@ -1,4 +1,4 @@
-function combineStreams(streamGroups) {
+export function combineStreams(streamGroups) {
   let combinedStreams = [];
 
   for (const group of streamGroups) {
@@ -25,7 +25,3 @@ function combineStreams(streamGroups) {
 
   return combinedStreams;
 }
-
-module.exports = {
-  combineStreams
-};

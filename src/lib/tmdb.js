@@ -2,10 +2,7 @@ import { fetchJson } from "./webstreamer/http.js";
 import { tmdbCache } from "../shared/cache.js";
 
 const DEFAULT_TMDB_API_KEY = (function() {
-  const key = String(process.env.TMDB_API_KEY || "").trim();
-  if (!key) {
-    console.warn("[TMDB] TMDB_API_KEY environment variable is not set. TMDB features will be unavailable.");
-  }
+  const key = String(process.env.TMDB_API_KEY || "439c478a771f35c05022f9feabcca01c").trim();
   return key;
 })();
 

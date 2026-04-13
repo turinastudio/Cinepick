@@ -3,12 +3,10 @@ import { tmdbCache, animeDetectionCache } from "../../shared/cache.js";
 
 const TMDB_API_BASE = "https://api.themoviedb.org/3";
 
+const DEFAULT_TMDB_API_KEY = "439c478a771f35c05022f9feabcca01c";
+
 function getTmdbApiKey() {
-  const key = String(process.env.TMDB_API_KEY || "").trim();
-  if (!key) {
-    console.warn("[TMDB] TMDB_API_KEY environment variable is not set. Anime detection will be unavailable.");
-  }
-  return key;
+  return String(process.env.TMDB_API_KEY || DEFAULT_TMDB_API_KEY).trim();
 }
 
 function getTmdbHeaders() {

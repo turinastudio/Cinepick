@@ -1,7 +1,13 @@
 import { fetchJson } from "./webstreamer/http.js";
 import { tmdbCache } from "../shared/cache.js";
 
-const DEFAULT_TMDB_API_KEY = process.env.TMDB_API_KEY || "439c478a771f35c05022f9feabcca01c";
+const DEFAULT_TMDB_API_KEY = (function() {
+  const key = String(process.env.TMDB_API_KEY || "").trim();
+  if (!key) {
+    console.warn("[TMDB] TMDB_API_KEY environment variable is not set. TMDB features will be unavailable.");
+  }
+  return key;
+})();
 
 export async function fetchTmdbMediaFromImdb(type, imdbId, apiKey = DEFAULT_TMDB_API_KEY) {
   if (!imdbId || !String(imdbId).startsWith("tt")) {

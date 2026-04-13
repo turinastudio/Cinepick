@@ -2,10 +2,13 @@ import { fetchJson } from "../../shared/fetch.js";
 import { tmdbCache, animeDetectionCache } from "../../shared/cache.js";
 
 const TMDB_API_BASE = "https://api.themoviedb.org/3";
-const DEFAULT_TMDB_API_KEY = "439c478a771f35c05022f9feabcca01c";
 
 function getTmdbApiKey() {
-  return String(process.env.TMDB_API_KEY || DEFAULT_TMDB_API_KEY).trim();
+  const key = String(process.env.TMDB_API_KEY || "").trim();
+  if (!key) {
+    console.warn("[TMDB] TMDB_API_KEY environment variable is not set. Anime detection will be unavailable.");
+  }
+  return key;
 }
 
 function getTmdbHeaders() {
@@ -69,6 +72,14 @@ export async function detectAnimeForExternalId(type, externalId) {
 }
 
 async function _detectAnimeUncached(type, externalId) {
+  const apiKey = getTmdbApiKey();
+  if (!apiKey) {
+    return {
+      isAnime: false,
+      source: "unresolved"
+    };
+  }
+
   const resolved = await resolveTmdbTarget(type, externalId).catch(() => null);
   if (!resolved?.tmdbId) {
     return {
@@ -77,7 +88,6 @@ async function _detectAnimeUncached(type, externalId) {
     };
   }
 
-  const apiKey = getTmdbApiKey();
   const detailCacheKey = `tmdb:anime:details:${resolved.mediaType}:${resolved.tmdbId}`;
   const details = await tmdbCache.getOrSet(detailCacheKey, async () => {
     return fetchTmdbJson(

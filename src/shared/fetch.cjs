@@ -1,9 +1,4 @@
-const DEFAULT_HEADERS = {
-  "User-Agent":
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
-  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-  "Accept-Language": "es-ES,es;q=0.9,en;q=0.8"
-};
+const { getBrowserHeaders } = require("../lib/user-agents.js");
 
 const REQUEST_TIMEOUT_MS = Math.max(
   1000,
@@ -29,9 +24,11 @@ const RETRYABLE_ERROR_CODES = new Set([
   "ETIMEDOUT",
   "EAI_AGAIN"
 ]);
+const RETRY_BASE_MS = 500;
+const RETRY_MAX_MS = 10000;
 
 function mergeHeaders(headers) {
-  return { ...DEFAULT_HEADERS, ...(headers || {}) };
+  return { ...getBrowserHeaders(), ...(headers || {}) };
 }
 
 function isRetryableStatus(status) {
@@ -46,6 +43,16 @@ function isRetryableError(error) {
 
 async function wait(ms) {
   await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Exponential backoff with jitter.
+ * Formula: min(maxMs, baseMs * 2^attempt + random(0, baseMs))
+ */
+function calcBackoff(attempt, baseMs = RETRY_BASE_MS, maxMs = RETRY_MAX_MS) {
+  const exponential = baseMs * Math.pow(2, attempt);
+  const jitter = Math.random() * baseMs;
+  return Math.min(maxMs, exponential + jitter);
 }
 
 async function fetchWithRetry(url, options = {}) {
@@ -65,7 +72,7 @@ async function fetchWithRetry(url, options = {}) {
       clearTimeout(timeout);
 
       if (attempt < REQUEST_RETRY_COUNT && isRetryableStatus(response.status)) {
-        await wait(250 * (attempt + 1));
+        await wait(calcBackoff(attempt));
         continue;
       }
 
@@ -82,7 +89,7 @@ async function fetchWithRetry(url, options = {}) {
         throw error;
       }
 
-      await wait(250 * (attempt + 1));
+      await wait(calcBackoff(attempt));
     }
   }
 
@@ -100,8 +107,8 @@ async function fetchJson(url, options = {}) {
 }
 
 module.exports = {
-  DEFAULT_HEADERS,
   fetchJson,
   fetchText,
-  fetchWithRetry
+  fetchWithRetry,
+  getBrowserHeaders
 };

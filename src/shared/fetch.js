@@ -1,8 +1,1 @@
-import fetchShared from "./fetch.cjs";
-
-export const {
-  DEFAULT_HEADERS,
-  fetchJson,
-  fetchText,
-  fetchWithRetry
-} = fetchShared;
+export { fetchJson, fetchText, fetchWithRetry, getBrowserHeaders } from "./fetch.cjs";

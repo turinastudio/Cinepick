@@ -1,7 +1,1 @@
-import dedupeShared from "./dedupe.cjs";
-
-export const {
-  dedupeStreamsByTarget,
-  getCanonicalStreamTarget,
-  normalizeUrlForDedupe
-} = dedupeShared;
+export { dedupeStreamsByTarget, getCanonicalStreamTarget, normalizeUrlForDedupe } from "./dedupe.cjs";

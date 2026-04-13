@@ -1,5 +1,5 @@
 function normalizeUrlForDedupe(value) {
-  const raw = String(value || "").trim();
+  const raw = String(value ?? "").trim();
   if (!raw) {
     return "";
   }
@@ -43,16 +43,16 @@ function dedupeStreamsByTarget(streams, options = {}) {
   const seen = new Map();
   const buildKey = typeof options.buildKey === "function"
     ? options.buildKey
-    : ((stream, canonicalTarget) => canonicalTarget || `${stream?.url || ""}::${stream?.externalUrl || ""}::${stream?.title || ""}`);
+    : ((stream, canonicalTarget) => canonicalTarget ?? `${stream?.url ?? ""}::${stream?.externalUrl ?? ""}::${stream?.title ?? ""}`);
   const mapDuplicate = typeof options.mapDuplicate === "function"
     ? options.mapDuplicate
     : ((stream, key, canonicalTarget) => ({
         key,
-        canonicalTarget: canonicalTarget || null,
-        url: stream?.url || null,
-        externalUrl: stream?.externalUrl || null,
-        name: stream?.name || null,
-        title: stream?.title || null
+        canonicalTarget: canonicalTarget ?? null,
+        url: stream?.url ?? null,
+        externalUrl: stream?.externalUrl ?? null,
+        name: stream?.name ?? null,
+        title: stream?.title ?? null
       }));
   const shouldReplace = typeof options.shouldReplace === "function"
     ? options.shouldReplace

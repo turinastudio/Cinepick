@@ -1,5 +1,1 @@
-import debugShared from "./debug.cjs";
-
-export const {
-  createDebugLogger
-} = debugShared;
+export { createDebugLogger } from "./debug.cjs";

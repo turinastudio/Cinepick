@@ -1,6 +1,4 @@
-import supportStreamShared from "./support-stream.cjs";
-
-export const {
+export {
   DEFAULT_SUPPORT_BINGE_GROUP,
   DEFAULT_SUPPORT_NAME,
   DEFAULT_SUPPORT_URL,
@@ -8,4 +6,4 @@ export const {
   buildSupportStream,
   debugSupportStream,
   shouldShowSupportStream
-} = supportStreamShared;
+} from "./support-stream.cjs";

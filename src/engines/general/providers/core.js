@@ -2,6 +2,8 @@ import { parseStremioId } from "../../../lib/ids.js";
 import { analyzeScoredStreams, scoreAndSelectStreams } from "../scoring.js";
 import { streamResultCache } from "../../../shared/cache.js";
 import requestContextShared from "../../../config/request-context.cjs";
+import { isSourceAllowed, recordSuccess, recordFailure, getCircuitStatus } from "../../../lib/circuit-breaker.js";
+import { providerLimiter } from "../../../lib/concurrency-limiter.js";
 import { LaCartoonsProvider } from "./lacartoons.js";
 import { CinecalidadProvider } from "./cinecalidad.js";
 import { Cineplus123Provider } from "./cineplus123.js";
@@ -87,14 +89,20 @@ export function resolveProviderFromMetaId(id) {
 export async function resolveStreamsFromExternalId(type, id) {
   const cacheKey = `streams:general:${type}:${id}`;
   const cached = streamResultCache.get(cacheKey);
-  if (cached !== undefined) {
-    return cached;
-  }
 
   const providers = getActiveProviders();
   const routing = buildDefaultRouting(type, id);
-  const collected = await collectStreamsFromProviders(providers, type, id);
-  const streamSelectionMode = getSelectionMode(String(process.env.STREAM_SELECTION_MODE || "global"));
+  const startTime = Date.now();
+
+  // Collect streams (use cache if available, otherwise fetch)
+  const collected = cached !== undefined
+    ? cached
+    : await collectStreamsFromProviders(providers, type, id);
+
+  const collectionTime = Date.now() - startTime;
+
+  // Apply user-specific selection AFTER collecting (not cached)
+  const streamSelectionMode = getSelectionMode();
 
   let result;
   if (streamSelectionMode === "off") {
@@ -113,9 +121,25 @@ export async function resolveStreamsFromExternalId(type, id) {
     });
   }
 
-  // Only cache when we got actual results.
-  if (result.length > 0) {
-    streamResultCache.set(cacheKey, result);
+  // Only cache the raw collected streams if we just fetched them
+  if (cached === undefined && collected.length > 0) {
+    streamResultCache.set(cacheKey, collected);
+  }
+
+  // Log performance summary
+  const providerStatuses = collected
+    .reduce((acc, s) => {
+      const pid = s._providerId || "unknown";
+      if (!acc[pid]) acc[pid] = 0;
+      acc[pid]++;
+      return acc;
+    }, {});
+
+  if (result.length > 0 || collectionTime > 5000) {
+    console.log(
+      `[streams] ${type}:${id} → ${result.length} streams, ${collectionTime}ms, ` +
+      `${Object.keys(providerStatuses).length} providers contributed`
+    );
   }
 
   return result;
@@ -128,7 +152,7 @@ export async function debugStreamsFromExternalId(type, id) {
   const results = [...run.results];
   const collected = [...run.collected];
   const usedFallback = false;
-  const streamSelectionMode = getSelectionMode(String(process.env.STREAM_SELECTION_MODE || "global"));
+  const streamSelectionMode = getSelectionMode();
 
   const globalScoredStreams = analyzeScoredStreams("global", collected, {
     contentKind: routing.kind
@@ -177,16 +201,43 @@ function buildDefaultRouting(type, externalId) {
 
 async function collectStreamsFromProviders(targetProviders, type, id) {
   const collected = [];
+
+  // Filter out providers whose circuit is open
+  const allowedProviders = targetProviders.filter((provider) => {
+    const sourceKey = `provider:${provider.id}`;
+    const allowed = isSourceAllowed(sourceKey);
+    if (!allowed.allowed) {
+      console.warn(`[circuit-breaker] Skipping ${provider.id}: ${allowed.reason}`);
+    }
+    return allowed.allowed;
+  });
+
   const settled = await Promise.all(
-    targetProviders.map((provider) =>
-      withTimeout(
-        provider.getStreamsFromExternalId({ type, externalId: id }),
-        providerTimeoutMs,
-        provider.id,
-        type,
-        id,
-        "streams"
-      )
+    allowedProviders.map((provider) =>
+      providerLimiter.enqueue(async () => {
+        const sourceKey = `provider:${provider.id}`;
+        const abortController = new AbortController();
+        try {
+          const result = await withTimeout(
+            provider.getStreamsFromExternalId({ type, externalId: id }),
+            providerTimeoutMs,
+            provider.id,
+            type,
+            id,
+            "streams",
+            abortController
+          );
+          if (result.ok) {
+            recordSuccess(sourceKey);
+          } else {
+            recordFailure(sourceKey);
+          }
+          return result;
+        } catch {
+          recordFailure(sourceKey);
+          throw new Error(`Unhandled error in ${provider.id}`);
+        }
+      })
     )
   );
 
@@ -213,16 +264,18 @@ async function collectStreamsFromProviders(targetProviders, type, id) {
 async function debugProviders(targetProviders, type, id) {
   const collected = [];
   const settled = await Promise.all(
-    targetProviders.map((provider) =>
-      withTimeout(
+    targetProviders.map((provider) => {
+      const abortController = new AbortController();
+      return withTimeout(
         provider.debugStreamsFromExternalId({ type, externalId: id }),
         providerDebugTimeoutMs,
         provider.id,
         type,
         id,
-        "debug"
-      )
-    )
+        "debug",
+        abortController
+      );
+    })
   );
 
   const results = settled.map((item) => {
@@ -263,13 +316,15 @@ export async function debugProviderStreamsFromExternalId(providerId, type, id) {
     };
   }
 
+  const abortController = new AbortController();
   const item = await withTimeout(
     provider.debugStreamsFromExternalId({ type, externalId: id }),
     providerDebugTimeoutMs,
     provider.id,
     type,
     id,
-    "debug"
+    "debug",
+    abortController
   );
 
   if (!item.ok) {
@@ -285,7 +340,7 @@ export async function debugProviderStreamsFromExternalId(providerId, type, id) {
   return item.value;
 }
 
-async function withTimeout(promise, timeoutMs, providerId, type, id, mode) {
+async function withTimeout(promise, timeoutMs, providerId, type, id, mode, abortController = null) {
   let timeoutHandle = null;
 
   try {
@@ -293,6 +348,9 @@ async function withTimeout(promise, timeoutMs, providerId, type, id, mode) {
       Promise.resolve(promise),
       new Promise((_, reject) => {
         timeoutHandle = setTimeout(() => {
+          if (abortController) {
+            abortController.abort();
+          }
           reject(new Error(`${mode} timeout after ${timeoutMs}ms`));
         }, timeoutMs);
       })

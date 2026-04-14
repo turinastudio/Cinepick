@@ -38,7 +38,15 @@ function decryptFilemoonPlayback(playback) {
   const tag = payload.subarray(payload.length - 16);
   const encrypted = payload.subarray(0, payload.length - 16);
 
-  const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
+  // If key is not 32 bytes, apply SHA256 to derive the correct key
+  let keyBytes = key;
+  if (key.length !== 32) {
+    const hash = crypto.createHash("sha256");
+    hash.update(key);
+    keyBytes = hash.digest();
+  }
+
+  const decipher = crypto.createDecipheriv("aes-256-gcm", keyBytes, iv);
   decipher.setAuthTag(tag);
 
   return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString("utf8");

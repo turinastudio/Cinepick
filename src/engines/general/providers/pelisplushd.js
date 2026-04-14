@@ -193,7 +193,10 @@ export class PelisplushdProvider extends WebstreamBaseProvider {
 
       // Resolve each decrypted link through our extractors
       for (const link of decryptedLinks) {
-        const streams = await resolveExtractorStream(link, `${language} ${type === "series" ? "S' + parsedExternal.season + 'E' + parsedExternal.episode : ""}`, true).catch(() => []);
+        const seasonInfo = type === "series" && parsedExternal.season && parsedExternal.episode
+          ? ` S${parsedExternal.season}E${String(parsedExternal.episode).padStart(2, "0")}`
+          : "";
+        const streams = await resolveExtractorStream(link, `${language}${seasonInfo}`, true).catch(() => []);
         for (const stream of streams) {
           allStreams.push({
             ...stream,

@@ -20,6 +20,8 @@ import { TioPlusProvider } from "./tioplus.js";
 import { VerSeriesOnlineProvider } from "./verseriesonline.js";
 import { PelisplushdProvider } from "./pelisplushd.js";
 import { Embed69Provider } from "./embed69.js";
+import { VerHdLinkProvider } from "./verhdlink.js";
+import { CineHdPlusProvider } from "./cinehdplus.js";
 
 export const providers = [
   new LaCartoonsProvider(),
@@ -37,7 +39,9 @@ export const providers = [
   new LaMovieProvider(),
   new SerieskaoProvider(),
   new PelisplushdProvider(),
-  new Embed69Provider()
+  new Embed69Provider(),
+  new VerHdLinkProvider(),
+  new CineHdPlusProvider()
 ];
 const { getSelectionMode, isProviderEnabled } = requestContextShared;
 const activeProviderFilter = String(

@@ -51,26 +51,45 @@ export class VerHdLinkProvider extends WebstreamBaseProvider {
   async getStreams({ type, slug }) {
     const pageUrl = absoluteUrl(slug, this.baseUrl);
     const html = await fetchText(pageUrl).catch(() => "");
+    if (!html) return [];
+
     const $ = cheerio.load(html);
     const pageTitle =
       stripTags($("meta[property='og:title']").attr("content")) ||
       stripTags($("title").text()) ||
       "VerHdLink";
     const rawCandidates = [];
-    const latinoBlock = html.match(/_player-mirrors[^"']*latino[\s\S]{0,6000}?(?:<\/section>|<\/div>)/i)?.[0] || "";
 
-    for (const match of latinoBlock.matchAll(/data-link=["']([^"']+)["']/gi)) {
-      const rawUrl = absoluteUrl(match[1], pageUrl);
-      if (!rawUrl || /verhdlink/i.test(rawUrl)) {
-        continue;
+    // Based on WebStreamrMBG reference: use cheerio selectors instead of regex
+    $("._player-mirrors").each((_, el) => {
+      const $el = $(el);
+      let countryCode;
+
+      if ($el.hasClass("latino")) {
+        countryCode = "mx";
+      } else if ($el.hasClass("castellano")) {
+        countryCode = "es";
+      } else {
+        return;
       }
 
-      rawCandidates.push({
-        source: "VerHdLink",
-        label: "[LAT] VerHdLink",
-        url: rawUrl
+      $el.find("[data-link]").each((__, linkEl) => {
+        const dataLink = $(linkEl).attr("data-link") || "";
+        if (!dataLink || dataLink.trim() === "") return;
+
+        // Normalize URL: remove leading // or https:// prefix and rebuild
+        const normalizedUrl = dataLink.replace(/^(https:)?\/\//, "https://");
+        const rawUrl = absoluteUrl(normalizedUrl, pageUrl);
+
+        if (!rawUrl || /verhdlink/i.test(rawUrl)) return;
+
+        rawCandidates.push({
+          source: "VerHdLink",
+          label: countryCode === "mx" ? "[LAT] VerHdLink" : "[CAST] VerHdLink",
+          url: rawUrl
+        });
       });
-    }
+    });
 
     const streams = await resolveWebstreamCandidates(this.id, rawCandidates);
     return this.sortStreams(this.attachDisplayTitle(streams, pageTitle));

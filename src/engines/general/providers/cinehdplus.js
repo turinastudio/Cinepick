@@ -2,9 +2,6 @@ import cheerio from "cheerio-without-node-native";
 import { buildStremioId } from "../../../lib/ids.js";
 import {
   absoluteUrl,
-  buildSearchTerms,
-  mapSearchItem,
-  scoreSearchCandidate,
   stripTags
 } from "../../../lib/webstreamer/common.js";
 import { fetchText } from "../../../lib/webstreamer/http.js";
@@ -46,7 +43,12 @@ export class CineHdPlusProvider extends WebstreamBaseProvider {
         return;
       }
 
-      items.push(mapSearchItem(this.id, "series", new URL(href).pathname, title));
+      items.push({
+        id: buildStremioId(this.id, "series", new URL(href).pathname),
+        type: "series",
+        name: title,
+        releaseInfo: ""
+      });
     });
 
     return this.dedupeById(items);
@@ -81,39 +83,48 @@ export class CineHdPlusProvider extends WebstreamBaseProvider {
   }
 
   async getStreams({ type, slug }) {
-    const pageUrl = absoluteUrl(slug, this.baseUrl);
+    // Slug format: /series/show-name/@SxE
+    const episodeMatch = slug.match(/@(\d+)x(\d+)$/);
+    if (!episodeMatch) {
+      return [];
+    }
+
+    const pageUrl = absoluteUrl(slug.replace(/@\d+x\d+$/, ""), this.baseUrl);
     const html = await fetchText(pageUrl, { headers: { Referer: `${this.baseUrl}/series/` } }).catch(() => "");
-    if (!html || !/details__langs[\s\S]{0,200}latino/i.test(html)) {
+    if (!html) return [];
+
+    const $ = cheerio.load(html);
+
+    // Check for Latino language
+    const langsHtml = $(".details__langs").html() || "";
+    if (!langsHtml.toLowerCase().includes("latino")) {
       return [];
     }
 
-    const targetMatch = slug.match(/@(\d+)x(\d+)$/);
-    if (!targetMatch) {
-      return [];
-    }
-
-    const targetEpisode = `${targetMatch[1]}x${targetMatch[2]}`;
-    const episodeBlock = html.match(
-      new RegExp(`data-num=["']${targetEpisode}["'][\\s\\S]{0,3000}?class=["'][^"']*mirrors[^"']*["'][\\s\\S]{0,5000}?<\/div>`, "i")
-    )?.[0] || "";
+    const targetEpisode = `${episodeMatch[1]}x${episodeMatch[2]}`;
     const rawCandidates = [];
 
-    for (const match of episodeBlock.matchAll(/data-link=["']([^"']+)["']/gi)) {
-      const rawUrl = absoluteUrl(match[1], pageUrl);
-      if (!rawUrl || /cinehdplus/i.test(rawUrl)) {
-        continue;
-      }
+    // Based on WebStreamrMBG reference: use cheerio selectors with data-num attribute
+    $(`[data-num="${targetEpisode}"]`).siblings(".mirrors").children("[data-link]").each((_, el) => {
+      const dataLink = $(el).attr("data-link") || "";
+      if (!dataLink || dataLink.trim() === "") return;
+
+      // Normalize URL
+      const normalizedUrl = dataLink.replace(/^(https:)?\/\//, "https://");
+      const rawUrl = absoluteUrl(normalizedUrl, pageUrl);
+
+      if (!rawUrl || /cinehdplus/i.test(rawUrl)) return;
 
       rawCandidates.push({
         source: "CineHDPlus",
         label: "[LAT] CineHDPlus",
         url: rawUrl
       });
-    }
+    });
 
     const streams = await resolveWebstreamCandidates(this.id, rawCandidates);
-    const title = stripTags(cheerio.load(html)("meta[property='og:title']").attr("content") || cheerio.load(html)("title").text());
-    return this.sortStreams(this.attachDisplayTitle(streams, title));
+    const title = stripTags($("meta[property='og:title']").attr("content") || $("title").text());
+    return this.sortStreams(this.attachDisplayTitle(streams, `${title} ${targetEpisode}`));
   }
 
   async getStreamsFromExternalId({ type, externalId }) {
@@ -131,47 +142,22 @@ export class CineHdPlusProvider extends WebstreamBaseProvider {
       return [];
     }
 
-    const queryTerms = buildSearchTerms(parsedExternal.baseId, externalMeta.name);
-    const candidates = [];
+    // Search for the series
+    const searchHtml = await fetchText(
+      `${this.baseUrl}/series/?story=${encodeURIComponent(externalMeta.name)}&do=search&subaction=search`,
+      { headers: { Referer: `${this.baseUrl}/series/` } }
+    ).catch(() => "");
 
-    for (const term of queryTerms) {
-      const html = await fetchText(
-        `${this.baseUrl}/series/?story=${encodeURIComponent(term)}&do=search&subaction=search`,
-        { headers: { Referer: `${this.baseUrl}/series/` } }
-      ).catch(() => "");
+    if (!searchHtml) return [];
 
-      if (!html) {
-        continue;
-      }
+    const $ = cheerio.load(searchHtml);
+    const firstLink = $(".card__title a[href]").first();
+    if (!firstLink.length) return [];
 
-      const $ = cheerio.load(html);
-      $(".card__title a[href]").each((_, el) => {
-        const href = absoluteUrl($(el).attr("href"), this.baseUrl);
-        const title = stripTags($(el).text());
-        if (!href || !title) {
-          return;
-        }
+    const seriesUrl = absoluteUrl(firstLink.attr("href"), this.baseUrl);
+    const slug = `${new URL(seriesUrl).pathname}@${parsedExternal.season}x${parsedExternal.episode}`;
 
-        candidates.push({
-          id: buildStremioId(this.id, "series", `${new URL(href).pathname}@${parsedExternal.season}x${parsedExternal.episode}`),
-          type: "series",
-          name: title,
-          releaseInfo: "",
-          _href: href,
-          _score: scoreSearchCandidate(externalMeta.name, title, externalMeta.releaseInfo || "", "")
-        });
-      });
-    }
-
-    const bestMatch = candidates.sort((a, b) => b._score - a._score)[0];
-    if (!bestMatch) {
-      return [];
-    }
-
-    return this.getStreams({
-      type,
-      slug: bestMatch.id.split(":").slice(2).join(":")
-    });
+    return this.getStreams({ type, slug });
   }
 
   async debugStreamsFromExternalId({ type, externalId }) {
@@ -211,4 +197,3 @@ export class CineHdPlusProvider extends WebstreamBaseProvider {
     return debug;
   }
 }
-

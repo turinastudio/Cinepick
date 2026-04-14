@@ -20,7 +20,7 @@ export class CuevanaProvider extends WebstreamBaseProvider {
       supportedTypes: ["movie", "series"]
     });
 
-    this.baseUrl = process.env.CUEVANA_BASE_URL || "https://ww1.cuevana3.is";
+    this.baseUrl = process.env.CUEVANA_BASE_URL || "https://www.cuevana3.is";
   }
 
   async search({ type, query }) {
@@ -94,25 +94,29 @@ export class CuevanaProvider extends WebstreamBaseProvider {
     const rawCandidates = [];
 
     $(".open_submenu").each((_, el) => {
-      const text = stripTags($(el).text());
-      if (!/latino/i.test(text)) {
+      // Check for latino in the full text content (includes nested spans/images)
+      const fullText = $(el).text().toLowerCase();
+      const hasLatino = fullText.includes("latino") ||
+        $(el).find("img[src*='latino']").length > 0 ||
+        $(el).find("[src*='latino']").length > 0;
+      if (!hasLatino) {
         return;
       }
 
-      $(el)
-        .find("[data-tr], [data-video]")
-        .each((__, node) => {
-          const rawUrl = absoluteUrl($(node).attr("data-tr") || $(node).attr("data-video"), url);
-          if (!rawUrl || /youtube\.com\/embed/i.test(rawUrl)) {
-            return;
-          }
+      // Find the sub-tab ul inside this open_submenu div
+      const subTabUl = $(el).find("ul.sub-tab-lang, ul[class^='sub-tab-lang']");
+      subTabUl.find("li[data-tr], li[data-video]").each((__, node) => {
+        const rawUrl = absoluteUrl($(node).attr("data-tr") || $(node).attr("data-video"), url);
+        if (!rawUrl || /youtube\.com\/embed/i.test(rawUrl)) {
+          return;
+        }
 
-          rawCandidates.push({
-            source: "Cuevana",
-            label: `[LAT] ${pageTitle || "Cuevana"}`,
-            url: rawUrl
-          });
+        rawCandidates.push({
+          source: "Cuevana",
+          label: `[LAT] ${pageTitle || "Cuevana"}`,
+          url: rawUrl
         });
+      });
     });
 
     const streams = await resolveWebstreamCandidates(this.id, rawCandidates);

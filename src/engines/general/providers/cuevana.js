@@ -93,8 +93,10 @@ export class CuevanaProvider extends WebstreamBaseProvider {
     const pageTitle = stripTags($("meta[property='og:title']").attr("content") || $("title").text());
     const rawCandidates = [];
 
+    // Collect all potential URLs first
+    const urlResults = [];
+
     $(".open_submenu").each((_, el) => {
-      // Check for latino in the full text content (includes nested spans/images)
       const fullText = $(el).text().toLowerCase();
       const hasLatino = fullText.includes("latino") ||
         $(el).find("img[src*='latino']").length > 0 ||
@@ -103,7 +105,6 @@ export class CuevanaProvider extends WebstreamBaseProvider {
         return;
       }
 
-      // Find the sub-tab ul inside this open_submenu div
       const subTabUl = $(el).find("ul.sub-tab-lang, ul[class^='sub-tab-lang']");
       subTabUl.find("li[data-tr], li[data-video]").each((__, node) => {
         const rawUrl = absoluteUrl($(node).attr("data-tr") || $(node).attr("data-video"), url);
@@ -111,13 +112,43 @@ export class CuevanaProvider extends WebstreamBaseProvider {
           return;
         }
 
+        urlResults.push(rawUrl);
+      });
+    });
+
+    // Process each URL: if it's an internal cuevana3.is URL, fetch additional page
+    // Based on WebStreamrMBG reference implementation
+    for (const playerUrl of urlResults) {
+      let finalUrl = playerUrl;
+
+      if (playerUrl.includes("cuevana3")) {
+        // Internal cuevana3.is player - fetch the page to extract the real URL
+        try {
+          const innerHtml = await fetchText(playerUrl, {
+            headers: { Referer: this.baseUrl }
+          }).catch(() => "");
+
+          if (innerHtml) {
+            // Extract url = '...' pattern
+            const urlMatch = innerHtml.match(/url\s*=\s*'([^']+)'/i)
+              || innerHtml.match(/url\s*=\s*"([^"]+)"/i);
+            if (urlMatch?.[1]) {
+              finalUrl = absoluteUrl(urlMatch[1], playerUrl);
+            }
+          }
+        } catch {
+          // Keep original URL if fetch fails
+        }
+      }
+
+      if (finalUrl) {
         rawCandidates.push({
           source: "Cuevana",
           label: `[LAT] ${pageTitle || "Cuevana"}`,
-          url: rawUrl
+          url: finalUrl
         });
-      });
-    });
+      }
+    }
 
     const streams = await resolveWebstreamCandidates(this.id, rawCandidates);
     return this.sortStreams(this.attachDisplayTitle(streams, pageTitle));
@@ -244,4 +275,3 @@ export class CuevanaProvider extends WebstreamBaseProvider {
     return debug;
   }
 }
-

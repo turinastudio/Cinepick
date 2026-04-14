@@ -2,14 +2,38 @@ import cheerio from "cheerio-without-node-native";
 import { buildStremioId } from "../../../lib/ids.js";
 import {
   absoluteUrl,
-  mapSearchItem,
-  normalizeTitle,
-  scoreSearchCandidate,
   stripTags
 } from "../../../lib/webstreamer/common.js";
 import { fetchText } from "../../../lib/webstreamer/http.js";
 import { resolveWebstreamCandidates } from "../../../lib/webstreamer/resolve.js";
 import { WebstreamBaseProvider } from "./webstreambase.js";
+
+/**
+ * Levenshtein distance for fuzzy string matching.
+ * Based on WebStreamrMBG HomeCine reference implementation.
+ * Returns the minimum number of single-character edits to transform str1 into str2.
+ */
+function levenshteinDistance(str1, str2) {
+  const m = str1.length;
+  const n = str2.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,      // deletion
+        dp[i][j - 1] + 1,      // insertion
+        dp[i - 1][j - 1] + cost // substitution
+      );
+    }
+  }
+
+  return dp[m][n];
+}
 
 export class HomeCineProvider extends WebstreamBaseProvider {
   constructor() {
@@ -27,7 +51,10 @@ export class HomeCineProvider extends WebstreamBaseProvider {
       return [];
     }
 
-    const html = await fetchText(`${this.baseUrl}/?s=${encodeURIComponent(query.trim())}`).catch(() => "");
+    const html = await fetchText(`${this.baseUrl}/?s=${encodeURIComponent(query.trim())}`, {
+      headers: { Referer: `${this.baseUrl}/` }
+    }).catch(() => "");
+
     if (!html) {
       return [];
     }
@@ -35,9 +62,9 @@ export class HomeCineProvider extends WebstreamBaseProvider {
     const $ = cheerio.load(html);
     const items = [];
 
-    $("a[oldtitle]").each((_, el) => {
+    $('a[oldtitle]').each((_, el) => {
       const href = absoluteUrl($(el).attr("href"), this.baseUrl);
-      const title = stripTags($(el).attr("oldtitle"));
+      const title = stripTags($(el).attr("oldtitle") || "");
       if (!href || !title) {
         return;
       }
@@ -47,11 +74,12 @@ export class HomeCineProvider extends WebstreamBaseProvider {
         return;
       }
 
-      if (scoreSearchCandidate(query, title, "", "") < 5) {
-        return;
-      }
-
-      items.push(mapSearchItem(this.id, itemType, new URL(href).pathname, title));
+      items.push({
+        id: buildStremioId(this.id, itemType, new URL(href).pathname),
+        type: itemType,
+        name: title,
+        releaseInfo: ""
+      });
     });
 
     return this.dedupeById(items);
@@ -59,7 +87,7 @@ export class HomeCineProvider extends WebstreamBaseProvider {
 
   async getMeta({ type, slug }) {
     const url = absoluteUrl(slug, this.baseUrl);
-    const html = await fetchText(url).catch(() => "");
+    const html = await fetchText(url, { headers: { Referer: `${this.baseUrl}/` } }).catch(() => "");
     const $ = cheerio.load(html);
     const name =
       stripTags($("meta[property='og:title']").attr("content")) ||
@@ -70,7 +98,6 @@ export class HomeCineProvider extends WebstreamBaseProvider {
       null;
     const description =
       stripTags($("meta[property='og:description']").attr("content")) ||
-      stripTags($(".sinopsis, .entry-content, .post-content").first().text()) ||
       "";
 
     return {
@@ -87,19 +114,55 @@ export class HomeCineProvider extends WebstreamBaseProvider {
   }
 
   async getStreams({ type, slug }) {
-    let pageUrl = absoluteUrl(slug, this.baseUrl);
-    let pageHtml = await fetchText(pageUrl).catch(() => "");
+    const pageUrl = absoluteUrl(slug, this.baseUrl);
+    const html = await fetchText(pageUrl, { headers: { Referer: `${this.baseUrl}/` } }).catch(() => "");
+    if (!html) return [];
 
-    if (!pageHtml) {
-      return [];
-    }
+    const $ = cheerio.load(html);
+    const rawCandidates = [];
 
-    const $ = cheerio.load(pageHtml);
-    const pageTitle = stripTags($("meta[property='og:title']").attr("content") || $("title").text());
-    const rawCandidates = this.extractRawCandidates(pageHtml, pageUrl, pageTitle);
+    // Based on WebStreamrMBG reference: .les-content a with language detection
+    $(".les-content a").each((_, el) => {
+      const $el = $(el);
+      const linkText = $el.text().toLowerCase();
+
+      let countryCode;
+      if (linkText.includes("latino")) {
+        countryCode = "mx";
+      } else if (linkText.includes("castellano")) {
+        countryCode = "es";
+      } else {
+        return;
+      }
+
+      // Extract iframe src from the href attribute
+      const href = $el.attr("href") || "";
+      if (!href) return;
+
+      // Try to extract iframe src from href
+      let iframeSrc = "";
+      const iframeMatch = href.match(/<iframe[^>]+src=["']([^"']+)["']/i);
+      if (iframeMatch) {
+        iframeSrc = iframeMatch[1];
+      } else if (href.startsWith("http")) {
+        iframeSrc = href;
+      }
+
+      if (!iframeSrc) return;
+
+      const rawUrl = absoluteUrl(iframeSrc, pageUrl);
+      if (!rawUrl) return;
+
+      rawCandidates.push({
+        source: "HomeCine",
+        label: countryCode === "mx" ? "[LAT] HomeCine" : "[CAST] HomeCine",
+        url: rawUrl
+      });
+    });
 
     const streams = await resolveWebstreamCandidates(this.id, rawCandidates);
-    return this.sortStreams(this.attachDisplayTitle(streams, pageTitle));
+    const title = stripTags($("meta[property='og:title']").attr("content") || $("title").text());
+    return this.sortStreams(this.attachDisplayTitle(streams, title));
   }
 
   async getStreamsFromExternalId({ type, externalId }) {
@@ -113,30 +176,101 @@ export class HomeCineProvider extends WebstreamBaseProvider {
       return [];
     }
 
-    const candidates = await this.searchWithFallbackQueries({ type, externalMeta });
-    const bestMatch = this.pickBestCandidate(candidates, externalMeta);
-    if (!bestMatch) {
+    // Try to find the page using fuzzy matching (Levenshtein distance)
+    // Based on WebStreamrMBG HomeCine reference implementation
+    const pageUrl = await this.fetchPageUrl(externalMeta.name, type, parsedExternal.season);
+    if (!pageUrl) {
+      // Fallback: try with original title if different
+      if (externalMeta.originalName && externalMeta.originalName !== externalMeta.name) {
+        const altUrl = await this.fetchPageUrl(externalMeta.originalName, type, parsedExternal.season);
+        if (!altUrl) return [];
+        return this.getStreams({ type, slug: new URL(altUrl).pathname });
+      }
       return [];
     }
 
-    let slug = bestMatch.id.split(":").slice(2).join(":");
+    let slug = new URL(pageUrl).pathname;
 
+    // For series, navigate to the specific episode
     if (type === "series" && parsedExternal.season && parsedExternal.episode) {
-      const pageUrl = absoluteUrl(slug, this.baseUrl);
-      const html = await fetchText(pageUrl).catch(() => "");
-      const suffix = `-temporada-${parsedExternal.season}-capitulo-${parsedExternal.episode}`;
-      const episodeHref = Array.from(html.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>/gi))
-        .map((item) => absoluteUrl(item[1], pageUrl))
-        .find((href) => href && href.endsWith(suffix));
-
-      if (!episodeHref) {
-        return [];
-      }
-
-      slug = new URL(episodeHref).pathname;
+      const episodeUrl = await this.fetchEpisodeUrl(pageUrl, parsedExternal.season, parsedExternal.episode);
+      if (!episodeUrl) return [];
+      slug = new URL(episodeUrl).pathname;
     }
 
     return this.getStreams({ type, slug });
+  }
+
+  /**
+   * Fetch page URL using fuzzy matching with Levenshtein distance.
+   * Based on WebStreamrMBG HomeCine reference implementation.
+   */
+  async fetchPageUrl(name, type, season) {
+    const searchUrl = `${this.baseUrl}/?s=${encodeURIComponent(name)}`;
+    const html = await fetchText(searchUrl, { headers: { Referer: `${this.baseUrl}/` } }).catch(() => "");
+    if (!html) return null;
+
+    const $ = cheerio.load(html);
+    const keywords = [...new Set([name, name.replace("-", "–"), name.replace("–", "-")])];
+
+    // Exact match first
+    for (const keyword of keywords) {
+      const href = $(`a[oldtitle="${keyword}"]`).first().attr("href");
+      if (href) {
+        const url = absoluteUrl(href, this.baseUrl);
+        // Filter by type (movie vs series)
+        const isSeries = /\/series\//i.test(url);
+        if ((type === "series" && isSeries) || (type === "movie" && !isSeries)) {
+          return url;
+        }
+      }
+    }
+
+    // Fuzzy match using Levenshtein distance (threshold < 5)
+    const candidates = [];
+    $('a[oldtitle]').each((_, el) => {
+      const title = ($(el).attr("oldtitle") || "").trim();
+      const href = $(el).attr("href") || "";
+      if (!title || !href) return;
+
+      const url = absoluteUrl(href, this.baseUrl);
+      const isSeries = /\/series\//i.test(url);
+
+      // Filter by type
+      if (!((type === "series" && isSeries) || (type === "movie" && !isSeries))) return;
+
+      // Check Levenshtein distance for each keyword
+      for (const keyword of keywords) {
+        const distance = levenshteinDistance(title, keyword);
+        if (distance < 5) {
+          candidates.push({ url, distance });
+          break;
+        }
+      }
+    });
+
+    // Return the best match (lowest distance)
+    candidates.sort((a, b) => a.distance - b.distance);
+    return candidates[0]?.url || null;
+  }
+
+  /**
+   * Fetch episode URL for series.
+   * Based on WebStreamrMBG reference implementation.
+   */
+  async fetchEpisodeUrl(pageUrl, season, episode) {
+    const html = await fetchText(pageUrl, { headers: { Referer: `${this.baseUrl}/` } }).catch(() => "");
+    if (!html) return null;
+
+    const $ = cheerio.load(html);
+    const targetSlug = `-temporada-${season}-capitulo-${episode}`;
+
+    // Look for links ending with the episode slug
+    const href = $('#seasons a').toArray()
+      .map(el => $(el).attr("href") || "")
+      .find(h => h.endsWith(targetSlug));
+
+    return href ? absoluteUrl(href, this.baseUrl) : null;
   }
 
   async debugStreamsFromExternalId({ type, externalId }) {
@@ -169,115 +303,10 @@ export class HomeCineProvider extends WebstreamBaseProvider {
       return debug;
     }
 
-    const candidates = await this.searchWithFallbackQueries({ type, externalMeta });
-    debug.candidates = candidates.map((candidate) => ({
-      id: candidate.id,
-      type: candidate.type,
-      name: candidate.name,
-      releaseInfo: candidate.releaseInfo || ""
-    }));
-
-    const bestMatch = this.pickBestCandidate(candidates, externalMeta);
-    debug.bestMatch = bestMatch
-      ? {
-          id: bestMatch.id,
-          type: bestMatch.type,
-          name: bestMatch.name,
-          releaseInfo: bestMatch.releaseInfo || ""
-        }
-      : null;
-
-    if (!bestMatch) {
-      debug.status = candidates.length ? "no_best_match" : "no_candidates";
-      return debug;
-    }
-
-    let slug = bestMatch.id.split(":").slice(2).join(":");
-
-    if (type === "series" && parsedExternal.season && parsedExternal.episode) {
-      const pageUrl = absoluteUrl(slug, this.baseUrl);
-      const html = await fetchText(pageUrl).catch(() => "");
-      const suffix = `-temporada-${parsedExternal.season}-capitulo-${parsedExternal.episode}`;
-      const episodeHref = Array.from(html.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>/gi))
-        .map((item) => absoluteUrl(item[1], pageUrl))
-        .find((href) => href && href.endsWith(suffix));
-      debug.episodeLookup = { suffix, found: Boolean(episodeHref) };
-
-      if (!episodeHref) {
-        debug.status = "no_matching_episode";
-        return debug;
-      }
-
-      slug = new URL(episodeHref).pathname;
-    }
-
-    const pageUrl = absoluteUrl(slug, this.baseUrl);
-    const pageHtml = await fetchText(pageUrl).catch(() => "");
-    const $ = cheerio.load(pageHtml);
-    const pageTitle = stripTags($("meta[property='og:title']").attr("content") || $("title").text());
-    const rawCandidates = this.extractRawCandidates(pageHtml, pageUrl, pageTitle);
-    const streams = await resolveWebstreamCandidates(this.id, rawCandidates);
-    const selectedStreams = this.sortStreams(streams);
-    debug.rawCandidateCount = rawCandidates.length;
-    debug.rawCandidateSample = rawCandidates.slice(0, 10).map((item) => item.url);
-    debug.streamCount = selectedStreams.length;
-    debug.streams = selectedStreams;
-    debug.status = selectedStreams.length ? "ok" : "no_streams";
+    const streams = await this.getStreamsFromExternalId({ type, externalId });
+    debug.streamCount = streams.length;
+    debug.streams = streams;
+    debug.status = streams.length ? "ok" : "no_streams";
     return debug;
   }
-
-  extractRawCandidates(pageHtml, pageUrl, pageTitle) {
-    const $ = cheerio.load(pageHtml);
-    const rawCandidates = [];
-    const pushRaw = (rawUrl) => {
-      const finalUrl = absoluteUrl(rawUrl, pageUrl);
-      if (!finalUrl) {
-        return;
-      }
-
-      rawCandidates.push({
-        source: "HomeCine",
-        label: `[LAT] ${pageTitle || "HomeCine"}`,
-        url: finalUrl
-      });
-    };
-
-    const extractEmbedsFromChunk = (chunk) => {
-      const html = String(chunk || "");
-      const iframeMatches = [
-        ...html.matchAll(/<iframe[^>]*src=["']([^"']+)["']/gi),
-        ...html.matchAll(/data-(?:src|link)=["']([^"']+)["']/gi)
-      ];
-
-      iframeMatches.forEach((match) => pushRaw(match[1]));
-    };
-
-    $(".les-content a, .tab-content a, .options a, a[href]").each((_, el) => {
-      const text = stripTags($(el).text()).toLowerCase();
-      const href = String($(el).attr("href") || "");
-      const title = String($(el).attr("title") || "").toLowerCase();
-      const context = `${text} ${title}`;
-
-      if (!context.includes("latino")) {
-        return;
-      }
-
-      if (href.startsWith("#")) {
-        extractEmbedsFromChunk($(href).html() || "");
-        return;
-      }
-
-      extractEmbedsFromChunk(href);
-      if (/^https?:\/\//i.test(href) || /^\/\//.test(href)) {
-        pushRaw(href);
-      }
-    });
-
-    for (const match of pageHtml.matchAll(/latino[\s\S]{0,2000}?(<iframe[^>]*src=["'][^"']+["'][\s\S]{0,500}?<\/iframe>|data-(?:src|link)=["'][^"']+["'])/gi)) {
-      extractEmbedsFromChunk(match[0]);
-    }
-
-    return Array.from(new Map(rawCandidates.map((item) => [item.url, item])).values());
-  }
 }
-

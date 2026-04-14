@@ -144,10 +144,18 @@ export async function resolveStreamsFromExternalId(type, id) {
     }, {});
 
   if (result.length > 0 || collectionTime > 5000) {
+    const streamUrls = result
+      .slice(0, 3)
+      .map((s) => s.url || "(no url)")
+      .join(", ");
+    const more = result.length > 3 ? ` (+${result.length - 3} more)` : "";
     console.log(
       `[streams] ${type}:${id} → ${result.length} streams, ${collectionTime}ms, ` +
       `${Object.keys(providerStatuses).length} providers contributed`
     );
+    if (streamUrls) {
+      console.log(`[streams]   URLs: ${streamUrls}${more}`);
+    }
   }
 
   return result;

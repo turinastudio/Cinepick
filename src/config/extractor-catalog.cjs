@@ -124,6 +124,123 @@ const EXTRACTOR_DEFINITIONS = [
     scopes: ["anime"],
     description: "Abre bien en navegador, pero no es consistente dentro de Stremio.",
     aliases: ["hls", "zilla", "zilla-networks"]
+  },
+  {
+    id: "vidhide",
+    label: "VidHide/StreamHide",
+    section: "experimental",
+    mode: "internal_experimental",
+    scopes: ["general", "anime"],
+    description: "Host popular con multiples dominios; puede variar en estabilidad.",
+    aliases: ["vidhide", "ahvsh", "streamhide", "guccihide", "streamvid", "kinoger", "smoothpre", "dhtpre", "peytonepre", "earnvids", "ryderjet", "vidhidehub", "filelions", "vidhidevip", "vidhidepre", "cvid"]
+  },
+  {
+    id: "vimeos",
+    label: "Vimeos",
+    section: "experimental",
+    mode: "internal_experimental",
+    scopes: ["general", "anime"],
+    description: "Host alternativo; calidad variable.",
+    aliases: ["vimeos", "vimeos.net"]
+  },
+  {
+    id: "goodstream",
+    label: "GoodStream",
+    section: "experimental",
+    mode: "internal_experimental",
+    scopes: ["general", "anime"],
+    description: "Host con multiples mirrors; puede ser inconsistente.",
+    aliases: ["goodstream", "goodstream.cc"]
+  },
+  {
+    id: "fastream",
+    label: "Fastream",
+    section: "experimental",
+    mode: "internal_experimental",
+    scopes: ["general", "anime"],
+    description: "Host disponible en varios providers; estabilidad variable.",
+    aliases: ["fastream", "fastream.to"]
+  },
+  {
+    id: "rpmvid",
+    label: "RpmVid",
+    section: "experimental",
+    mode: "internal_experimental",
+    scopes: ["general", "anime"],
+    description: "Host con cifrado AES; disponible en algunos embeds.",
+    aliases: ["rpmvid", "cubeembed"]
+  },
+  {
+    id: "emturbovid",
+    label: "EmTurboVid",
+    section: "experimental",
+    mode: "internal_experimental",
+    scopes: ["general"],
+    description: "Host HLS con dominios turbovid; puede variar.",
+    aliases: ["emturbovid", "turbovidhls", "turboviplay"]
+  },
+  {
+    id: "cuevanaplayer",
+    label: "Cuevana Player",
+    section: "experimental",
+    mode: "internal_experimental",
+    scopes: ["general"],
+    description: "Player propio de Cuevana; solo funciona con ese provider.",
+    aliases: ["cuevanaplayer", "player.cuevana3.eu"]
+  },
+  {
+    id: "strp2p",
+    label: "StrP2P",
+    section: "experimental",
+    mode: "internal_experimental",
+    scopes: ["general"],
+    description: "Player P2P embebido; disponibilidad variable.",
+    aliases: ["strp2p", "4meplayer", "upns.pro", "p2pplay"]
+  },
+  {
+    id: "streamembed",
+    label: "StreamEmbed",
+    section: "experimental",
+    mode: "internal_experimental",
+    scopes: ["general"],
+    description: "Host multi-mirror (BullStream, MP4Player).",
+    aliases: ["streamembed", "bullstream", "mp4player", "watch.gxplayer"]
+  },
+  {
+    id: "vidsrc",
+    label: "VidSrc",
+    section: "experimental",
+    mode: "internal_experimental",
+    scopes: ["general"],
+    description: "Fuente de terceros; puede ser inestable.",
+    aliases: ["vidsrc", "vsrc"]
+  },
+  {
+    id: "dropload",
+    label: "Dropload",
+    section: "experimental",
+    mode: "internal_experimental",
+    scopes: ["general"],
+    description: "Host alternativo con dominios DR0P.",
+    aliases: ["dropload", "dr0pstream"]
+  },
+  {
+    id: "vidora",
+    label: "Vidora",
+    section: "experimental",
+    mode: "internal_experimental",
+    scopes: ["general"],
+    description: "Host HLS; disponibilidad variable.",
+    aliases: ["vidora"]
+  },
+  {
+    id: "lamovie",
+    label: "LaMovie",
+    section: "experimental",
+    mode: "internal_experimental",
+    scopes: ["general"],
+    description: "Player interno del provider LaMovie.",
+    aliases: ["lamovie", "lamovie.link", "la.movie"]
   }
 ];
 

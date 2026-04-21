@@ -16,7 +16,7 @@ export function getIdPrefixes() {
 
 function isGeneralInternalId(type, id) {
   const resolved = resolveProviderFromMetaId(id);
-  return Boolean(resolved && resolved.type === type);
+  return Boolean(resolved?.type === type);
 }
 
 export function isProviderId(providerId) {
@@ -73,6 +73,34 @@ export async function resolveStreams(type, id) {
   };
 }
 
+export async function resolveCatalog(type, catalogId, extra = {}) {
+  const providerId = String(catalogId || "").split("|")[0] || "";
+  if (!providerId) {
+    return { mode: "unhandled", metas: [] };
+  }
+
+  const provider = getProviderByIdInternal(providerId);
+  if (!provider) {
+    return { mode: "disabled", providerId, metas: [] };
+  }
+
+  if (typeof provider.getCatalogItems !== "function") {
+    return { mode: "unhandled", providerId, metas: [] };
+  }
+
+  const metas = await provider.getCatalogItems({
+    type,
+    catalogId,
+    extra
+  });
+
+  return {
+    mode: "internal",
+    providerId: provider.id,
+    metas: Array.isArray(metas) ? metas : []
+  };
+}
+
 export async function resolveDebug(type, id) {
   const resolved = resolveGeneralMetaTarget(type, id);
 
@@ -110,7 +138,7 @@ export async function resolveProviderDebug(providerId, type, id) {
   }
 
   const resolved = resolveGeneralMetaTarget(type, id);
-  if (resolved && resolved.provider.id === providerId) {
+  if (resolved?.provider?.id === providerId) {
     const providerDebug = await provider.debugInternalStreams({
       type: resolved.type,
       slug: resolved.slug
@@ -138,6 +166,7 @@ export { isGeneralInternalId };
 export { resolveGeneralMetaTarget };
 export { resolveMeta as resolveGeneralMeta };
 export { resolveStreams as resolveGeneralStreams };
+export { resolveCatalog as resolveGeneralCatalog };
 export { resolveDebug as resolveGeneralDebug };
 export { resolveProviderDebug as resolveGeneralProviderDebug };
 

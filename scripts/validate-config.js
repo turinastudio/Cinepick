@@ -96,7 +96,9 @@ function validateRailway() {
 function validateManifest() {
   assert.equal(manifest.name, "Cinepick", "manifest.name debe ser Cinepick");
   assert.deepEqual(manifest.resources, ["meta", "stream", "catalog"], "manifest.resources debe exponer catalogos");
-  assert.deepEqual(manifest.types, ["movie", "series"], "manifest.types debe ser movie/series");
+  assert.ok(Array.isArray(manifest.types), "manifest.types debe existir");
+  assert.ok(manifest.types.includes("movie"), "manifest.types debe incluir movie");
+  assert.ok(manifest.types.includes("series"), "manifest.types debe incluir series");
   assert.ok(Array.isArray(manifest.catalogs) && manifest.catalogs.length > 0, "manifest.catalogs debe exponer onair y search");
   assert.ok(manifest.idPrefixes.includes("tt"), "manifest.idPrefixes debe incluir tt");
   assert.ok(manifest.idPrefixes.includes("animeflv:"), "manifest base debe publicar animeflv");

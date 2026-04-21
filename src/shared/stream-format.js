@@ -1,13 +1,13 @@
 function normalizeSpaces(value) {
-  return String(value || "").replace(/\s+/g, " ").trim();
+  return String(value ?? "").replace(/\s+/g, " ").trim();
 }
 
 function getRawTitle(stream) {
-  return normalizeSpaces(stream._rawTitle || stream.title || "");
+  return normalizeSpaces(stream._rawTitle ?? stream.title ?? "");
 }
 
 function extractLanguage(text) {
-  const value = String(text || "").toLowerCase();
+  const value = String(text ?? "").toLowerCase();
   if (value.includes("[lat]") || /\blatino\b|\blatam\b/.test(value)) return "Latino";
   if (value.includes("[cast]") || /\bcastellano\b|\bespa(?:n|\u00f1)ol\b/.test(value)) return "Castellano";
   if (value.includes("[sub]") || /\bsubtitulado\b|\bvose\b/.test(value)) return "Subtitulado";
@@ -15,7 +15,7 @@ function extractLanguage(text) {
 }
 
 function humanizeSource(source) {
-  const normalized = String(source || "").trim().toLowerCase();
+  const normalized = String(source ?? "").trim().toLowerCase();
   const aliases = {
     vidhide: "VidHide",
     netu: "Netu",
@@ -35,23 +35,23 @@ function humanizeSource(source) {
     generic: "Directo"
   };
 
-  return aliases[normalized] || String(source || "Directo").trim() || "Directo";
+  return aliases[normalized] ?? String(source ?? "Directo").trim() ?? "Directo";
 }
 
 function extractSource(stream) {
-  const explicit = String(stream._sourceLabel || "").trim();
+  const explicit = String(stream._sourceLabel ?? "").trim();
   if (explicit) {
     return humanizeSource(explicit);
   }
 
   const title = getRawTitle(stream);
-  const name = normalizeSpaces(stream.name || "");
-  return humanizeSource(title.split(/\s+/).at(-1) || name || "Directo");
+  const name = normalizeSpaces(stream.name ?? "");
+  return humanizeSource(title.split(/\s+/).at(-1) ?? name ?? "Directo");
 }
 
 function stripPresentationTokens(text) {
   return normalizeSpaces(
-    String(text || "")
+    String(text ?? "")
       .replace(/\[(lat|cast|sub)\]/gi, " ")
       .replace(/\b(latino|latam|castellano|subtitulado|vose)\b/gi, " ")
       .replace(/\b(2160p|4k|1080p|720p|480p|full hd|hd)\b/gi, " ")
@@ -61,7 +61,7 @@ function stripPresentationTokens(text) {
 }
 
 function extractDisplayTitle(stream) {
-  const preferred = normalizeSpaces(stream.descriptionTitle || stream._displayTitle || "");
+  const preferred = normalizeSpaces(stream.descriptionTitle ?? stream._displayTitle ?? "");
   if (preferred) {
     return preferred;
   }
@@ -72,25 +72,25 @@ function extractDisplayTitle(stream) {
     return cleaned;
   }
 
-  const shortDescription = normalizeSpaces(stream.description || "");
+  const shortDescription = normalizeSpaces(stream.description ?? "");
   if (shortDescription && shortDescription.length <= 120 && !/[.!?].+[.!?]/.test(shortDescription)) {
     return shortDescription;
   }
 
-  return rawTitle || "Stream";
+  return rawTitle ?? "Stream";
 }
 
 export function buildHttpStreamTitle(stream) {
-  const currentTitle = String(stream.title || "");
+  const currentTitle = String(stream.title ?? "");
   if (currentTitle.startsWith("Apoyar ")) {
     return currentTitle;
   }
 
   const rawTitle = getRawTitle(stream);
-  const language = extractLanguage(`${rawTitle} ${stream.name || ""}`);
+  const language = extractLanguage(`${rawTitle} ${stream.name ?? ""}`);
   const source = extractSource(stream);
   const displayTitle = extractDisplayTitle(stream);
-  const provider = normalizeSpaces(stream.name || "Cinepick");
+  const provider = normalizeSpaces(stream.name ?? "Cinepick");
 
   return [
     displayTitle,

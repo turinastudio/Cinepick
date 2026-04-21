@@ -30,6 +30,12 @@ export function createCache(options = {}) {
   /** @type {Map<string, Promise<any>>} */
   const inflight = new Map();
 
+  // ── Metrics ──────────────────────────────────────────────────
+  let hits = 0;
+  let misses = 0;
+  let errors = 0;
+  let sets = 0;
+
   // Background sweep (unref'd so it doesn't keep the process alive).
   const sweepTimer = setInterval(() => {
     const now = Date.now();
@@ -67,14 +73,17 @@ export function createCache(options = {}) {
   function get(key) {
     const entry = store.get(key);
     if (!entry) {
+      misses++;
       return undefined;
     }
 
     if (entry.expiresAt <= Date.now()) {
       store.delete(key);
+      misses++;
       return undefined;
     }
 
+    hits++;
     return entry.value;
   }
 
@@ -89,6 +98,7 @@ export function createCache(options = {}) {
       value,
       expiresAt: Date.now() + (ttlMs || defaultTtlMs)
     });
+    sets++;
     evictIfNeeded();
   }
 
@@ -123,6 +133,7 @@ export function createCache(options = {}) {
       },
       (error) => {
         inflight.delete(key);
+        errors++;
         throw error;
       }
     );
@@ -144,6 +155,10 @@ export function createCache(options = {}) {
   function clear() {
     store.clear();
     inflight.clear();
+    hits = 0;
+    misses = 0;
+    errors = 0;
+    sets = 0;
   }
 
   /** Current number of stored entries. */
@@ -151,7 +166,22 @@ export function createCache(options = {}) {
     return store.size;
   }
 
-  return { get, set, getOrSet, del, clear, size };
+  /** Cache metrics for debugging and monitoring. */
+  function stats() {
+    const total = hits + misses;
+    return {
+      hits,
+      misses,
+      errors,
+      sets,
+      size: store.size,
+      inflightCount: inflight.size,
+      hitRate: total > 0 ? (hits / total) : 0,
+      missRate: total > 0 ? (misses / total) : 0
+    };
+  }
+
+  return { get, set, getOrSet, del, clear, size, stats };
 }
 
 // Shared singleton caches for the most common use cases.

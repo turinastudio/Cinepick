@@ -2,7 +2,7 @@ import { animeEngine, generalEngine } from "../../engines/index.js";
 import { json } from "../../lib/http.js";
 import { appendSupportStream } from "../../lib/support-stream.js";
 import { createDebugLogger } from "../../shared/debug.js";
-import { validateStreamRequest, validateStremioId, validateProviderId, validateSearchQuery, validateSkip } from "../../lib/validators.js";
+import { validateStreamRequest, validateStremioType, validateProviderId, validateSearchQuery, validateSkip } from "../../lib/validators.js";
 import { NotFoundError } from "../errors.js";
 
 const animeDebugLog = createDebugLogger("anime-engine", () =>
@@ -243,20 +243,34 @@ export async function handleCatalog(req, res, { requestConfig, animeEngineEnable
     return true;
   }
 
-  if (!animeEngineEnabled || (requestConfig && !requestConfig?.engines?.anime)) {
-    json(res, 200, { metas: [] });
-    return true;
-  }
-
   try {
     const extraParams = new URLSearchParams(extraArgs ? decodeURIComponent(extraArgs.replace(/\.json$/, "")) : "");
     const searchParam = extraParams.get("search") || null;
     let genresParam = extraParams.getAll("genre");
     genresParam = genresParam.length > 0 ? genresParam : null;
+    const genreParam = genresParam?.[0] || null;
     const rawSkip = extraParams.get("skip");
     const skip = validateSkip(rawSkip);
 
     let metas = [];
+
+    if (/^(serieskao|gnula)\|/i.test(decodedId)) {
+      const catalog = await generalEngine.resolveCatalog(rawType, decodedId, {
+        search: searchParam,
+        skip,
+        genre: genreParam
+      });
+
+      metas = Array.isArray(catalog?.metas) ? catalog.metas : [];
+      res.setHeader("Cache-Control", "max-age=259200, stale-while-revalidate=86400, stale-if-error=259200");
+      json(res, 200, { metas });
+      return true;
+    }
+
+    if (!animeEngineEnabled || (requestConfig && !requestConfig?.engines?.anime)) {
+      json(res, 200, { metas: [] });
+      return true;
+    }
 
     if (decodedId.startsWith("animeav1")) {
       const animeav1 = await import("../../engines/anime/runtime/providers/animeav1-client.js");

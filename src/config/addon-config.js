@@ -2,10 +2,9 @@ import crypto from "node:crypto";
 import zlib from "node:zlib";
 import extractorCatalogShared from "./extractor-catalog.cjs";
 import { providers as generalBaseProviders } from "../engines/general/providers/core.js";
-import { providers as animeRegistryShared } from "../engines/anime/runtime/providers/registry.js";
+import { providers as animeBaseProviders } from "../engines/anime/runtime/providers/registry.js";
 
 const { getExtractorDefinitions } = extractorCatalogShared;
-const { providers: animeBaseProviders = [] } = animeRegistryShared;
 
 export const CONFIG_VERSION = 1;
 export const CONFIG_PATH_PREFIX = "/c";
@@ -103,6 +102,15 @@ export function getDefaultAddonConfig() {
   const generalProviders = Object.fromEntries(
     capabilities.providers.general.map((provider) => [provider.id, provider.available])
   );
+  generalProviders.lamovie = false;
+  generalProviders.cinecalidad = false;
+  generalProviders.homecine = false;
+  generalProviders.embed69 = false;
+  generalProviders.cinehdplus = false;
+  generalProviders.tioplus = false;
+  generalProviders.seriesmetro = false;
+  generalProviders.pelisplushd = false;
+  generalProviders.verhdlink = false;
   const animeProviders = Object.fromEntries(
     capabilities.providers.anime.map((provider) => [provider.id, provider.available])
   );
@@ -129,7 +137,7 @@ export function getDefaultAddonConfig() {
     },
     selection: {
       mode: "global",
-      maxResults: 2,
+      maxResults: 20,
       internalOnly: true
     },
     support: {
@@ -191,7 +199,7 @@ export function normalizeAddonConfig(rawConfig = {}) {
         ? String(requested.selection.mode).trim().toLowerCase()
         : defaults.selection.mode,
       maxResults: Number.isInteger(maxResults)
-        ? Math.max(1, Math.min(50, maxResults))
+        ? Math.max(1, Math.min(100, maxResults))
         : defaults.selection.maxResults,
       internalOnly: asBoolean(requested?.selection?.internalOnly, defaults.selection.internalOnly)
     },

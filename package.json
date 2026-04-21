@@ -7,13 +7,16 @@
   "scripts": {
     "start": "node src/app/server.js",
     "dev": "node --watch src/app/server.js",
-    "test": "npm run test:config && npm run test:arch && npm run test:smoke",
+    "test": "npm run test:config && npm run test:arch && npm run test:smoke && npm run test:unit",
     "test:arch": "node scripts/validate-architecture.js",
     "test:provider": "node scripts/test-provider.js",
     "test:regression": "node scripts/test-regressions.js",
     "test:smoke": "node scripts/smoke-tests.js",
     "test:config": "node scripts/validate-config.js",
-    "test:remote": "node scripts/test-remote.js"
+    "test:remote": "node scripts/test-remote.js",
+    "test:unit": "node --test src/tests/unit/**/*.test.js",
+    "diagnose": "node scripts/diagnose.js",
+    "test:providers": "node scripts/provider-health.js"
   },
   "dependencies": {
     "axios": "^1.13.6",

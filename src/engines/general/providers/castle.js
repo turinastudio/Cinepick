@@ -1,7 +1,7 @@
 import { buildStream } from "../../../lib/extractors.js";
 import { scoreAndSelectStreams } from "../scoring.js";
 import { fetchJson as sharedFetchJson, fetchWithRetry as sharedFetchWithRetry } from "../../../shared/fetch.js";
-import { fetchTmdbMediaFromImdb, basicTitleSimilarity } from "../../../lib/tmdb.js";
+import { fetchTmdbMediaFromImdb, fetchTmdbEpisodeName, basicTitleSimilarity } from "../../../lib/tmdb.js";
 import { parseExternalStremioId } from "../../../lib/webstreamer/common.js";
 import { Provider } from "./base.js";
 
@@ -127,6 +127,7 @@ export class CastleProvider extends Provider {
     const detailsData = extractDataBlock(details);
     const episodes = Array.isArray(detailsData.episodes) ? detailsData.episodes : [];
     let episodeId = null;
+    let episodeTitle = "";
 
     if (type === "series" && parsedExternal.season && parsedExternal.episode) {
       const episode = episodes.find((item) => Number(item.number) === Number(parsedExternal.episode));
@@ -135,14 +136,25 @@ export class CastleProvider extends Provider {
         return debug;
       }
       episodeId = String(episode.id);
+      episodeTitle = episode.title || "";
+
+      // If Castle title is generic, try fetching real title from TMDB
+      if (!episodeTitle || /^episode\s+\d+$/i.test(episodeTitle) || /^episodio\s+\d+$/i.test(episodeTitle)) {
+        const tmdbEpisodeName = await fetchTmdbEpisodeName(tmdbInfo.tmdbId, parsedExternal.season, parsedExternal.episode).catch(() => null);
+        if (tmdbEpisodeName) {
+          episodeTitle = tmdbEpisodeName;
+        }
+      }
+
       debug.matchingEpisode = {
         id: episodeId,
-        title: episode.title || "",
+        title: episodeTitle,
         season: parsedExternal.season,
         episode: parsedExternal.episode
       };
     } else if (episodes[0]?.id) {
       episodeId = String(episodes[0].id);
+      episodeTitle = episodes[0].title || "";
     }
 
     if (!episodeId) {
@@ -169,13 +181,13 @@ export class CastleProvider extends Provider {
         if (!track.existIndividualVideo || !track.languageId) continue;
         const videoData = await this.getVideoV1(securityKey, currentMovieId, episodeId, track.languageId, resolution).catch(() => null);
         if (!videoData) continue;
-        streams.push(...this.processVideoResponse(videoData, tmdbInfo, parsedExternal, resolution, toLanguageTag(track)));
+        streams.push(...this.processVideoResponse(videoData, tmdbInfo, parsedExternal, resolution, toLanguageTag(track), episodeTitle));
       }
     }
 
     if (streams.length === 0) {
       const videoData = await this.getVideo2(securityKey, currentMovieId, episodeId, resolution).catch(() => null);
-      if (videoData) streams.push(...this.processVideoResponse(videoData, tmdbInfo, parsedExternal, resolution, "[MULTI]"));
+      if (videoData) streams.push(...this.processVideoResponse(videoData, tmdbInfo, parsedExternal, resolution, "[MULTI]", episodeTitle));
     }
 
     const selectedStreams = scoreAndSelectStreams(this.id, streams);
@@ -185,23 +197,22 @@ export class CastleProvider extends Provider {
     return debug;
   }
 
-  processVideoResponse(videoData, tmdbInfo, parsedExternal, resolution, languageTag) {
+  processVideoResponse(videoData, tmdbInfo, parsedExternal, resolution, languageTag, episodeTitle = "") {
     const streams = [];
     const data = extractDataBlock(videoData);
     const videoUrl = data.videoUrl;
     if (!videoUrl) return streams;
-    const displayTitle = parsedExternal.season && parsedExternal.episode
-      ? `${tmdbInfo.title} S${String(parsedExternal.season).padStart(2, "0")}E${String(parsedExternal.episode).padStart(2, "0")}`
-      : `${tmdbInfo.title}${tmdbInfo.year ? ` (${tmdbInfo.year})` : ""}`;
+
+    let displayTitle = tmdbInfo.title;
+    if (episodeTitle) {
+      displayTitle = `${tmdbInfo.title} - ${episodeTitle}`;
+    }
 
     const add = (url, quality) => {
       streams.push({
         ...buildStream("Castle", `${languageTag} ${quality} castle`, url, PLAYBACK_HEADERS, true),
         _displayTitle: displayTitle,
-        _providerId: this.id,
-        description: parsedExternal.season && parsedExternal.episode
-          ? `${tmdbInfo.title} S${String(parsedExternal.season).padStart(2, "0")}E${String(parsedExternal.episode).padStart(2, "0")}`
-          : `${tmdbInfo.title}${tmdbInfo.year ? ` (${tmdbInfo.year})` : ""}`
+        _providerId: this.id
       });
     };
 

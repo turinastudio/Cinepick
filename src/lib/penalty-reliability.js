@@ -9,9 +9,11 @@ const LEGACY_PENALTY_FILE = path.join(LEGACY_DATA_DIR, "source-penalties.json");
 const PENALTY_PER_FAILURE = 15;
 const RECOVERY_PER_SUCCESS = 10;
 const MAX_PENALTY = 120;
+const PERSIST_DEBOUNCE_MS = 1000;
 
 const sourcePenalties = new Map();
 let loaded = false;
+let persistTimer = null;
 
 function ensureLoaded() {
   if (loaded) {
@@ -44,23 +46,31 @@ function ensureLoaded() {
 }
 
 function persist() {
-  try {
-    if (!fs.existsSync(RUNTIME_DATA_DIR)) {
-      fs.mkdirSync(RUNTIME_DATA_DIR, { recursive: true });
-    }
+  // Debounce: cancel previous timer, schedule new write
+  if (persistTimer) clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    try {
+      if (!fs.existsSync(RUNTIME_DATA_DIR)) {
+        fs.mkdirSync(RUNTIME_DATA_DIR, { recursive: true });
+      }
 
-    fs.writeFileSync(
-      PENALTY_FILE,
-      JSON.stringify(Object.fromEntries(sourcePenalties.entries()), null, 2),
-      "utf8"
-    );
-  } catch {
-    // Persistence failures should not break stream resolution.
-  }
+      fs.writeFileSync(
+        PENALTY_FILE,
+        JSON.stringify(Object.fromEntries(sourcePenalties.entries()), null, 2),
+        "utf8"
+      );
+    } catch {
+      // Persistence failures should not break stream resolution.
+    }
+    persistTimer = null;
+  }, PERSIST_DEBOUNCE_MS);
+
+  // Don't keep process alive just for persistence
+  if (persistTimer.unref) persistTimer.unref();
 }
 
 function normalizeKey(key) {
-  return String(key || "").trim().toLowerCase();
+  return String(key ?? "").trim().toLowerCase();
 }
 
 export function markSourceFailure(key) {
@@ -73,7 +83,7 @@ export function markSourceFailure(key) {
 
   const nextPenalty = Math.min(
     MAX_PENALTY,
-    (sourcePenalties.get(normalized) || 0) + PENALTY_PER_FAILURE
+    (sourcePenalties.get(normalized) ?? 0) + PENALTY_PER_FAILURE
   );
   sourcePenalties.set(normalized, nextPenalty);
   persist();
@@ -87,7 +97,7 @@ export function markSourceSuccess(key) {
     return;
   }
 
-  const current = sourcePenalties.get(normalized) || 0;
+  const current = sourcePenalties.get(normalized) ?? 0;
   if (current <= 0) {
     return;
   }
@@ -103,7 +113,7 @@ export function markSourceSuccess(key) {
 
 export function getPenaltyForSource(key) {
   ensureLoaded();
-  return sourcePenalties.get(normalizeKey(key)) || 0;
+  return sourcePenalties.get(normalizeKey(key)) ?? 0;
 }
 
 export function getPenaltySnapshot() {

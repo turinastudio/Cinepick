@@ -26,11 +26,49 @@ export class SerieskaoProvider extends Provider {
       return [];
     }
 
-    const html = await this.fetchText(`${this.baseUrl}/search?s=${encodeURIComponent(query.trim())}&page=1`);
+    const normalizedQuery = query.trim();
+    const items = [];
+    const maxPages = 8;
+
+    for (let page = 1; page <= maxPages; page += 1) {
+      const html = await this.fetchText(
+        `${this.baseUrl}/search?s=${encodeURIComponent(normalizedQuery)}&page=${page}`
+      ).catch(() => "");
+
+      if (!html) {
+        break;
+      }
+
+      const pageItems = this.extractSearchItems(html, type);
+      items.push(...pageItems);
+
+      if (!this.hasSearchNextPage(html, page, normalizedQuery) || pageItems.length === 0) {
+        break;
+      }
+    }
+
+    return this.dedupeById(items);
+  }
+
+  async getCatalogItems({ type, catalogId, extra = {} }) {
+    if (String(catalogId || "") === "serieskao|search") {
+      return this.search({
+        type: null,
+        query: String(extra.search || "").trim()
+      });
+    }
+
+    const url = this.buildCatalogUrl(catalogId, extra);
+    if (!url) {
+      return [];
+    }
+
+    const html = await this.fetchText(url);
+    const itemType = this.resolveCatalogType(type, catalogId);
     const items = [];
 
-    for (const match of html.matchAll(/<a\b[^>]*href=["']([^"']*\/(?:pelicula|serie|anime|animes|dorama)\/[^"']+)["'][^>]*>[\s\S]*?<\/a>/gi)) {
-      const mapped = this.mapSearchAnchor(match[0], type);
+    for (const match of html.matchAll(/<a\b[^>]*class=["'][^"']*\bposter-card\b[^"']*["'][^>]*>[\s\S]*?<\/a>/gi)) {
+      const mapped = this.mapSearchAnchor(match[0], itemType);
       if (mapped) {
         items.push(mapped);
       }
@@ -43,16 +81,17 @@ export class SerieskaoProvider extends Provider {
     const target = this.parseSlugPayload(type, slug);
     const html = await this.fetchText(target.url);
     const resolvedType = this.resolveTypeFromPath(target.path, type);
+    const poster = this.extractPoster(html);
     const videos = resolvedType === "series" && !target.isEpisode
-      ? this.buildEpisodeVideos(html, target.path)
+      ? this.buildEpisodeVideos(html, target.path, { seriesPoster: poster })
       : [];
 
     return {
       id: buildStremioId(this.id, resolvedType, target.slug),
       type: resolvedType,
       name: this.extractTitle(html) || this.unslugify(target.primarySlug),
-      poster: this.extractPoster(html),
-      background: this.extractPoster(html),
+      poster,
+      background: poster,
       description: this.extractDescription(html),
       genres: this.extractGenres(html),
       cast: [],
@@ -106,7 +145,9 @@ export class SerieskaoProvider extends Provider {
 
     if (type === "series" && parsedExternal.season && parsedExternal.episode) {
       const seriesMeta = await this.getMeta({ type: "series", slug });
-      const matchingVideo = this.findMatchingEpisodeVideo(seriesMeta.videos || [], parsedExternal);
+      const matchingVideo =
+        this.findMatchingEpisodeVideo(seriesMeta.videos || [], parsedExternal)
+        || await this.findDirectEpisodeVideoSlug(slug, parsedExternal);
       if (!matchingVideo?.id) {
         return [];
       }
@@ -199,11 +240,13 @@ export class SerieskaoProvider extends Provider {
         title: video.title
       }));
 
-      const matchingVideo = this.findMatchingEpisodeVideo(seriesMeta.videos || [], parsedExternal);
+      const matchingVideo =
+        this.findMatchingEpisodeVideo(seriesMeta.videos || [], parsedExternal)
+        || await this.findDirectEpisodeVideoSlug(slug, parsedExternal);
       debug.matchingVideo = matchingVideo
         ? {
-            id: matchingVideo.id,
-            season: matchingVideo.season,
+          id: matchingVideo.id,
+          season: matchingVideo.season,
             episode: matchingVideo.episode,
             title: matchingVideo.title
           }
@@ -369,7 +412,7 @@ export class SerieskaoProvider extends Provider {
     };
   }
 
-  buildEpisodeVideos(html, seriesPath) {
+  buildEpisodeVideos(html, seriesPath, options = {}) {
     const seasonTabs = Array.from(
       html.matchAll(/<a\b[^>]*data-tab=["']([^"']+)["'][^>]*>[\s\S]*?<\/a>/gi),
       (match) => ({
@@ -377,18 +420,26 @@ export class SerieskaoProvider extends Provider {
         seasonNumber: Number(this.cleanText(match[0]).match(/\d+/)?.[0] || match[1].match(/\d+/)?.[0] || 1)
       })
     );
+    const seriesPoster = options.seriesPoster || null;
+    const seasonVideos = [];
 
     if (seasonTabs.length === 0) {
-      return this.sortEpisodeVideos(this.extractEpisodeItems(html, 1, seriesPath));
+      seasonVideos.push(...this.extractEpisodeItems(html, 1, seriesPath));
+    } else {
+      for (const tab of seasonTabs) {
+        const seasonHtml = this.extractSeasonPane(html, tab.seasonId, seasonTabs.map((item) => item.seasonId));
+        seasonVideos.push(...this.extractEpisodeItems(seasonHtml, tab.seasonNumber, seriesPath));
+      }
     }
 
-    const videos = [];
-    for (const tab of seasonTabs) {
-      const seasonHtml = this.extractSeasonPane(html, tab.seasonId, seasonTabs.map((item) => item.seasonId));
-      videos.push(...this.extractEpisodeItems(seasonHtml, tab.seasonNumber, seriesPath));
-    }
-
-    return this.sortEpisodeVideos(videos);
+    const hrefVideos = this.extractEpisodeHrefVideos(html, seriesPath);
+    return this.sortEpisodeVideos(this.mergeEpisodeVideos(
+      [
+        ...seasonVideos.map((video) => ({ ...video, _source: "season-pane" })),
+        ...hrefVideos.map((video) => ({ ...video, _source: "href-fallback" }))
+      ],
+      { seriesPoster }
+    ));
   }
 
   extractEpisodeItems(html, seasonNumber, seriesPath) {
@@ -419,8 +470,51 @@ export class SerieskaoProvider extends Provider {
           `ep:${this.encodePathToken(episodePath)}:${seasonNumber}:${episodeNumber}:${this.encodePathToken(seriesPath)}`
         ),
         title: `T${seasonNumber} - Episodio ${episodeNumber}: ${episodeTitle}`,
+        thumbnail: this.extractEpisodeThumbnail(episodeBlock),
         season: seasonNumber,
         episode: episodeNumber
+      });
+    }
+
+    return episodes;
+  }
+
+  extractEpisodeHrefVideos(html, seriesPath) {
+    const episodes = [];
+    const seenPaths = new Set();
+
+    for (const match of html.matchAll(/<a\b[^>]*href=["']([^"']*\/temporada\/\d+\/capitulo\/\d+\/?)["'][^>]*>[\s\S]*?<\/a>/gi)) {
+      const block = match[0];
+      const episodePath = this.normalizePath(match[1]);
+      if (!episodePath || seenPaths.has(episodePath)) {
+        continue;
+      }
+
+      const pathMatch = episodePath.match(/\/temporada\/(\d+)\/capitulo\/(\d+)\/?$/i);
+      if (!pathMatch) {
+        continue;
+      }
+
+      seenPaths.add(episodePath);
+
+      const season = Number(pathMatch[1]) || 1;
+      const episode = Number(pathMatch[2]) || 0;
+      const episodeTitle = this.cleanText(
+        this.extractFirstMatch(block, /<[^>]+class=["'][^"']*\bepisode-title\b[^"']*["'][^>]*>([\s\S]*?)<\/[^>]+>/i)
+        || this.extractFirstMatch(block, /<img[^>]+alt=["']([^"']+)["']/i)
+        || this.extractFirstMatch(block, /title=["']([^"']+)["']/i)
+      ) || `Episodio ${episode || "?"}`;
+
+      episodes.push({
+        id: buildStremioId(
+          this.id,
+          "series",
+          `ep:${this.encodePathToken(episodePath)}:${season}:${episode}:${this.encodePathToken(seriesPath)}`
+        ),
+        title: `T${season} - Episodio ${episode}: ${episodeTitle}`,
+        thumbnail: this.extractEpisodeThumbnail(block),
+        season,
+        episode
       });
     }
 
@@ -443,6 +537,38 @@ export class SerieskaoProvider extends Provider {
       if (seasonDiff !== 0) return seasonDiff;
       return Number(b.episode) - Number(a.episode);
     });
+  }
+
+  mergeEpisodeVideos(videos, options = {}) {
+    const merged = new Map();
+    const seriesPoster = options.seriesPoster || null;
+
+    for (const video of videos) {
+      const normalized = {
+        ...video,
+        thumbnail: video.thumbnail || seriesPoster || null
+      };
+      const season = Number(normalized.season) || 0;
+      const episode = Number(normalized.episode) || 0;
+      const key = season > 0 && episode > 0 ? `${season}:${episode}` : normalized.id;
+      const current = merged.get(key);
+      if (!current || this.scoreEpisodeVideoCompleteness(normalized) > this.scoreEpisodeVideoCompleteness(current)) {
+        merged.set(key, normalized);
+      }
+    }
+
+    return Array.from(merged.values()).map(({ _source, ...video }) => video);
+  }
+
+  scoreEpisodeVideoCompleteness(video) {
+    let score = 0;
+    if (video.thumbnail) score += 4;
+    if (video.season) score += 2;
+    if (video.episode) score += 2;
+    if (video.id) score += 1;
+    if (video.title && !/episodio\s+\d+\s*$/i.test(video.title)) score += 3;
+    if (video._source === "season-pane") score += 1;
+    return score;
   }
 
   extractVideoSourcePages(html) {
@@ -809,6 +935,39 @@ export class SerieskaoProvider extends Provider {
     ) || null;
   }
 
+  async findDirectEpisodeVideoSlug(seriesSlug, parsedExternal) {
+    if (!seriesSlug || !parsedExternal?.season || !parsedExternal?.episode) {
+      return null;
+    }
+
+    const seriesPath = this.decodePathToken(String(seriesSlug || ""));
+    if (!seriesPath) {
+      return null;
+    }
+
+    const episodePath = `${seriesPath.replace(/\/+$/, "")}/temporada/${parsedExternal.season}/capitulo/${parsedExternal.episode}`;
+
+    try {
+      const html = await this.fetchText(this.toAbsoluteUrl(episodePath));
+      if (!this.extractVideoSourcePages(html).length) {
+        return null;
+      }
+
+      return {
+        id: buildStremioId(
+          this.id,
+          "series",
+          `ep:${this.encodePathToken(episodePath)}:${parsedExternal.season}:${parsedExternal.episode}:${this.encodePathToken(seriesPath)}`
+        ),
+        season: Number(parsedExternal.season),
+        episode: Number(parsedExternal.episode),
+        title: `T${parsedExternal.season} - Episodio ${parsedExternal.episode}`
+      };
+    } catch {
+      return null;
+    }
+  }
+
   pickBestCandidate(candidates, externalMeta) {
     const targetTitle = this.normalizeTitle(externalMeta.name);
     const targetYear = this.extractYear(externalMeta.releaseInfo || externalMeta.year || "");
@@ -884,6 +1043,56 @@ export class SerieskaoProvider extends Provider {
     return fallbackType || "series";
   }
 
+  resolveCatalogType(type, catalogId) {
+    if (type === "movie" || type === "series") {
+      return type;
+    }
+
+    return String(catalogId || "").includes("|movies") ? "movie" : "series";
+  }
+
+  buildCatalogUrl(catalogId, extra = {}) {
+    const page = Math.max(1, Math.floor(Number(extra.skip || 0) / 24) + 1);
+    const querySuffix = page > 1 ? `?page=${page}` : "";
+    const id = String(catalogId || "");
+    const normalizedGenre = this.normalizeCatalogSection(extra.genre);
+    const defaultYear = String(extra.year || new Date().getFullYear());
+
+    if (id === "serieskao|movies|popular") {
+      if (normalizedGenre && normalizedGenre !== "top") {
+        return `${this.baseUrl}/generos/${normalizedGenre}/peliculas${querySuffix}`;
+      }
+      return `${this.baseUrl}/peliculas/populares${querySuffix}`;
+    }
+
+    if (id === "serieskao|series|popular") {
+      if (normalizedGenre && normalizedGenre !== "top") {
+        return `${this.baseUrl}/generos/${normalizedGenre}/series${querySuffix}`;
+      }
+      return `${this.baseUrl}/series/populares${querySuffix}`;
+    }
+
+    if (id === "serieskao|movies|year") {
+      return `${this.baseUrl}/year/${defaultYear}/peliculas${querySuffix}`;
+    }
+
+    if (id === "serieskao|series|year") {
+      return `${this.baseUrl}/year/${defaultYear}/series${querySuffix}`;
+    }
+
+    return null;
+  }
+
+  normalizeCatalogSection(value) {
+    return String(value || "")
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replaceAll(/[\u0300-\u036f]/g, "")
+      .replaceAll(/[^a-z0-9]+/g, "-")
+      .replaceAll(/^-+|-+$/g, "");
+  }
+
   detectLanguageTag(url) {
     const value = String(url || "").toLowerCase();
     if (value.includes("lat")) return "[LAT]";
@@ -898,7 +1107,7 @@ export class SerieskaoProvider extends Provider {
     if (lower.includes("filemoon") || lower.includes("moonplayer")) return "filemoon";
     if (lower.includes("uqload")) return "uqload";
     if (lower.includes("mp4upload")) return "mp4upload";
-    if (lower.includes("streamwish") || lower.includes("wishembed") || lower.includes("strwish")) return "streamwish";
+    if (lower.includes("streamwish") || lower.includes("wishembed") || lower.includes("strwish") || lower.includes("hglink")) return "streamwish";
     if (lower.includes("dood")) return "doodstream";
     if (lower.includes("streamlare")) return "streamlare";
     if (lower.includes("yourupload") || lower.includes("upload")) return "yourupload";
@@ -906,7 +1115,7 @@ export class SerieskaoProvider extends Provider {
     if (lower.includes("fastream")) return "fastream";
     if (lower.includes("upstream")) return "upstream";
     if (lower.includes("streamtape") || lower.includes("stape")) return "streamtape";
-    if (lower.includes("streamhide") || lower.includes("vidhide") || lower.includes("streamvid")) return "vidhide";
+    if (lower.includes("streamhide") || lower.includes("vidhide") || lower.includes("streamvid") || lower.includes("minochinos")) return "vidhide";
     if (lower.includes("vidguard") || lower.includes("guard")) return "vidguard";
     return lower || "generic";
   }
@@ -960,7 +1169,9 @@ export class SerieskaoProvider extends Provider {
 
   extractTitle(html) {
     const raw = this.cleanText(
-      this.extractFirstMatch(html, /<h1\b[^>]*>([\s\S]*?)<\/h1>/i)
+      this.extractMetaContent(html, "og:title")
+      || this.extractMetaContent(html, "twitter:title")
+      || this.extractFirstMatch(html, /<h1\b[^>]*>([\s\S]*?)<\/h1>/i)
       || this.extractFirstMatch(html, /<h1[^>]+class=["'][^"']*\bm-b-5\b[^"']*["'][^>]*>([\s\S]*?)<\/h1>/i)
       || this.extractFirstMatch(html, /<title>([^<]+)<\/title>/i)
     );
@@ -969,17 +1180,28 @@ export class SerieskaoProvider extends Provider {
       .replace(/^ver\s+/i, "")
       .replace(/\s*online\s*-\s*serieskao\s*$/i, "")
       .replace(/\s*-\s*serieskao\s*$/i, "")
+      .replace(/\s*\(\d{4}\)\s*online$/i, "")
       .trim();
   }
 
   extractPoster(html) {
-    const raw = this.extractFirstMatch(html, /<img[^>]+class=["'][^"']*\bimg-fluid\b[^"']*["'][^>]+(?:src|data-src)=["']([^"']+)["']/i)
-      || this.extractFirstMatch(html, /<img[^>]+(?:src|data-src)=["']([^"']+)["'][^>]+class=["'][^"']*\bimg-fluid\b[^"']*["']/i);
+    const raw = this.extractMetaContent(html, "og:image")
+      || this.extractMetaContent(html, "twitter:image")
+      || this.extractFirstMatch(html, /<img[^>]+class=["'][^"']*\bimg-fluid\b[^"']*["'][^>]+(?:src|data-src)=["']([^"']+)["']/i)
+      || this.extractFirstMatch(html, /<img[^>]+(?:src|data-src)=["']([^"']+)["'][^>]+class=["'][^"']*\bimg-fluid\b[^"']*["']/i)
+      || this.extractFirstMatch(html, /<img[^>]+class=["'][^"']*\bposter-card__image\b[^"']*["'][^>]+(?:src|data-src)=["']([^"']+)["']/i)
+      || this.extractFirstMatch(html, /<img[^>]+(?:src|data-src)=["']([^"']+)["'][^>]+class=["'][^"']*\bposter-card__image\b[^"']*["']/i);
     return this.toAbsoluteUrl(raw)?.replace("/w154/", "/w500/") || null;
   }
 
   extractDescription(html) {
-    return this.cleanText(this.extractFirstMatch(html, /<div[^>]+class=["'][^"']*\btext-large\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i));
+    return this.cleanText(
+      this.extractMetaContent(html, "description")
+      || this.extractMetaContent(html, "og:description")
+      || this.extractMetaContent(html, "twitter:description")
+      || this.extractFirstMatch(html, /<div[^>]+class=["'][^"']*\btext-large\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i)
+      || this.extractFirstMatch(html, /<p[^>]+class=["'][^"']*\btext-large\b[^"']*["'][^>]*>([\s\S]*?)<\/p>/i)
+    );
   }
 
   extractGenres(html) {
@@ -1077,6 +1299,45 @@ export class SerieskaoProvider extends Provider {
   extractAttribute(text, attributeName) {
     const safe = String(attributeName || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     return this.extractFirstMatch(text, new RegExp(`${safe}=["']([^"']+)["']`, "i"));
+  }
+
+  extractMetaContent(html, name) {
+    const safe = String(name || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return this.extractFirstMatch(
+      html,
+      new RegExp(`<meta[^>]+(?:property|name)=["']${safe}["'][^>]+content=["']([^"']+)["']`, "i")
+    ) || this.extractFirstMatch(
+      html,
+      new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${safe}["']`, "i")
+    );
+  }
+
+  extractEpisodeThumbnail(block) {
+    const raw = this.extractFirstMatch(block, /<img[^>]+(?:src|data-src)=["']([^"']+)["']/i);
+    return this.toAbsoluteUrl(raw)?.replace("/w154/", "/w500/") || null;
+  }
+
+  extractSearchItems(html, requestedType) {
+    const items = [];
+    for (const match of html.matchAll(/<a\b[^>]*href=["']([^"']*\/(?:pelicula|serie|anime|animes|dorama)\/[^"']+)["'][^>]*>[\s\S]*?<\/a>/gi)) {
+      const mapped = this.mapSearchAnchor(match[0], requestedType);
+      if (mapped) {
+        items.push(mapped);
+      }
+    }
+    return this.dedupeById(items);
+  }
+
+  hasSearchNextPage(html, page, query) {
+    const nextPage = Number(page) + 1;
+    const encodedQuery = encodeURIComponent(String(query || "").trim());
+    const escapedQuery = encodedQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const patterns = [
+      new RegExp(`rel=["']next["'][^>]*href=["'][^"']*[?&]s=${escapedQuery}(?:&|&amp;)page=${nextPage}\\b`, "i"),
+      new RegExp(`href=["'][^"']*[?&]s=${escapedQuery}(?:&|&amp;)page=${nextPage}\\b[^"']*["'][^>]*rel=["']next["']`, "i"),
+      new RegExp(`href=["'][^"']*[?&]s=${escapedQuery}(?:&|&amp;)page=${nextPage}\\b`, "i")
+    ];
+    return patterns.some((pattern) => pattern.test(html));
   }
 
   normalizeTitle(value) {

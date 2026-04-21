@@ -59,8 +59,22 @@ export class VerHdLinkProvider extends WebstreamBaseProvider {
       stripTags($("title").text()) ||
       "VerHdLink";
     const rawCandidates = [];
+    const seen = new Set();
+    const pushCandidate = (rawUrl, label) => {
+      const normalizedUrl = String(rawUrl || "").replace(/^(https:)?\/\//, "https://");
+      const finalUrl = absoluteUrl(normalizedUrl, pageUrl);
+      if (!finalUrl || /verhdlink/i.test(finalUrl) || seen.has(finalUrl)) {
+        return;
+      }
 
-    // Based on WebStreamrMBG reference: use cheerio selectors instead of regex
+      seen.add(finalUrl);
+      rawCandidates.push({
+        source: "VerHdLink",
+        label,
+        url: finalUrl
+      });
+    };
+
     $("._player-mirrors").each((_, el) => {
       const $el = $(el);
       let countryCode;
@@ -76,20 +90,14 @@ export class VerHdLinkProvider extends WebstreamBaseProvider {
       $el.find("[data-link]").each((__, linkEl) => {
         const dataLink = $(linkEl).attr("data-link") || "";
         if (!dataLink || dataLink.trim() === "") return;
-
-        // Normalize URL: remove leading // or https:// prefix and rebuild
-        const normalizedUrl = dataLink.replace(/^(https:)?\/\//, "https://");
-        const rawUrl = absoluteUrl(normalizedUrl, pageUrl);
-
-        if (!rawUrl || /verhdlink/i.test(rawUrl)) return;
-
-        rawCandidates.push({
-          source: "VerHdLink",
-          label: countryCode === "mx" ? "[LAT] VerHdLink" : "[CAST] VerHdLink",
-          url: rawUrl
-        });
+        pushCandidate(dataLink, countryCode === "mx" ? "[LAT] VerHdLink" : "[CAST] VerHdLink");
       });
     });
+
+    const latinoBlock = html.match(/_player-mirrors[^"']*latino[\s\S]{0,6000}?(?:<\/section>|<\/div>)/i)?.[0] || "";
+    for (const match of latinoBlock.matchAll(/data-link=["']([^"']+)["']/gi)) {
+      pushCandidate(match[1], "[LAT] VerHdLink");
+    }
 
     const streams = await resolveWebstreamCandidates(this.id, rawCandidates);
     return this.sortStreams(this.attachDisplayTitle(streams, pageTitle));

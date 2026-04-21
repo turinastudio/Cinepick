@@ -110,6 +110,13 @@ export class SeriesMetroProvider extends WebstreamBaseProvider {
       return [];
     }
 
+    if (type === "series" && parsedExternal.season && parsedExternal.episode) {
+      const directEpisodeStreams = await this.tryDirectEpisodeStreams(type, parsedExternal, externalMeta);
+      if (directEpisodeStreams.length > 0) {
+        return directEpisodeStreams;
+      }
+    }
+
     const candidates = await this.searchWithFallbackQueries({ type, externalMeta });
     const bestMatch = this.pickBestCandidate(candidates, externalMeta);
     if (!bestMatch) {
@@ -178,6 +185,22 @@ export class SeriesMetroProvider extends WebstreamBaseProvider {
     if (!externalMeta?.name) {
       debug.status = "missing_external_meta";
       return debug;
+    }
+
+    if (type === "series" && parsedExternal.season && parsedExternal.episode) {
+      const directEpisodeDebug = await this.tryDirectEpisodeDebug(type, parsedExternal, externalMeta);
+      debug.directEpisodeProbe = directEpisodeDebug.probe;
+      if (directEpisodeDebug.streams.length > 0) {
+        debug.streamCount = directEpisodeDebug.streams.length;
+        debug.streams = directEpisodeDebug.streams.map((stream) => ({
+          name: stream.name,
+          title: stream.title,
+          url: stream.url || null,
+          behaviorHints: stream.behaviorHints || null
+        }));
+        debug.status = "ok_direct_episode";
+        return debug;
+      }
     }
 
     const candidates = await this.searchWithFallbackQueries({ type, externalMeta });
@@ -305,6 +328,58 @@ export class SeriesMetroProvider extends WebstreamBaseProvider {
     return this.dedupeById(items);
   }
 
+  async tryDirectEpisodeStreams(type, parsedExternal, externalMeta) {
+    const directEpisode = await this.tryDirectEpisodeDebug(type, parsedExternal, externalMeta);
+    return directEpisode.streams;
+  }
+
+  async tryDirectEpisodeDebug(type, parsedExternal, externalMeta) {
+    const probe = {
+      attemptedUrls: [],
+      matchedUrl: null
+    };
+
+    if (type !== "series" || !parsedExternal.season || !parsedExternal.episode) {
+      return { probe, streams: [] };
+    }
+
+    const extraTitles = await this.fetchTmdbSearchTitles(type, externalMeta.id || "").catch(() => []);
+    const queries = this.buildSearchQueries(externalMeta, extraTitles);
+
+    for (const query of queries) {
+      const slugBase = slugify(query);
+      if (!slugBase) {
+        continue;
+      }
+
+      const path = `/capitulo/${slugBase}-temporada-${parsedExternal.season}-capitulo-${parsedExternal.episode}/`;
+      const pageUrl = absoluteUrl(path, this.baseUrl);
+      probe.attemptedUrls.push(pageUrl);
+
+      const pageHtml = await fetchText(pageUrl).catch(() => "");
+      if (!pageHtml) {
+        continue;
+      }
+
+      const rawCandidates = await this.extractRawCandidates(pageUrl, pageHtml, pageUrl);
+      if (!rawCandidates.length) {
+        continue;
+      }
+
+      const streams = await resolveWebstreamCandidates(this.id, rawCandidates);
+      const selected = this.selectPreferredLanguageStreams(
+        this.sortStreams(this.attachDisplayTitle(streams, this.extractTitle(pageHtml) || this.unslugify(path)))
+      );
+
+      if (selected.length > 0) {
+        probe.matchedUrl = pageUrl;
+        return { probe, streams: selected };
+      }
+    }
+
+    return { probe, streams: [] };
+  }
+
   async buildEpisodeVideos(seriesUrl, seriesHtml) {
     const postId = this.extractPostId(seriesHtml);
     if (!postId) {
@@ -392,9 +467,9 @@ export class SeriesMetroProvider extends WebstreamBaseProvider {
 
   async extractRawCandidates(pageUrl, pageHtml, referer) {
     const options = Array.from(
-      pageHtml.matchAll(/href="#options-(\d+)"[^>]*>[\s\S]*?<span class="server">([\s\S]*?)<\/span>/gi)
+      pageHtml.matchAll(/href="(?:[^"#]+)?#options-(\d+)"[^>]*>[\s\S]*?<span class="server">([\s\S]*?)<\/span>/gi)
     );
-    const tridMatch = pageHtml.match(/\?trembed=(\d+)(?:&#038;|&)trid=(\d+)(?:&#038;|&)trtype=(\d+)/i);
+    const tridMatch = pageHtml.match(/\?trembed=(\d+)(?:&#038;|&amp;|&)trid=(\d+)(?:&#038;|&amp;|&)trtype=(\d+)/i);
 
     if (!options.length || !tridMatch) {
       return [];
@@ -420,8 +495,9 @@ export class SeriesMetroProvider extends WebstreamBaseProvider {
     const rawCandidates = [];
 
     for (const option of sortedOptions) {
+      const embedPageUrl = `${this.baseUrl}/?trembed=${option.index}&trid=${trid}&trtype=${trtype}`;
       const embedPage = await fetchText(
-        `${this.baseUrl}/?trembed=${option.index}&trid=${trid}&trtype=${trtype}`,
+        embedPageUrl,
         {
           headers: {
             Referer: referer || pageUrl
@@ -433,15 +509,16 @@ export class SeriesMetroProvider extends WebstreamBaseProvider {
         continue;
       }
 
-      const fastreamUrl = embedPage.match(/<iframe[^>]*src="(https?:\/\/fastream\.to\/[^"]+)"/i)?.[1];
-      if (!fastreamUrl) {
+      const iframeSrc = embedPage.match(/<iframe[^>]*src="([^"]+)"/i)?.[1];
+      const candidateUrl = absoluteUrl(iframeSrc, embedPageUrl);
+      if (!candidateUrl) {
         continue;
       }
 
       rawCandidates.push({
         source: "SeriesMetro",
         label: `[${option.languageCode || "UNK"}] ${option.serverText || "Fastream"}`,
-        url: fastreamUrl
+        url: candidateUrl
       });
 
       if (option.languageCode === "LAT") {

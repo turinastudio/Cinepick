@@ -3,12 +3,12 @@ import { dedupeByKey } from "./common.js";
 
 const PROVIDER_TIMEOUT_MS = Math.max(
   1000,
-  Number.parseInt(process.env.PROVIDER_TIMEOUT_MS || "12000", 10) || 12000
+  Number.parseInt(process.env.PROVIDER_TIMEOUT_MS || "25000", 10) || 25000
 );
 const CANDIDATE_TIMEOUT_MS = Math.max(
   1000,
   Math.min(
-    Number.parseInt(process.env.EXTRACTOR_CANDIDATE_TIMEOUT_MS || "", 10) || Math.floor(PROVIDER_TIMEOUT_MS / 2),
+    Number.parseInt(process.env.EXTRACTOR_CANDIDATE_TIMEOUT_MS || "6000", 10) || 6000,
     PROVIDER_TIMEOUT_MS
   )
 );

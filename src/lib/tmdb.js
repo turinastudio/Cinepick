@@ -91,6 +91,29 @@ export async function fetchTmdbMediaFromImdb(type, imdbId, apiKey = DEFAULT_TMDB
   };
 }
 
+export async function fetchTmdbEpisodeName(tmdbId, season, episode, apiKey = DEFAULT_TMDB_API_KEY) {
+  if (!tmdbId || !season || !episode) {
+    return null;
+  }
+
+  const cacheKey = `tmdb:episode:${tmdbId}:${season}:${episode}`;
+  const languages = ["es-MX", "es-ES", "en-US"];
+
+  for (const language of languages) {
+    const data = await tmdbCache.getOrSet(`${cacheKey}:${language}`, async () => {
+      return fetchJson(
+        `https://api.themoviedb.org/3/tv/${tmdbId}/season/${season}/episode/${episode}?api_key=${apiKey}&language=${language}`
+      ).catch(() => null);
+    });
+
+    if (data?.name && !/^episodio\s+\d+$/i.test(data.name) && !/^episode\s+\d+$/i.test(data.name)) {
+      return data.name;
+    }
+  }
+
+  return null;
+}
+
 export function normalizeMediaTitle(value) {
   return String(value || "")
     .normalize("NFD")

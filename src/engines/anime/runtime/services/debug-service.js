@@ -9,7 +9,7 @@ import {
 
 async function debugNativeResolution(videoId) {
   const native = getNativeSlugAndEpisode(videoId);
-  const providers = ["animeflv", "animeav1", "henaojara"];
+  const providers = ["animeflv", "animeav1", "henaojara", "tioanime"];
 
   const settled = await Promise.allSettled(
     providers.map((providerId) =>

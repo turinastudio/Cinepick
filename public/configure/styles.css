@@ -9,6 +9,7 @@
   --card: #fffaf3;
   --chip: #f0e1c9;
   --success: #264f3f;
+  --focus-ring: rgba(203, 90, 47, 0.5);
 }
 
 * {
@@ -23,12 +24,31 @@ body {
     radial-gradient(circle at top left, rgba(203, 90, 47, 0.18), transparent 28%),
     radial-gradient(circle at top right, rgba(38, 79, 63, 0.12), transparent 24%),
     linear-gradient(180deg, #f8f1e3 0%, #f1e4cc 100%);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Skip link */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 16px;
+  z-index: 100;
+  padding: 8px 16px;
+  background: var(--accent);
+  color: white;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  top: 16px;
 }
 
 .page {
   width: min(1180px, calc(100vw - 32px));
   margin: 0 auto;
-  padding: 32px 0 64px;
+  padding: 32px 0 calc(64px + env(safe-area-inset-bottom, 0px));
 }
 
 .hero,
@@ -61,6 +81,7 @@ h2 {
 h1 {
   max-width: 700px;
   font-size: clamp(2rem, 4vw, 3.5rem);
+  text-wrap: balance;
 }
 
 h2 {
@@ -97,10 +118,20 @@ h2 {
   cursor: pointer;
   text-decoration: none;
   transition: transform 120ms ease, opacity 120ms ease, background-color 120ms ease;
+  touch-action: manipulation;
 }
 
 .button:hover {
   transform: translateY(-1px);
+}
+
+.button:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.button:active {
+  transform: translateY(0) scale(0.98);
 }
 
 .button-primary {
@@ -142,6 +173,18 @@ h2 {
   letter-spacing: 0.08em;
 }
 
+#summary-engines,
+#summary-providers,
+#summary-extractors {
+  font-variant-numeric: tabular-nums;
+}
+
+.switch-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 code {
   display: block;
   padding: 14px 16px;
@@ -151,6 +194,8 @@ code {
   background: #221d17;
   color: #fff5dd;
   font-size: 0.92rem;
+  word-break: break-all;
+  line-height: 1.5;
 }
 
 .panel-grid {
@@ -180,6 +225,11 @@ code {
   justify-content: space-between;
   gap: 14px;
   margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.section-head h2 {
+  flex-shrink: 0;
 }
 
 .switch-grid {
@@ -197,19 +247,44 @@ code {
   border: 1px solid var(--line);
   border-radius: 18px;
   background: var(--bg-soft);
+  touch-action: manipulation;
+  min-width: 0;
+}
+
+.toggle-row:focus-within {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 .toggle-row[data-disabled="true"] {
   opacity: 0.56;
 }
 
+/* Asegurar que el checkbox siempre sea visible */
+.toggle-row input[type="checkbox"] {
+  justify-self: end;
+  flex-shrink: 0;
+}
+
+/* Texto largo se trunca */
+.toggle-copy {
+  min-width: 0;
+}
+
 .toggle-copy strong {
   display: block;
   margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .switch-meta {
   font-size: 0.88rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
 }
 
 .pill {
@@ -224,6 +299,10 @@ code {
   font-size: 0.76rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 select,
@@ -235,12 +314,25 @@ input[type="number"] {
   background: white;
   color: var(--ink);
   font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+}
+
+select:focus-visible,
+input[type="number"]:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 input[type="checkbox"] {
   width: 22px;
   height: 22px;
   accent-color: var(--accent);
+  touch-action: manipulation;
+}
+
+input[type="checkbox"]:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 @media (max-width: 900px) {
@@ -253,5 +345,33 @@ input[type="checkbox"] {
   .section-head {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .section-head .section-actions {
+    width: 100%;
+  }
+
+  .toggle-copy strong {
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .switch-meta {
+    white-space: normal;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button,
+  .toggle-row {
+    transition: none;
+  }
+
+  .button:hover {
+    transform: none;
+  }
+
+  .button:active {
+    transform: none;
   }
 }

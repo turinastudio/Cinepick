@@ -57,7 +57,7 @@ export function errorHandler(error, res, req) {
  */
 export function createErrorHandler(res) {
   return (err) => {
-    errorHandler(null, res, () => {}, err);
+    errorHandler(err, res, null);
   };
 }
 

@@ -53,8 +53,10 @@ function renderGeneralSection() {
 
   const modeLabel = document.createElement("label");
   modeLabel.className = "stack";
-  modeLabel.innerHTML = "<strong>Modo de seleccion</strong>";
+  modeLabel.innerHTML = "<strong>Modo de selección</strong>";
   const modeSelect = document.createElement("select");
+  modeSelect.id = "selection-mode";
+  modeSelect.name = "selection_mode";
   [
     ["global", "Global recomendado"],
     ["per_provider", "Por provider"],
@@ -74,9 +76,11 @@ function renderGeneralSection() {
 
   const maxLabel = document.createElement("label");
   maxLabel.className = "stack";
-  maxLabel.innerHTML = "<strong>Maximo de resultados</strong>";
+  maxLabel.innerHTML = "<strong>Máximo de resultados</strong>";
   const maxInput = document.createElement("input");
   maxInput.type = "number";
+  maxInput.id = "max-results";
+  maxInput.name = "max_results";
   maxInput.min = "1";
   maxInput.max = "50";
   maxInput.value = String(state.config.selection.maxResults);
@@ -207,12 +211,30 @@ function normalizedConfigForUrl() {
   };
 }
 
-function encodeConfig(config) {
-  const json = JSON.stringify(config);
-  return btoa(unescape(encodeURIComponent(json)))
-    .replaceAll("+", "-")
-    .replaceAll("/", "_")
-    .replaceAll("=", "");
+async function encodeConfig(config) {
+  try {
+    const json = JSON.stringify(config);
+    const blob = new Blob([json]);
+    const compressedStream = blob.stream().pipeThrough(new CompressionStream("gzip"));
+    const compressed = await new Response(compressedStream).arrayBuffer();
+    const bytes = new Uint8Array(compressed);
+
+    let base64 = "";
+    for (const byte of bytes) {
+      base64 += String.fromCharCode(byte);
+    }
+    return btoa(base64)
+      .replaceAll("+", "-")
+      .replaceAll("/", "_")
+      .replaceAll("=", "");
+  } catch {
+    // Fallback to uncompressed if browser doesn't support CompressionStream
+    const json = JSON.stringify(config);
+    return btoa(unescape(encodeURIComponent(json)))
+      .replaceAll("+", "-")
+      .replaceAll("/", "_")
+      .replaceAll("=", "");
+  }
 }
 
 function updateSummary(token) {
@@ -271,16 +293,22 @@ function applyBulkActions() {
   });
 }
 
-function updateView() {
+async function updateView() {
   renderGeneralSection();
   renderEngines();
   renderProviderSection("providers-general-section", "general");
   renderProviderSection("providers-anime-section", "anime");
   renderExtractorSection("extractors-reliable-section", "reliable");
   renderExtractorSection("extractors-experimental-section", "experimental");
-  const token = encodeConfig(normalizedConfigForUrl());
+  const token = await encodeConfig(normalizedConfigForUrl());
   updateSummary(token);
   applyBulkActions();
+
+  // Sync URL to reflect current state
+  const searchParams = new URLSearchParams(window.location.search);
+  searchParams.set("config", token);
+  const newUrl = `${window.location.pathname}?${searchParams.toString()}`;
+  history.replaceState(null, "", newUrl);
 }
 
 async function main() {
@@ -293,6 +321,12 @@ async function main() {
     state.config = JSON.parse(JSON.stringify(state.defaultConfig));
     updateView();
   };
+
+  // Warn before leaving with unsaved changes
+  window.addEventListener("beforeunload", (event) => {
+    event.preventDefault();
+    event.returnValue = "";
+  });
 
   updateView();
 }

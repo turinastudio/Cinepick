@@ -2,7 +2,7 @@ import { parseStremioId } from "../../../lib/ids.js";
 import { analyzeScoredStreams, scoreAndSelectStreams } from "../scoring.js";
 import { streamResultCache } from "../../../shared/cache.js";
 import requestContextShared from "../../../config/request-context.cjs";
-import { isSourceAllowed, recordSuccess, recordFailure, getCircuitStatus } from "../../../lib/circuit-breaker.js";
+import { recordSuccess, recordFailure } from "../../../lib/circuit-breaker.js";
 import { providerLimiter } from "../../../lib/concurrency-limiter.js";
 import { LaCartoonsProvider } from "./lacartoons.js";
 import { CinecalidadProvider } from "./cinecalidad.js";
@@ -55,8 +55,8 @@ const activeProviderFilter = String(
 const availableProviders = activeProviderFilter.length > 0
   ? providers.filter((provider) => activeProviderFilter.includes(provider.id))
   : providers;
-const providerTimeoutMs = Math.max(1000, Number(process.env.PROVIDER_TIMEOUT_MS || 12000) || 12000);
-const providerDebugTimeoutMs = Math.max(providerTimeoutMs, Number(process.env.PROVIDER_DEBUG_TIMEOUT_MS || 18000) || 18000);
+const providerTimeoutMs = Math.max(1000, Number(process.env.PROVIDER_TIMEOUT_MS || 25000) || 25000);
+const providerDebugTimeoutMs = Math.max(providerTimeoutMs, Number(process.env.PROVIDER_DEBUG_TIMEOUT_MS || 40000) || 40000);
 
 function getActiveProviders() {
   return availableProviders.filter((provider) => isProviderEnabled("general", provider.id));
@@ -144,18 +144,10 @@ export async function resolveStreamsFromExternalId(type, id) {
     }, {});
 
   if (result.length > 0 || collectionTime > 5000) {
-    const streamUrls = result
-      .slice(0, 3)
-      .map((s) => s.url || "(no url)")
-      .join(", ");
-    const more = result.length > 3 ? ` (+${result.length - 3} more)` : "";
     console.log(
       `[streams] ${type}:${id} → ${result.length} streams, ${collectionTime}ms, ` +
       `${Object.keys(providerStatuses).length} providers contributed`
     );
-    if (streamUrls) {
-      console.log(`[streams]   URLs: ${streamUrls}${more}`);
-    }
   }
 
   return result;
@@ -218,18 +210,8 @@ function buildDefaultRouting(type, externalId) {
 async function collectStreamsFromProviders(targetProviders, type, id) {
   const collected = [];
 
-  // Filter out providers whose circuit is open
-  const allowedProviders = targetProviders.filter((provider) => {
-    const sourceKey = `provider:${provider.id}`;
-    const allowed = isSourceAllowed(sourceKey);
-    if (!allowed.allowed) {
-      console.warn(`[circuit-breaker] Skipping ${provider.id}: ${allowed.reason}`);
-    }
-    return allowed.allowed;
-  });
-
   const settled = await Promise.all(
-    allowedProviders.map((provider) =>
+    targetProviders.map((provider) =>
       providerLimiter.enqueue(async () => {
         const sourceKey = `provider:${provider.id}`;
         const abortController = new AbortController();

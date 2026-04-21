@@ -44,7 +44,9 @@ function unpackPackerScript(script) {
     return null;
   }
 
-  const packedMatch = script.match(/\}\s*\('([^']+)',\s*(\d+),\s*(\d+),\s*'([^']*)'\.split\('\|'\)/);
+  const packedMatch = script.match(
+    /\}\s*\(\s*'([\s\S]+?)',\s*(\d+),\s*(\d+),\s*'([\s\S]*?)'\.split\('\|'\)/
+  );
 
   if (!packedMatch) {
     return null;

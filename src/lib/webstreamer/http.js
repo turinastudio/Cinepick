@@ -1,19 +1,17 @@
 import http from "node:http";
 import https from "node:https";
 import axios from "axios";
+import { getBrowserHeaders } from "../user-agents.js";
+import { PoisonPillDetector } from "../poison-pill.js";
+import { rateLimiter } from "../rate-limiter.js";
+import { logRequestStart, logRequestEnd, logScrapeError, logPoisonPill } from "../scrape-logger.js";
+
+const poisonDetector = new PoisonPillDetector();
 
 const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 32 });
 const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 32 });
 axios.defaults.httpAgent = httpAgent;
 axios.defaults.httpsAgent = httpsAgent;
-
-const DEFAULT_HEADERS = {
-  "User-Agent":
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-  "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
-  "Accept-Encoding": "gzip, deflate, br"
-};
 
 const cookieJar = new Map();
 const REQUEST_TIMEOUT_MS = Math.max(
@@ -37,9 +35,12 @@ const RETRYABLE_ERROR_CODES = new Set([
   "ETIMEDOUT",
   "EAI_AGAIN"
 ]);
+const RETRY_BASE_MS = 500;
+const RETRY_MAX_MS = 10000;
 
 function mergeHeaders(headers) {
-  return { ...DEFAULT_HEADERS, ...(headers || {}) };
+  // Rotate UA on every call, preserve other defaults
+  return { ...getBrowserHeaders(), ...(headers || {}) };
 }
 
 function isRetryableError(error) {
@@ -52,6 +53,17 @@ function isRetryableStatus(status) {
 
 async function wait(ms) {
   await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Exponential backoff with jitter.
+ * Prevents thundering herd when many requests fail simultaneously.
+ * Formula: min(maxMs, baseMs * 2^attempt + random(0, jitterRange))
+ */
+function calcBackoff(attempt, baseMs = RETRY_BASE_MS, maxMs = RETRY_MAX_MS) {
+  const exponential = baseMs * Math.pow(2, attempt);
+  const jitter = Math.random() * baseMs;
+  return Math.min(maxMs, exponential + jitter);
 }
 
 function getCookieHeader(url) {
@@ -121,7 +133,7 @@ async function issueRequest(url, options = {}) {
       storeCookies(url, response);
 
       if (attempt < REQUEST_RETRY_COUNT && isRetryableStatus(response.status)) {
-        await wait(250 * (attempt + 1));
+        await wait(calcBackoff(attempt));
         continue;
       }
 
@@ -132,7 +144,7 @@ async function issueRequest(url, options = {}) {
         throw error;
       }
 
-      await wait(250 * (attempt + 1));
+      await wait(calcBackoff(attempt));
     }
   }
 
@@ -150,22 +162,58 @@ async function warmHost(url, headers) {
 }
 
 export async function fetchPage(url, options = {}) {
-  let response = await issueRequest(url, options);
+  const providerId = options._providerId || "unknown";
+  const action = options._action || "fetch";
+  const startTime = Date.now();
 
-  if (response.status === 403 && !options._warmed) {
-    await warmHost(url, options.headers);
-    response = await issueRequest(url, { ...options, _warmed: true });
+  // Wait for rate limiter before making request
+  await rateLimiter.waitForDomain(url);
+
+  logRequestStart(providerId, url, action);
+
+  try {
+    let response = await issueRequest(url, options);
+
+    if (response.status === 403 && !options._warmed) {
+      await warmHost(url, options.headers);
+      response = await issueRequest(url, { ...options, _warmed: true });
+    }
+
+    const durationMs = Date.now() - startTime;
+    logRequestEnd(providerId, url, response.status, durationMs, action);
+
+    if (response.status < 200 || response.status >= 300) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText} para ${url}`);
+    }
+
+    const text = typeof response.data === "string" ? response.data : String(response.data || "");
+
+    // Check for poison pills (anti-bot, paywall, etc.)
+    const poison = poisonDetector.detect({
+      content: text,
+      url: response.request?.res?.responseUrl || url,
+      statusCode: response.status
+    });
+
+    if (poison.detected) {
+      logPoisonPill(providerId, url, poison.type, poison.details);
+      const error = new Error(`Poison pill detected: ${poison.type} (${poison.details})`);
+      error.poisonPill = poison;
+      throw error;
+    }
+
+    return {
+      text,
+      url: response.request?.res?.responseUrl || response.config?.url || url,
+      headers: response.headers || {}
+    };
+  } catch (error) {
+    const durationMs = Date.now() - startTime;
+    if (!error.poisonPill) {
+      logScrapeError(providerId, url, error, action);
+    }
+    throw error;
   }
-
-  if (response.status < 200 || response.status >= 300) {
-    throw new Error(`HTTP ${response.status}: ${response.statusText} para ${url}`);
-  }
-
-  return {
-    text: typeof response.data === "string" ? response.data : String(response.data || ""),
-    url: response.request?.res?.responseUrl || response.config?.url || url,
-    headers: response.headers || {}
-  };
 }
 
 export async function fetchText(url, options = {}) {

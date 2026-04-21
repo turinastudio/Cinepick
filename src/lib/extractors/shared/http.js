@@ -2,12 +2,12 @@ import { getRandomUserAgent } from "../../user-agents.js";
 
 const PROVIDER_TIMEOUT_MS = Math.max(
   1000,
-  Number.parseInt(process.env.PROVIDER_TIMEOUT_MS || "12000", 10) || 12000
+  Number.parseInt(process.env.PROVIDER_TIMEOUT_MS || "25000", 10) || 25000
 );
 const EXTRACTOR_TIMEOUT_MS = Math.max(
   1000,
   Math.min(
-    Number.parseInt(process.env.EXTRACTOR_TIMEOUT_MS || "", 10) || Math.floor(PROVIDER_TIMEOUT_MS / 3),
+    Number.parseInt(process.env.EXTRACTOR_TIMEOUT_MS || "4000", 10) || 4000,
     PROVIDER_TIMEOUT_MS
   )
 );

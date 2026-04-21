@@ -1,47 +1,55 @@
+/**
+ * CinePick Stremio Addon - Refactored Server
+ *
+ * Architecture:
+ * - server.js: HTTP server + routing orchestration
+ * - routers/: Route handlers grouped by responsibility
+ * - middleware/: Cross-cutting concerns (error handling, etc.)
+ * - errors.js: Custom error types
+ */
+
+import crypto from "node:crypto";
 import http from "node:http";
-import fs from "node:fs";
-import path from "node:path";
-import { URLSearchParams } from "node:url";
 import { manifest } from "./manifest.js";
 import {
   animeEngine,
   generalEngine
 } from "../engines/index.js";
-import {
-  json,
-  notFound,
-  proxyStream,
-  serverError
-} from "../lib/http.js";
-import { appendSupportStream } from "../lib/support-stream.js";
+import { json, notFound } from "../lib/http.js";
 import { createDebugLogger } from "../shared/debug.js";
 import { resolveConfiguredPath, buildConfigureState, hashAddonConfig } from "../config/addon-config.js";
+import { runWithRequestConfig } from "../config/request-context.cjs";
+import { errorHandler } from "./middleware/error-handler.js";
+import {
+  handleRoot,
+  handleManifest,
+  handleLogo,
+  handleConfigureIndex,
+  handleConfigureApp,
+  handleConfigureStyles,
+  handleConfigureState,
+  handleHealth
+} from "./routers/main-router.js";
+import {
+  handleMeta,
+  handleStream,
+  handleCatalog,
+  handleDebug,
+  handleProviderDebug,
+  handleAnimeSearchDebug
+} from "./routers/stream-router.js";
+import { handleProxy } from "./routers/proxy-router.js";
 
+// ── Configuration ──────────────────────────────────────────────
 const host = process.env.HOST || "0.0.0.0";
 const port = Number.parseInt(process.env.PORT || "3000", 10) || 3000;
-const PUBLIC_STREAM_NAME = "Cinepick";
-const logoPath = path.resolve(process.cwd(), "public", "assets", "Logo.png");
 const addonUrlOverride = String(process.env.ADDON_URL || "").trim().replace(/\/$/, "");
 const animeEngineEnabled = !/^(0|false|no)$/i.test(String(process.env.ENABLE_ANIME_ENGINE || "true").trim());
-const animeEngineDebugEnabled = /^(1|true|yes)$/i.test(String(process.env.ANIME_ENGINE_DEBUG || "").trim());
-const animeDebugLog = createDebugLogger("anime-engine", () => animeEngineDebugEnabled);
+const animeDebugLog = createDebugLogger("anime-engine", () =>
+  /^(1|true|yes)$/i.test(String(process.env.ANIME_ENGINE_DEBUG || "").trim())
+);
 
-function createMetaResponse(item) {
-  return {
-    meta: {
-      id: item.id,
-      type: item.type,
-      name: item.name,
-      poster: item.poster,
-      background: item.background,
-      description: item.description,
-      genres: item.genres || [],
-      cast: item.cast || [],
-      videos: item.videos || []
-    }
-  };
-}
-
+// ── Request helpers ────────────────────────────────────────────
 function parseUrl(req) {
   return new URL(req.url, `http://${req.headers.host || `${host}:${port}`}`);
 }
@@ -51,7 +59,6 @@ function normalizeAddonPath(pathname) {
     const normalized = pathname.slice("/alt".length) || "/";
     return normalized.startsWith("/") ? normalized : `/${normalized}`;
   }
-
   return pathname;
 }
 
@@ -59,7 +66,6 @@ function getRequestOrigin(req) {
   if (addonUrlOverride) {
     return addonUrlOverride;
   }
-
   const forwardedProto = String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim();
   const proto = forwardedProto || "http";
   const reqHost = req.headers.host || `${host}:${port}`;
@@ -74,19 +80,13 @@ function buildManifest(req, requestConfig, basePathPrefix = "") {
     if (prefix === "tt") {
       return animeEnabled || generalEnabled;
     }
-
     if (!prefix.endsWith(":")) {
       return true;
     }
-
     const providerId = prefix.slice(0, -1);
-    
-    // Anime prefixes filtering
     if (["animeflv", "animeav1", "henaojara"].includes(providerId)) {
       return animeEnabled ? requestConfig?.providers?.anime?.[providerId] !== false : false;
     }
-
-    // General prefixes filtering
     return generalEnabled
       ? requestConfig?.providers?.general?.[providerId] !== false
       : false;
@@ -104,524 +104,150 @@ function buildManifest(req, requestConfig, basePathPrefix = "") {
   };
 }
 
-function absolutizeStreamUrls(req, streams) {
-  const origin = getRequestOrigin(req);
-
-  return (Array.isArray(streams) ? streams : []).map((stream) => {
-    if (!stream || typeof stream !== "object") {
-      return stream;
-    }
-
-    const next = { ...stream };
-
-    if (typeof next.url === "string" && next.url.startsWith("/")) {
-      next.url = `${origin}${next.url}`;
-    }
-
-    if (typeof next.externalUrl === "string" && next.externalUrl.startsWith("/")) {
-      next.externalUrl = `${origin}${next.externalUrl}`;
-    }
-
-    return next;
-  });
+// ── Manifest builder context (passed to routers) ───────────────
+function createManifestBuilder(req, requestConfig, basePathPrefix) {
+  return {
+    requestConfig,
+    basePathPrefix,
+    buildManifest: (r, cfg, prefix) => buildManifest(r, cfg || requestConfig, prefix || basePathPrefix),
+    getRequestOrigin: () => getRequestOrigin(req),
+    buildConfigureState: (origin, cfg) => buildConfigureState(origin || getRequestOrigin(req), cfg || requestConfig)
+  };
 }
 
-function projectPublicStreams(streams) {
-  return (Array.isArray(streams) ? streams : []).map((stream) => {
-    if (!stream || typeof stream !== "object") {
-      return stream;
-    }
+// ── Route dispatchers ──────────────────────────────────────────
 
-    const { _rawTitle, ...rest } = stream;
-    return {
-      ...rest,
-      name: PUBLIC_STREAM_NAME
-    };
-  });
+async function dispatchMain(req, res, manifestBuilder) {
+  const pathname = req.normalizedPathname;
+
+  if (pathname === "/") {
+    return handleRoot(req, res, manifestBuilder);
+  }
+  if (pathname === "/health") {
+    return handleHealth(req, res);
+  }
+  if (pathname === "/manifest.json") {
+    return handleManifest(req, res, manifestBuilder);
+  }
+  if (pathname === "/logo.png") {
+    return handleLogo(req, res);
+  }
+  if (pathname === "/configure") {
+    return handleConfigureIndex(req, res);
+  }
+  if (pathname === "/configure/app.js") {
+    return handleConfigureApp(req, res);
+  }
+  if (pathname === "/configure/styles.css") {
+    return handleConfigureStyles(req, res);
+  }
+  if (pathname === "/configure/state.json") {
+    return handleConfigureState(req, res, manifestBuilder);
+  }
+
+  return false; // Not handled
 }
 
-function sanitizeDebugStreams(streams) {
-  return (Array.isArray(streams) ? streams : []).map((stream) => {
-    if (!stream || typeof stream !== "object") {
-      return stream;
-    }
+async function dispatchStream(req, res, manifestBuilder) {
+  const context = {
+    requestConfig: manifestBuilder.requestConfig,
+    animeEngineEnabled,
+    getRequestOrigin: () => manifestBuilder.getRequestOrigin()
+  };
 
-    const { _rawTitle, ...rest } = stream;
-    return rest;
-  });
+  // Try meta route
+  if (await handleMeta(req, res, context)) return true;
+
+  // Try stream route
+  if (await handleStream(req, res, context)) return true;
+
+  // Try catalog route
+  if (await handleCatalog(req, res, context)) return true;
+
+  // Try debug routes
+  if (await handleDebug(req, res, context)) return true;
+  if (await handleProviderDebug(req, res, context)) return true;
+  if (await handleAnimeSearchDebug(req, res, context)) return true;
+
+  return false;
 }
 
-async function handleMeta(res, pathname, requestConfig = null) {
-  const match = pathname.match(/^\/meta\/([^/]+)\/(.+)\.json$/);
-
-  if (!match) {
-    notFound(res);
-    return;
-  }
-
-  const [, requestedType, rawId] = match;
-  const decodedId = decodeURIComponent(rawId);
-  const animeDecision = await animeEngine.shouldUseAnimeEngine(requestedType, decodedId, {
-    enabled: animeEngineEnabled && (requestConfig ? Boolean(requestConfig?.engines?.anime) : true)
-  });
-
-  animeDebugLog("meta.route", {
-    type: requestedType,
-    id: decodedId,
-    ...animeDecision
-  });
-
-  if (animeDecision.useAnimeEngine) {
-    animeDebugLog("meta.request", {
-      type: requestedType,
-      id: decodedId
-    });
-    const { payload } = await animeEngine.resolveMeta(requestedType, decodedId);
-    animeDebugLog("meta.response", {
-      type: requestedType,
-      id: decodedId,
-      hasMeta: Boolean(payload?.meta),
-      metaId: payload?.meta?.id || null,
-      metaName: payload?.meta?.name || null
-    });
-    json(res, 200, createMetaResponse(payload.meta));
-    return;
-  }
-
-  const general = await generalEngine.resolveMeta(requestedType, decodedId);
-  json(res, 200, { meta: general.meta ? createMetaResponse(general.meta).meta : null });
-}
-
-async function handleStream(req, res, pathname, requestConfig = null) {
-  const match = pathname.match(/^\/stream\/([^/]+)\/(.+)\.json$/);
-
-  if (!match) {
-    notFound(res);
-    return;
-  }
-
-  const [, requestedType, rawId] = match;
-  const decodedId = decodeURIComponent(rawId);
-  const animeDecision = await animeEngine.shouldUseAnimeEngine(requestedType, decodedId, {
-    enabled: animeEngineEnabled && (requestConfig ? Boolean(requestConfig?.engines?.anime) : true)
-  });
-
-  animeDebugLog("stream.route", {
-    type: requestedType,
-    id: decodedId,
-    ...animeDecision
-  });
-
-  if (animeDecision.useAnimeEngine) {
-    animeDebugLog("stream.request", {
-      type: requestedType,
-      id: decodedId
-    });
-    const { payload } = await animeEngine.resolveStreams(requestedType, decodedId);
-    animeDebugLog("stream.response", {
-      type: requestedType,
-      id: decodedId,
-      streamCount: Array.isArray(payload?.streams) ? payload.streams.length : 0,
-      message: payload?.message || null
-    });
-    json(res, 200, {
-      streams: projectPublicStreams(absolutizeStreamUrls(req, payload.streams || []))
-    });
-    return;
-  }
-
-  const general = await generalEngine.resolveStreams(requestedType, decodedId);
-  const streams = Array.isArray(general.streams) ? general.streams : [];
-  json(res, 200, {
-    streams: projectPublicStreams(absolutizeStreamUrls(req, appendSupportStream(streams)))
-  });
-}
-
-async function handleCatalog(req, res, pathname, requestConfig = null) {
-  const match = pathname.match(/^\/catalog\/([^/]+)\/([^/]+)(?:\/([^/]+))?\.json$/);
-
-  if (!match) {
-    notFound(res);
-    return;
-  }
-
-  let [, requestedType, rawId, extraArgs] = match;
-  let decodedId = decodeURIComponent(rawId);
-  const extraParams = new URLSearchParams(extraArgs ? decodeURIComponent(extraArgs.replace(/\.json$/, "")) : "");
-  
-  if (!animeEngineEnabled || (requestConfig && !requestConfig?.engines?.anime)) {
-    json(res, 200, { metas: [] });
-    return;
-  }
-
-  try {
-    let metas = [];
-    const searchParam = extraParams.get("search") || null;
-    let genresParam = extraParams.getAll("genre");
-    genresParam = genresParam.length > 0 ? genresParam : null;
-    const rawSkip = extraParams.get("skip");
-    const skip = rawSkip ? parseInt(rawSkip, 10) : 0;
-
-    
-    if (decodedId.startsWith("animeav1")) {
-      const animeav1 = await import("../engines/anime/runtime/providers/animeav1-client.js");
-      const page = skip ? Math.floor(skip / 20) + 1 : undefined;
-      const gottenItems = skip ? skip % 20 : undefined;
-      if (searchParam || genresParam) {
-        metas = await animeav1.searchAnimeAV1(searchParam, undefined, genresParam, page, gottenItems).catch(() => []);
-      } else {
-        metas = await animeav1.getAnimeAV1AiringTitles().catch(() => []);
-      }
-    } else if (decodedId.startsWith("animeflv")) {
-      const animeflv = await import("../engines/anime/runtime/providers/animeflv-client.js");
-      const page = skip ? Math.floor(skip / 24) + 1 : undefined;
-      const gottenItems = skip ? skip % 24 : undefined;
-      if (searchParam || genresParam) {
-        metas = await animeflv.searchAnimeFLV(searchParam, genresParam, undefined, page, gottenItems).catch(() => []);
-      } else {
-        metas = await animeflv.getAnimeFLVAiringTitles().catch(() => []);
-      }
-    } else if (decodedId.startsWith("henaojara")) {
-      const henaojara = await import("../engines/anime/runtime/providers/henaojara-client.js");
-      const page = skip ? Math.floor(skip / 24) + 1 : undefined;
-      const gottenItems = skip ? skip % 24 : undefined;
-      if (searchParam || genresParam) {
-        metas = await henaojara.searchHenaojara(searchParam, genresParam, undefined, page, gottenItems).catch(() => []);
-      } else {
-        metas = await henaojara.getHenaojaraAiringTitles().catch(() => []);
-      }
-    } else if (decodedId.startsWith("tioanime")) {
-      const tioanime = await import("../engines/anime/runtime/providers/tioanime-client.js");
-      const page = skip ? Math.floor(skip / 24) + 1 : undefined;
-      const gottenItems = skip ? skip % 24 : undefined;
-      if (searchParam || genresParam) {
-        metas = await tioanime.searchTioAnime(searchParam, genresParam, page, gottenItems).catch(() => []);
-      } else {
-        metas = await tioanime.getTioAnimeAiringTitles().catch(() => []);
-      }
-    }
-
-    if (metas && metas.length > 0) {
-      metas = metas.map((meta) => ({
-        id: meta.slug ? `${decodedId.split('|')[0]}:${meta.slug}` : meta.id,
-        type: meta.type || requestedType,
-        name: meta.title || meta.name,
-        poster: meta.poster,
-        description: meta.overview || meta.description,
-        genres: meta.genres ? meta.genres.map(g => g.charAt(0).toUpperCase() + g.slice(1)) : undefined
-      }));
-    }
-
-    res.setHeader("Cache-Control", "max-age=259200, stale-while-revalidate=86400, stale-if-error=259200");
-    json(res, 200, { metas: metas || [] });
-  } catch (err) {
-    json(res, 200, { metas: [] });
-  }
-}
-
-async function handleDebug(res, pathname, requestConfig = null) {
-  const match = pathname.match(/^\/_debug\/stream\/([^/]+)\/(.+)\.json$/);
-
-  if (!match) {
-    notFound(res);
-    return;
-  }
-
-  const [, requestedType, rawId] = match;
-  const decodedId = decodeURIComponent(rawId);
-  const animeDecision = await animeEngine.shouldUseAnimeEngine(requestedType, decodedId, {
-    enabled: animeEngineEnabled && (requestConfig ? Boolean(requestConfig?.engines?.anime) : true)
-  });
-
-  animeDebugLog("debug.route", {
-    type: requestedType,
-    id: decodedId,
-    ...animeDecision
-  });
-
-  if (animeDecision.useAnimeEngine) {
-    animeDebugLog("debug.request", {
-      type: requestedType,
-      id: decodedId
-    });
-    const { payload: debug } = await animeEngine.resolveDebug(requestedType, decodedId);
-    animeDebugLog("debug.response", {
-      type: requestedType,
-      id: decodedId,
-      mode: "anime",
-      providerStreams: Array.isArray(debug?.providerStreams) ? debug.providerStreams.length : 0,
-      combinedStreamCount: debug?.combinedStreamCount ?? null
-    });
-    json(res, 200, {
-      mode: "anime",
-      type: requestedType,
-      id: decodedId,
-      ...debug
-    });
-    return;
-  }
-
-  const general = await generalEngine.resolveDebug(requestedType, decodedId);
-  if (general.mode === "internal") {
-    if (general.debug) {
-      json(res, 200, {
-        mode: "internal",
-        provider: general.providerId,
-        type: general.type,
-        slug: general.slug,
-        ...general.debug
-      });
-      return;
-    }
-
-    json(res, 200, {
-      mode: "internal",
-      provider: general.providerId,
-      type: general.type,
-      slug: general.slug
-    });
-    return;
-  }
-
-  const debug = general.debug;
-  json(res, 200, {
-    mode: "external",
-    type: requestedType,
-    id: decodedId,
-    selectionMode: debug.selectionMode || "global",
-    results: debug.results || [],
-    globalScoredStreams: debug.globalScoredStreams || [],
-    globalSelectedStreams: sanitizeDebugStreams(debug.globalSelectedStreams || [])
-  });
-}
-
-async function handleProviderDebug(res, pathname, requestConfig = null) {
-  const match = pathname.match(/^\/_debug\/provider\/([^/]+)\/stream\/([^/]+)\/(.+)\.json$/);
-
-  if (!match) {
-    notFound(res);
-    return;
-  }
-
-  const [, providerId, requestedType, rawId] = match;
-  const decodedId = decodeURIComponent(rawId);
-
-  if (animeEngineEnabled && animeEngine.isProviderId(providerId)) {
-    animeDebugLog("provider.debug.request", {
-      providerId,
-      type: requestedType,
-      id: decodedId
-    });
-    const debug = await animeEngine.resolveProviderDebug(providerId, requestedType, decodedId);
-    animeDebugLog("provider.debug.response", {
-      providerId,
-      type: requestedType,
-      id: decodedId,
-      status: debug?.status || null,
-      streamCount: debug?.streamCount ?? null
-    });
-    json(res, 200, {
-      mode: "anime_provider",
-      provider: providerId,
-      type: requestedType,
-      id: decodedId,
-      result: debug
-    });
-    return;
-  }
-
-  const provider = generalEngine.getProviderById(providerId);
-
-  if (!provider) {
-    json(res, 404, {
-      error: "Provider not found",
-      provider: providerId
-    });
-    return;
-  }
-
-  const debug = await generalEngine.resolveProviderDebug(providerId, requestedType, decodedId);
-  if (debug?.mode === "internal") {
-    json(res, 200, debug);
-    return;
-  }
-
-  json(res, 200, {
-    mode: "external",
-    provider: providerId,
-    type: requestedType,
-    id: decodedId,
-    result: debug
-  });
-}
-
-async function handleAnimeSearchDebug(res, pathname, searchParams, requestConfig = null) {
-  const match = pathname.match(/^\/_debug\/search\/([^/]+)\/([^/]+)\/(.+)\.json$/);
-
-  if (!match) {
-    notFound(res);
-    return;
-  }
-
-  const [, providerId, requestedType, rawQuery] = match;
-  if (!animeEngineEnabled || !animeEngine.isProviderId(providerId)) {
-    notFound(res);
-    return;
-  }
-
-  const query = decodeURIComponent(rawQuery);
-  const genres = searchParams.getAll("genre");
-  animeDebugLog("provider.search.request", {
-    providerId,
-    type: requestedType,
-    query,
-    genres
-  });
-  const debug = await animeEngine.resolveProviderSearchDebug(providerId, requestedType, query, genres);
-  animeDebugLog("provider.search.response", {
-    providerId,
-    type: requestedType,
-    query,
-    resultCount: debug?.resultCount ?? null,
-    error: debug?.error || null
-  });
-  json(res, 200, {
-    mode: "anime_provider_search",
-    provider: providerId,
-    type: requestedType,
-    query,
-    result: debug
-  });
-}
-
-async function handleProxy(req, res, pathname) {
-  const match = pathname.match(/^\/p\/(.+)$/);
-
-  if (!match) {
-    notFound(res);
-    return;
-  }
-
-  try {
-    const encodedPayload = match[1].replace(/\.(mp4|m3u8|ts|m4s|key|bin)$/i, "");
-    const decoded = JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf-8"));
-    const { url, headers } = decoded;
-
-    if (!url) {
-      notFound(res, "Missing target URL");
-      return;
-    }
-
-    await proxyStream(req, res, url, headers || {});
-  } catch (error) {
-    serverError(res, new Error("Invalid proxy payload", { cause: error }));
-  }
-}
-
-const server = http.createServer(async (req, res) => {
+// ── HTTP Server ────────────────────────────────────────────────
+const server = http.createServer((req, res) => {
   if (!req.url) {
     notFound(res);
     return;
   }
 
-  try {
-    const url = parseUrl(req);
-    const originPathname = normalizeAddonPath(url.pathname);
-    const resolvedPath = resolveConfiguredPath(originPathname);
-    const requestConfig = resolvedPath.config;
-    const normalizedPathname = resolvedPath.pathname;
+  // Parse and normalize (synchronous, outside AsyncLocalStorage)
+  const url = parseUrl(req);
+  const originPathname = normalizeAddonPath(url.pathname);
+  const resolvedPath = resolveConfiguredPath(originPathname);
 
-    if (req.method === "GET" && originPathname === "/configure") {
-      res.writeHead(200, { "Content-Type": "text/html" });
-      res.end(fs.readFileSync(path.join(process.cwd(), "public/configure/index.html")));
-      return;
-    }
+  // Generate trace ID for request correlation
+  const traceId = crypto.randomBytes(4).toString("hex");
+  req.traceId = traceId;
 
-    if (req.method === "GET" && originPathname === "/configure/app.js") {
-      res.writeHead(200, { "Content-Type": "application/javascript" });
-      res.end(fs.readFileSync(path.join(process.cwd(), "public/configure/app.js")));
-      return;
-    }
+  // Attach parsed data to request for routers
+  req.normalizedPathname = resolvedPath.pathname;
+  req.searchParams = url.searchParams;
+  req.parsedUrl = url;
 
-    if (req.method === "GET" && originPathname === "/configure/styles.css") {
-      res.writeHead(200, { "Content-Type": "text/css" });
-      res.end(fs.readFileSync(path.join(process.cwd(), "public/configure/styles.css")));
-      return;
-    }
+  // Wrap all request handling in AsyncLocalStorage so engines
+  // can access the decoded config via request-context.cjs
+  return runWithRequestConfig(
+    {
+      config: resolvedPath.config,
+      token: resolvedPath.token,
+      basePathPrefix: resolvedPath.basePathPrefix,
+      traceId
+    },
+    async () => {
+      try {
+        const manifestBuilder = createManifestBuilder(req, resolvedPath.config, resolvedPath.basePathPrefix);
 
-    if (req.method === "GET" && originPathname === "/configure/state.json") {
-      json(res, 200, buildConfigureState(getRequestOrigin(req), requestConfig));
-      return;
-    }
+        // Route: main (/, /manifest, /logo, /configure)
+        if (await dispatchMain(req, res, manifestBuilder)) return;
 
-    if (req.method === "GET" && normalizedPathname === "/manifest.json") {
-      json(res, 200, buildManifest(req, requestConfig, resolvedPath.basePathPrefix), {
-        "Cache-Control": "max-age=300, stale-while-revalidate=86400"
-      });
-      return;
-    }
+        // Route: stream (/stream, /meta, /catalog, /_debug)
+        if (await dispatchStream(req, res, manifestBuilder)) return;
 
-    if (req.method === "GET" && normalizedPathname === "/") {
-      const builtManifest = buildManifest(req, requestConfig, resolvedPath.basePathPrefix);
-      json(res, 200, {
-        ok: true,
-        name: builtManifest.name,
-        version: builtManifest.version
-      });
-      return;
-    }
+        // Route: proxy (/p/*)
+        if (await handleProxy(req, res)) return;
 
-    if (req.method === "GET" && normalizedPathname === "/logo.png") {
-      if (!fs.existsSync(logoPath)) {
+        // No match
         notFound(res);
-        return;
+      } catch (error) {
+        errorHandler(error, res, req);
       }
-      res.writeHead(200, { "Content-Type": "image/png" });
-      res.end(fs.readFileSync(logoPath));
-      return;
     }
-
-    if (req.method === "GET" && /^\/meta\/[^/]+\/.+\.json$/.test(normalizedPathname)) {
-      await handleMeta(res, normalizedPathname, requestConfig);
-      return;
-    }
-
-    if (req.method === "GET" && /^\/stream\/[^/]+\/.+\.json$/.test(normalizedPathname)) {
-      await handleStream(req, res, normalizedPathname, requestConfig);
-      return;
-    }
-
-    if (req.method === "GET" && /^\/_debug\/stream\/[^/]+\/.+\.json$/.test(normalizedPathname)) {
-      await handleDebug(res, normalizedPathname, requestConfig);
-      return;
-    }
-
-    if (req.method === "GET" && /^\/_debug\/provider\/[^/]+\/stream\/[^/]+\/.+\.json$/.test(normalizedPathname)) {
-      await handleProviderDebug(res, normalizedPathname, requestConfig);
-      return;
-    }
-
-    if (req.method === "GET" && /^\/catalog\/[^/]+\/[^/]+(?:\/[^/]+)?\.json$/.test(normalizedPathname)) {
-      await handleCatalog(req, res, normalizedPathname, requestConfig);
-      return;
-    }
-
-    if (req.method === "GET" && /^\/_debug\/search\/[^/]+\/[^/]+\/.+\.json$/.test(normalizedPathname)) {
-      await handleAnimeSearchDebug(res, normalizedPathname, url.searchParams, requestConfig);
-      return;
-    }
-
-    if (req.method === "GET" && /^\/p\/.+/.test(normalizedPathname)) {
-      await handleProxy(req, res, normalizedPathname);
-      return;
-    }
-
-    notFound(res);
-  } catch (error) {
-    serverError(res, error);
-  }
+  );
 });
 
+// ── Start server ───────────────────────────────────────────────
 server.listen(port, host, () => {
   console.log(`Addon disponible en http://${host}:${port}/manifest.json`);
 });
+
+// ── Graceful shutdown ──────────────────────────────────────────
+function shutdown(signal) {
+  console.log(`\n${signal} received. Shutting down gracefully...`);
+
+  server.close((err) => {
+    if (err) {
+      console.error("Error during shutdown:", err.message);
+      process.exit(1);
+    }
+    console.log("Server closed. Exiting.");
+    process.exit(0);
+  });
+
+  // Force exit after 10s if connections don't close
+  setTimeout(() => {
+    console.error("Forced exit after timeout.");
+    process.exit(1);
+  }, 10000).unref();
+}
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));

@@ -2,43 +2,37 @@ import { getPenaltyForSource } from "../../../lib/penalty-reliability.js";
 import { buildHttpStreamTitle } from "../../../shared/stream-format.js";
 import { dedupeStreamsByTarget } from "../../../shared/dedupe.js";
 import requestContextShared from "../../../config/request-context.cjs";
+import {
+  HOST_SCORES,
+  DEFAULT_HOST_SCORE,
+  RESOLUTION_SCORES,
+  LANGUAGE_SCORES,
+  TRANSPORT_SCORES,
+  COMPLEXITY_PENALTIES,
+  PROVIDER_ADJUSTMENTS,
+  DEFAULT_DISABLED_SOURCES,
+  STREAM_SELECTION_DEFAULTS,
+  getDisabledSourceSet,
+  getMaxResults
+} from "../../../config/scoring-config.js";
 
-const DEFAULT_MAX_RESULTS = 2;
-const DEFAULT_DISABLED_SOURCES = new Set(["netu", "hqq", "waaw", "waaw.tv"]);
+const DEFAULT_MAX_RESULTS = STREAM_SELECTION_DEFAULTS.maxResults;
 const {
   getSelectionMaxResults,
   isExtractorEnabled,
   isInternalOnlyEnabled
 } = requestContextShared;
 
-const HOST_SCORES = {
-  vidhide: 100,
-  netu: 96,
-  hqq: 95,
-  streamwish: 90,
-  hlswish: 89,
-  filemoon: 87,
-  vimeos: 85,
-  voe: 82,
-  goodstream: 72,
-  mp4upload: 70,
-  okru: 68,
-  streamtape: 64,
-  upstream: 60,
-  uqload: 58,
-  dood: 42
-};
-
 function getTitleText(stream) {
-  return String(stream._rawTitle || stream.title || "");
+  return String(stream._rawTitle ?? stream.title ?? "");
 }
 
 function getNameText(stream) {
-  return String(stream.name || "");
+  return String(stream.name ?? "");
 }
 
 function isValidStreamTarget(value) {
-  const target = String(value || "").trim();
+  const target = String(value ?? "").trim();
   if (!target) {
     return false;
   }
@@ -46,52 +40,43 @@ function isValidStreamTarget(value) {
   return /^https?:\/\//i.test(target) || /^\/p\//.test(target);
 }
 
-function getDisabledSourceSet() {
-  if (/^(1|true|yes)$/i.test(String(process.env.ALLOW_UNSTABLE_HOSTS || ""))) {
-    return new Set();
-  }
-
-  const configured = String(
-    process.env.STREAM_DISABLED_SOURCES ||
-    process.env.DISABLED_STREAM_SOURCES ||
-    ""
-  )
-    .split(",")
-    .map((value) => value.trim().toLowerCase())
-    .filter(Boolean);
-
-  return new Set([...DEFAULT_DISABLED_SOURCES, ...configured]);
-}
-
 function detectResolutionScore(stream) {
   const text = `${getTitleText(stream)} ${stream.description || ""}`.toLowerCase();
-  if (/\b(2160p|4k)\b/.test(text)) return 24;
-  if (/\b1080p\b/.test(text)) return 18;
-  if (/\b720p\b/.test(text)) return 10;
-  if (/\b480p\b/.test(text)) return 5;
+  if (/\b(2160p|4k)\b/.test(text)) return RESOLUTION_SCORES["4k"];
+  if (/\b1080p\b/.test(text)) return RESOLUTION_SCORES["1080p"];
+  if (/\b720p\b/.test(text)) return RESOLUTION_SCORES["720p"];
+  if (/\b480p\b/.test(text)) return RESOLUTION_SCORES["480p"];
   return 0;
 }
 
 function detectLanguageTier(stream) {
+  // Cache result on the stream to avoid recomputing
+  if (stream._languageTier !== undefined) {
+    return stream._languageTier;
+  }
+
   const text = `${getTitleText(stream)} ${getNameText(stream)}`.toLowerCase();
-  if (text.includes("[lat]") || /\blatino\b|\blatam\b/.test(text)) return 3;
-  if (text.includes("[cast]") || /\bcastellano\b|\bespa(?:n|\u00f1)ol\b/.test(text)) return 2;
-  if (text.includes("[sub]") || /\bsubtitulado\b|\bvose\b/.test(text)) return 1;
-  return 0;
+  let tier = 0;
+  if (text.includes("[lat]") || /\blatino\b|\blatam\b/.test(text)) tier = 3;
+  else if (text.includes("[cast]") || /\bcastellano\b|\bespa(?:n|\u00f1)ol\b/.test(text)) tier = 2;
+  else if (text.includes("[sub]") || /\bsubtitulado\b|\bvose\b/.test(text)) tier = 1;
+
+  stream._languageTier = tier;
+  return tier;
 }
 
 function detectLanguageScore(stream) {
   const tier = detectLanguageTier(stream);
-  if (tier === 3) return 70;
-  if (tier === 2) return 20;
-  if (tier === 1) return 8;
+  if (tier === 3) return LANGUAGE_SCORES.latino;
+  if (tier === 2) return LANGUAGE_SCORES.castellano;
+  if (tier === 1) return LANGUAGE_SCORES.subtitulado;
   return 0;
 }
 
 function detectTransportScore(stream) {
   const url = String(stream._targetUrl || stream.url || "");
-  if (/\.mp4(\?|$)/i.test(url)) return 8;
-  if (/\.m3u8(\?|$)/i.test(url)) return 5;
+  if (/\.mp4(\?|$)/i.test(url)) return TRANSPORT_SCORES.mp4;
+  if (/\.m3u8(\?|$)/i.test(url)) return TRANSPORT_SCORES.hls;
   return 0;
 }
 
@@ -100,39 +85,48 @@ function detectComplexityPenalty(stream) {
   let penalty = 0;
 
   if (stream.behaviorHints?.notWebReady) {
-    penalty += 2;
+    penalty += COMPLEXITY_PENALTIES.notWebReady;
   }
 
   if (requestHeaders.Cookie) {
-    penalty += 12;
+    penalty += COMPLEXITY_PENALTIES.hasCookie;
   }
 
-  if (Object.keys(requestHeaders).length >= 4) {
-    penalty += 4;
+  if (Object.keys(requestHeaders).length >= COMPLEXITY_PENALTIES.maxHeadersThreshold) {
+    penalty += COMPLEXITY_PENALTIES.manyHeaders;
   }
 
   return penalty;
 }
 
 function detectSourceLabel(stream) {
+  // Cache result on the stream to avoid recomputing
+  if (stream._sourceLabel !== undefined) {
+    return stream._sourceLabel;
+  }
+
   const text = `${getTitleText(stream)} ${getNameText(stream)}`.toLowerCase();
   const url = String(stream._targetUrl || stream.url || "").toLowerCase();
 
+  let label = "generic";
   for (const host of Object.keys(HOST_SCORES)) {
     if (text.includes(host) || url.includes(host)) {
-      return host;
+      label = host;
+      break;
     }
   }
 
-  return "generic";
+  stream._sourceLabel = label;
+  return label;
 }
 
 function detectProviderAdjustment(providerId, sourceLabel, stream, options = {}) {
   const effectiveProviderId = String(stream._providerId || providerId || "").toLowerCase();
   void options;
 
-  if (effectiveProviderId === "mhdflix" && sourceLabel === "netu") {
-    return -28;
+  const providerAdj = PROVIDER_ADJUSTMENTS[effectiveProviderId];
+  if (providerAdj && providerAdj[sourceLabel] !== undefined) {
+    return providerAdj[sourceLabel];
   }
 
   return 0;
@@ -191,6 +185,29 @@ function selectWithProviderDiversity(scoredItems, maxResults) {
   const selected = [];
   const usedProviders = new Set();
 
+  // Pre-compute: for each provider, what's the highest language tier available?
+  // This replaces an O(n^2) .some() loop inside the main iteration with O(1) lookups.
+  const maxTierByProvider = new Map();
+  for (const item of scoredItems) {
+    const pid = String(item.stream._providerId || "").toLowerCase();
+    if (!pid) continue;
+    const tier = detectLanguageTier(item.stream);
+    const current = maxTierByProvider.get(pid) || 0;
+    if (tier > current) {
+      maxTierByProvider.set(pid, tier);
+    }
+  }
+
+  // Helper: is there any remaining provider with Latino (tier 3) that we haven't used yet?
+  function hasRemainingLatinoAlternative() {
+    for (const [pid, tier] of maxTierByProvider) {
+      if (!usedProviders.has(pid) && tier >= 3) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   for (const item of scoredItems) {
     if (selected.length >= targetCount) {
       break;
@@ -203,16 +220,8 @@ function selectWithProviderDiversity(scoredItems, maxResults) {
       continue;
     }
 
-    const remainingLatinoAlternative = scoredItems.some((candidate) => {
-      const candidateProviderId = String(candidate.stream._providerId || "").toLowerCase();
-      if (!candidateProviderId || usedProviders.has(candidateProviderId) || candidateProviderId === providerId) {
-        return false;
-      }
-
-      return detectLanguageTier(candidate.stream) >= 3;
-    });
-
-    if (languageTier < 3 && remainingLatinoAlternative) {
+    // Skip non-Latino if there's still a Latino alternative available from another provider
+    if (languageTier < 3 && hasRemainingLatinoAlternative()) {
       continue;
     }
 
@@ -220,16 +229,15 @@ function selectWithProviderDiversity(scoredItems, maxResults) {
     usedProviders.add(providerId);
   }
 
+  // Fill remaining slots with any unused providers
   if (selected.length < targetCount) {
     for (const item of scoredItems) {
       if (selected.length >= targetCount) {
         break;
       }
-
       if (selected.includes(item)) {
         continue;
       }
-
       selected.push(item);
     }
   }
@@ -267,7 +275,7 @@ export function analyzeScoredStreams(providerId, streams, options = {}) {
       const complexityPenalty = detectComplexityPenalty(stream);
       const providerAdjustment = detectProviderAdjustment(providerId, sourceLabel, stream, options);
       const score =
-        (HOST_SCORES[sourceLabel] || 20) +
+        (HOST_SCORES[sourceLabel] || DEFAULT_HOST_SCORE) +
         resolutionScore +
         languageScore +
         transportScore -
@@ -294,7 +302,7 @@ export function analyzeScoredStreams(providerId, streams, options = {}) {
         sourceKey,
         sourceLabel,
         components: {
-          hostBase: HOST_SCORES[sourceLabel] || 20,
+          hostBase: HOST_SCORES[sourceLabel] || DEFAULT_HOST_SCORE,
           resolutionScore,
           languageScore,
           transportScore,
@@ -309,12 +317,7 @@ export function analyzeScoredStreams(providerId, streams, options = {}) {
 }
 
 export function scoreAndSelectStreams(providerId, streams, options = {}) {
-  const envMaxResults = Number.parseInt(process.env.STREAM_MAX_RESULTS || "", 10);
-  const maxResults = getSelectionMaxResults(
-    Number.isInteger(envMaxResults) && envMaxResults > 0
-      ? envMaxResults
-      : options.maxResults || DEFAULT_MAX_RESULTS
-  );
+  const maxResults = getSelectionMaxResults();
   const cleaned = analyzeScoredStreams(providerId, streams, options);
   const selected = providerId === "global"
     ? selectWithProviderDiversity(cleaned, maxResults)

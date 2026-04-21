@@ -2,6 +2,7 @@ import { buildStremioId } from "../../../lib/ids.js";
 import { buildStream, resolveExtractorStream } from "../../../lib/extractors.js";
 import { markSourceFailure, markSourceSuccess } from "../../../lib/penalty-reliability.js";
 import { analyzeScoredStreams, scoreAndSelectStreams } from "../scoring.js";
+import { getTmdbMeta, hasTmdbCredentials } from "../../anime/runtime/lib/metadata.js";
 import { Provider } from "./base.js";
 
 export class GnulaProvider extends Provider {
@@ -33,6 +34,26 @@ export class GnulaProvider extends Provider {
       .filter(Boolean);
   }
 
+  async getCatalogItems({ type, catalogId, extra = {} }) {
+    if (String(catalogId || "") === "gnula|search") {
+      return this.search({
+        type: null,
+        query: String(extra.search || "").trim()
+      });
+    }
+
+    const url = this.buildCatalogUrl(catalogId, extra);
+    if (!url) {
+      return [];
+    }
+
+    const html = await this.fetchText(url);
+    const nextData = this.extractNextData(html);
+    const itemType = this.resolveCatalogType(type, catalogId);
+    const items = this.extractCatalogItems(nextData, catalogId, itemType);
+    return this.dedupeById(items);
+  }
+
   async getMeta({ type, slug }) {
     const target = this.parseSlugPayload(type, slug);
     const html = await this.fetchText(target.url);
@@ -45,7 +66,7 @@ export class GnulaProvider extends Provider {
     const post = nextData.post;
     const resolvedType = target.type;
     const videos = resolvedType === "series"
-      ? this.buildEpisodeVideos(post)
+      ? this.buildEpisodeVideos(post, html)
       : [];
 
     return {
@@ -57,6 +78,9 @@ export class GnulaProvider extends Provider {
       description: post.overview || "",
       genres: (post.genres || []).map((genre) => genre.name).filter(Boolean),
       cast: (post.cast?.acting || []).map((person) => person.name).filter(Boolean),
+      runtime: post.runtime || undefined,
+      directors: (post.cast?.directing || []).map((person) => person.name).filter(Boolean),
+      countries: (post.cast?.countries || []).map((country) => country.name).filter(Boolean),
       videos
     };
   }
@@ -66,19 +90,15 @@ export class GnulaProvider extends Provider {
     const html = await this.fetchText(target.url);
     const nextData = this.extractNextData(html);
 
-    const players = target.type === "series"
-      ? nextData?.episode?.players
-      : nextData?.post?.players;
+    const allPlayers = this.collectPlayersFromPage({
+      target,
+      nextData,
+      html
+    });
 
-    if (!players) {
+    if (!allPlayers.length) {
       return [];
     }
-
-    const allPlayers = [
-      ...this.mapRegionPlayers(players.latino, "[LAT]"),
-      ...this.mapRegionPlayers(players.spanish, "[CAST]"),
-      ...this.mapRegionPlayers(players.english, "[SUB]")
-    ].filter((player) => this.isSourceEnabled(player.server));
 
     const streamGroups = await Promise.all(
       allPlayers.map((player) => this.resolvePlayerStream(player))
@@ -95,27 +115,21 @@ export class GnulaProvider extends Provider {
     }
 
     const parsedExternal = this.parseExternalStremioId(type, externalId);
-    const externalMeta = await this.fetchCinemetaMeta(type, parsedExternal.baseId);
+    const externalMeta = await this.fetchExternalSearchMetadata(type, parsedExternal.baseId);
     if (!externalMeta?.name) {
       return [];
     }
 
-    const candidates = await this.searchWithFallbackQueries({
+    const matchBundle = await this.findBestExternalMatch({
       type,
       externalMeta
     });
 
-    if (!candidates.length) {
+    if (!matchBundle?.bestMatch) {
       return [];
     }
 
-    const typeCandidates = candidates.filter((candidate) => candidate.type === type);
-    const validCandidates = typeCandidates.length > 0 ? typeCandidates : candidates;
-
-    const bestMatch = this.pickBestCandidate(validCandidates, externalMeta);
-    if (!bestMatch) {
-      return [];
-    }
+    const bestMatch = matchBundle.bestMatch;
 
     const parsed = bestMatch.id.split(":");
     let slug = parsed.slice(2).join(":");
@@ -159,7 +173,7 @@ export class GnulaProvider extends Provider {
     const parsedExternal = this.parseExternalStremioId(type, externalId);
     debug.parsedExternal = parsedExternal;
 
-    const externalMeta = await this.fetchCinemetaMeta(type, parsedExternal.baseId);
+    const externalMeta = await this.fetchExternalSearchMetadata(type, parsedExternal.baseId);
     debug.externalMeta = externalMeta
       ? {
           id: externalMeta.id,
@@ -174,10 +188,20 @@ export class GnulaProvider extends Provider {
       return debug;
     }
 
-    const queries = this.buildSearchQueries(externalMeta);
-    debug.queries = queries;
+    const matchBundle = await this.findBestExternalMatch({
+      type,
+      externalMeta
+    });
+    debug.queries = matchBundle.queries;
+    debug.queryStrategy = matchBundle.queryStrategy;
+    debug.queryTerms = matchBundle.queryTerms;
+    debug.searchMetadata = {
+      name: externalMeta.name,
+      originalTitle: externalMeta.originalTitle || null,
+      aliases: Array.isArray(externalMeta.aliases) ? externalMeta.aliases.slice(0, 20) : []
+    };
 
-    const candidates = await this.searchWithFallbackQueries({ type, externalMeta });
+    const candidates = matchBundle.candidates;
     debug.candidates = candidates.map((candidate) => ({
       id: candidate.id,
       type: candidate.type,
@@ -199,7 +223,7 @@ export class GnulaProvider extends Provider {
       releaseInfo: candidate.releaseInfo || ""
     }));
 
-    const bestMatch = this.pickBestCandidate(validCandidates, externalMeta);
+    const bestMatch = matchBundle.bestMatch;
     debug.bestMatch = bestMatch
       ? {
           id: bestMatch.id,
@@ -259,17 +283,11 @@ export class GnulaProvider extends Provider {
 
     const html = await this.fetchText(target.url);
     const nextData = this.extractNextData(html);
-    const players = target.type === "series"
-      ? nextData?.episode?.players
-      : nextData?.post?.players;
-
-    const allPlayers = players
-      ? [
-          ...this.mapRegionPlayers(players.latino, "[LAT]"),
-          ...this.mapRegionPlayers(players.spanish, "[CAST]"),
-          ...this.mapRegionPlayers(players.english, "[SUB]")
-        ].filter((player) => this.isSourceEnabled(player.server))
-      : [];
+    const allPlayers = this.collectPlayersFromPage({
+      target,
+      nextData,
+      html
+    });
 
     debug.playerCount = allPlayers.length;
     debug.players = allPlayers.map((player) => ({
@@ -284,11 +302,22 @@ export class GnulaProvider extends Provider {
       return debug;
     }
 
-    const streamGroups = await Promise.all(
-      allPlayers.map((player) => this.resolvePlayerStream(player))
+    const playerDebug = await Promise.all(
+      allPlayers.map((player) => this.resolvePlayerStreamDebug(player))
     );
 
-    const rawStreams = streamGroups.flat().filter(Boolean);
+    debug.playerDebug = playerDebug.map((item) => ({
+      lang: item.player.lang,
+      server: item.player.server,
+      quality: item.player.quality,
+      pageUrl: item.player.pageUrl,
+      directUrl: item.directUrl || null,
+      extractedCount: item.streams.length,
+      extractedTitles: item.streams.map((stream) => stream.title),
+      error: item.error || null
+    }));
+
+    const rawStreams = playerDebug.flatMap((item) => item.streams).filter(Boolean);
     const scoredStreams = analyzeScoredStreams(this.id, rawStreams, {
       cleanTitle: (title) => this.cleanStreamTitle(title)
     });
@@ -333,18 +362,84 @@ export class GnulaProvider extends Provider {
     return Array.from(deduped.values());
   }
 
-  buildSearchQueries(externalMeta) {
-    const baseName = String(externalMeta?.name || "").trim();
-    const queries = [];
+  async findBestExternalMatch({ type, externalMeta }) {
+    const primaryTerms = this.buildSearchQueries(externalMeta, { expanded: false });
+    const primaryCandidates = await this.searchWithQueries({ type, queries: primaryTerms });
+    const primaryBest = this.pickBestCandidate(primaryCandidates, externalMeta);
 
-    if (baseName) {
-      queries.push(baseName);
-      queries.push(baseName.replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim());
-      queries.push(baseName.split(":")[0].trim());
-      queries.push(baseName.replace(/\b(the|a|an)\b/gi, " ").replace(/\s+/g, " ").trim());
+    if (primaryBest) {
+      return {
+        queryStrategy: "primary",
+        queryTerms: primaryTerms,
+        queries: primaryTerms,
+        candidates: primaryCandidates,
+        bestMatch: primaryBest
+      };
     }
 
-    return [...new Set(queries.filter((query) => query && query.length >= 2))];
+    const expandedMeta = await this.fetchExpandedExternalMetadata(externalMeta);
+    const expandedTerms = this.buildSearchQueries(expandedMeta, { expanded: true });
+    const expandedCandidates = await this.searchWithQueries({ type, queries: expandedTerms });
+    const expandedBest = this.pickBestCandidate(expandedCandidates, expandedMeta);
+
+    return {
+      queryStrategy: expandedMeta !== externalMeta ? "expanded" : "primary",
+      queryTerms: expandedTerms,
+      queries: expandedTerms,
+      candidates: expandedCandidates,
+      bestMatch: expandedBest
+    };
+  }
+
+  async searchWithQueries({ type, queries }) {
+    const terms = [...new Set((queries || []).filter(Boolean))];
+    if (terms.length === 0) {
+      return [];
+    }
+
+    return this.searchWithFallbackQueries({
+      type,
+      externalMeta: {
+        name: terms[0]
+      },
+      queriesOverride: terms
+    });
+  }
+
+  buildSearchQueries(externalMeta, { expanded = false } = {}) {
+    const rawTerms = [
+      externalMeta?.name,
+      externalMeta?.originalTitle,
+      ...(Array.isArray(externalMeta?.aliases) ? externalMeta.aliases : []),
+      ...(Array.isArray(externalMeta?.alternativeTitles) ? externalMeta.alternativeTitles : [])
+    ].filter(Boolean);
+
+    const queries = [];
+    const seen = new Set();
+
+    const pushQuery = (value) => {
+      const normalized = String(value || "").trim();
+      if (!normalized || normalized.length < 2) {
+        return;
+      }
+
+      const key = normalized.toLowerCase();
+      if (seen.has(key)) {
+        return;
+      }
+
+      seen.add(key);
+      queries.push(normalized);
+    };
+
+    for (const term of rawTerms) {
+      pushQuery(term);
+      pushQuery(term.replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim());
+      pushQuery(String(term).split(":")[0].trim());
+      pushQuery(String(term).replace(/\b(the|a|an)\b/gi, " ").replace(/\s+/g, " ").trim());
+    }
+
+    return expanded ? queries.slice(0, 8) : queries.slice(0, 4);
   }
 
   sortStreams(streams) {
@@ -434,22 +529,95 @@ export class GnulaProvider extends Provider {
 
   resolveTypeFromPath(pathSlug, fallbackType) {
     if (typeof pathSlug === "string") {
-      if (pathSlug.includes("series")) {
+      const lowerPath = pathSlug.toLowerCase();
+      if (lowerPath.includes("/series/")) {
         return "series";
       }
-
-      if (pathSlug.includes("movies")) {
-        return fallbackType === "anime" || fallbackType === "other" ? fallbackType : "movie";
+      if (lowerPath.includes("/movies/")) {
+        return "movie";
       }
     }
 
-    return fallbackType || "movie";
+    return fallbackType === "series" ? "series" : "movie";
+  }
+
+  extractCatalogItems(nextData, catalogId, itemType) {
+    const id = String(catalogId || "");
+    const resultsData = Array.isArray(nextData?.results?.data) ? nextData.results.data : null;
+    if (resultsData?.length) {
+      return resultsData
+        .map((item) => this.mapSearchItem(item, itemType))
+        .filter(Boolean);
+    }
+
+    const fallbackMap = {
+      "gnula|movies|latest": nextData?.lastMovies?.data,
+      "gnula|movies|popular": nextData?.topDayMovies?.data,
+      "gnula|series|latest": nextData?.lastSeries?.data,
+      "gnula|series|popular": nextData?.topDaySeries?.data
+    };
+
+    return (Array.isArray(fallbackMap[id]) ? fallbackMap[id] : [])
+      .map((item) => this.mapSearchItem(item, itemType))
+      .filter(Boolean);
+  }
+
+  buildCatalogUrl(catalogId, extra = {}) {
+    const pageSize = 19;
+    const page = Math.max(1, Math.floor(Number(extra.skip || 0) / pageSize) + 1);
+    const suffix = page > 1 ? `/page/${page}` : "";
+    const id = String(catalogId || "");
+    const genre = this.normalizeGenreFilter(extra.genre);
+
+    if (id === "gnula|movies|latest") {
+      return `${this.baseUrl}/archives/movies${suffix}`;
+    }
+
+    if (id === "gnula|movies|popular") {
+      if (genre && genre !== "top") {
+        return `${this.baseUrl}/genres/${genre}${suffix}`;
+      }
+
+      return `${this.baseUrl}/archives/movies/top/day${suffix}`;
+    }
+
+    if (id === "gnula|series|latest") {
+      return `${this.baseUrl}/archives/series${suffix}`;
+    }
+
+    if (id === "gnula|series|popular") {
+      if (genre && genre !== "top") {
+        return `${this.baseUrl}/genres/${genre}${suffix}`;
+      }
+
+      return `${this.baseUrl}/archives/series/top/day${suffix}`;
+    }
+
+    return null;
+  }
+
+  resolveCatalogType(type, catalogId) {
+    if (type === "movie" || type === "series") {
+      return type;
+    }
+
+    return String(catalogId || "").includes("|series|") ? "series" : "movie";
   }
 
   pickBestCandidate(candidates, externalMeta) {
     const targetTitle = this.normalizeTitle(externalMeta.name);
     const targetYear = this.extractYear(externalMeta.releaseInfo || externalMeta.year || "");
     const targetWords = targetTitle.split(/\s+/).filter(Boolean);
+    const aliasTitles = [
+      targetTitle,
+      this.normalizeTitle(externalMeta.originalTitle || ""),
+      ...(Array.isArray(externalMeta.aliases) ? externalMeta.aliases.map((alias) => this.normalizeTitle(alias)) : [])
+    ].filter(Boolean);
+    const anchorWords = Array.from(new Set(
+      aliasTitles
+        .flatMap((title) => title.split(/\s+/))
+        .filter((word) => word.length >= 4 && !/^\d+$/.test(word))
+    ));
 
     const scored = candidates.map((candidate) => {
       const candidateTitle = this.normalizeTitle(candidate.name);
@@ -458,6 +626,12 @@ export class GnulaProvider extends Provider {
       const candidateWords = candidateTitle.split(/\s+/).filter(Boolean);
       const wordDelta = Math.abs(candidateWords.length - targetWords.length);
       const wordOverlap = targetWords.filter((word) => candidateWords.includes(word)).length;
+      const aliasSimilarity = Math.max(
+        ...aliasTitles.map((aliasTitle) => this.stringSimilarity(candidateTitle, aliasTitle))
+      );
+      const anchorOverlap = anchorWords.filter((word) => candidateWords.includes(word)).length;
+      const hasLatinLetters = /[a-z]/i.test(candidateTitle);
+      const hasAnyLexicalEvidence = wordOverlap > 0 || anchorOverlap > 0 || aliasSimilarity >= 0.55;
 
       let score = 0;
 
@@ -472,6 +646,16 @@ export class GnulaProvider extends Provider {
       } else if (titleSimilarity >= 0.84) {
         score += 40;
       }
+
+      if (aliasSimilarity >= 0.92) {
+        score += 85;
+      } else if (aliasSimilarity >= 0.84) {
+        score += 50;
+      } else if (aliasSimilarity >= 0.72) {
+        score += 18;
+      }
+
+      score += anchorOverlap * 70;
 
       const relaxedCandidateTitle = this.relaxTitle(candidateTitle);
       const relaxedTargetTitle = this.relaxTitle(targetTitle);
@@ -497,7 +681,15 @@ export class GnulaProvider extends Provider {
         score += 25;
       }
 
-      return { candidate, score, titleSimilarity, relaxedSimilarity, wordOverlap };
+      if (!hasAnyLexicalEvidence) {
+        score -= 220;
+      }
+
+      if (!hasLatinLetters && anchorWords.length > 0) {
+        score -= 160;
+      }
+
+      return { candidate, score, titleSimilarity, relaxedSimilarity, aliasSimilarity, wordOverlap, anchorOverlap };
     });
 
     scored.sort((a, b) => b.score - a.score);
@@ -509,10 +701,12 @@ export class GnulaProvider extends Provider {
     const hasStrongExactness =
       best.score >= 40 ||
       best.titleSimilarity >= 0.84 ||
-      best.relaxedSimilarity >= 0.9;
+      best.relaxedSimilarity >= 0.9 ||
+      best.aliasSimilarity >= 0.84;
     const hasWordEvidence =
       best.wordOverlap >= Math.min(Math.max(targetWords.length, 1), 2) ||
-      (targetWords.length === 1 && best.wordOverlap >= 1);
+      (targetWords.length === 1 && best.wordOverlap >= 1) ||
+      best.anchorOverlap >= 1;
 
     return hasStrongExactness || hasWordEvidence ? best.candidate : null;
   }
@@ -654,31 +848,40 @@ export class GnulaProvider extends Provider {
     return null;
   }
 
-  buildEpisodeVideos(post) {
-    const videos = [];
+  buildEpisodeVideos(post, html = "") {
+    const merged = new Map();
+    const posterFallback = post?.images?.poster || null;
 
     for (const season of post.seasons || []) {
       for (const episode of season.episodes || []) {
-        const seasonNumber = String(episode?.slug?.season || season?.number || "");
-        const episodeNumber = String(episode?.slug?.episode || episode?.number || "");
+        const seasonNumber = Number(episode?.slug?.season || season?.number || 0);
+        const episodeNumber = Number(episode?.slug?.episode || episode?.number || 0);
         const episodeSlug = episode?.slug?.name;
 
         if (!seasonNumber || !episodeNumber || !episodeSlug) {
           continue;
         }
 
-        videos.push({
+        this.mergeEpisodeVideo(merged, {
           id: buildStremioId(this.id, "series", `${episodeSlug}:${seasonNumber}:${episodeNumber}`),
           title: episode?.title || `T${seasonNumber} E${episodeNumber}`,
-          season: Number(seasonNumber) || 1,
-          episode: Number(episodeNumber) || 1,
+          season: seasonNumber,
+          episode: episodeNumber,
           released: episode?.releaseDate || undefined,
-          thumbnail: episode?.image || null
+          thumbnail: episode?.image || posterFallback
         });
       }
     }
 
-    return videos.reverse();
+    for (const episode of this.extractEpisodeVideosFromHtml(html, posterFallback)) {
+      this.mergeEpisodeVideo(merged, episode);
+    }
+
+    return Array.from(merged.values()).sort((a, b) => {
+      const seasonDiff = Number(a.season) - Number(b.season);
+      if (seasonDiff !== 0) return seasonDiff;
+      return Number(a.episode) - Number(b.episode);
+    });
   }
 
   parseSlugPayload(type, slug) {
@@ -713,40 +916,285 @@ export class GnulaProvider extends Provider {
   }
 
   async resolvePlayerStream(player) {
+    const result = await this.resolvePlayerStreamDebug(player);
+    return result.streams;
+  }
+
+  async resolvePlayerStreamDebug(player) {
     const sourceKey = `${this.id}:${String(player.server || "generic").toLowerCase()}`;
     try {
-      const html = await this.fetchText(player.pageUrl);
-      const directUrl = this.extractVarUrl(html) || player.pageUrl;
+      const directUrl = await this.resolvePlayerIntermediateUrl(player.pageUrl);
       const label = [player.lang, player.server, player.quality].filter(Boolean).join(" ");
       const shouldProxy = true;
       const extracted = await resolveExtractorStream(directUrl, label, shouldProxy);
 
       if (extracted.length > 0) {
         markSourceSuccess(sourceKey);
-        return extracted.map((stream) => ({
-          ...stream,
-          _sourceKey: sourceKey
-        }));
+        return {
+          player,
+          directUrl,
+          streams: extracted.map((stream) => ({
+            ...stream,
+            _sourceKey: sourceKey
+          })),
+          error: null
+        };
       }
 
       if (/\.(m3u8|mp4)(\?|$)/i.test(directUrl)) {
         markSourceSuccess(sourceKey);
-        return [
-          buildStream("Gnula", label, directUrl, player.pageUrl, shouldProxy)
-        ];
+        return {
+          player,
+          directUrl,
+          streams: [
+            buildStream("Gnula", label, directUrl, player.pageUrl, shouldProxy)
+          ],
+          error: null
+        };
       }
-    } catch {
+    } catch (error) {
       markSourceFailure(sourceKey);
-      return [];
+      return {
+        player,
+        directUrl: null,
+        streams: [],
+        error: error instanceof Error ? error.message : String(error)
+      };
     }
 
     markSourceFailure(sourceKey);
-    return [];
+    return {
+      player,
+      directUrl: null,
+      streams: [],
+      error: null
+    };
   }
 
-  extractVarUrl(html) {
-    const match = html.match(/var\s+url\s*=\s*'([^']+)'/i);
+  extractPlayerUrl(html, baseUrl = null) {
+    const patterns = [
+      /var\s+url\s*=\s*['"]([^'"]+)['"]/i,
+      /(?:window\.)?location(?:\.href)?\s*=\s*['"]([^'"]+)['"]/i,
+      /(?:window\.)?location(?:\.href)?\.replace\(\s*['"]([^'"]+)['"]\s*\)/i,
+      /(?:window\.)?location\.assign\(\s*['"]([^'"]+)['"]\s*\)/i,
+      /(?:window\.)?location(?:\.href)?\s*=\s*url\b/i
+    ];
+
+    for (const pattern of patterns) {
+      const match = html.match(pattern);
+
+      if (match?.[1]) {
+        return this.resolveMaybeRelativeUrl(match[1], baseUrl);
+      }
+    }
+
+    const startUrl = html.match(/id\s*=\s*['"]start['"][\s\S]{0,1200}?window\.location\.href\s*=\s*url/i);
+    if (startUrl) {
+      const varMatch = html.match(/var\s+url\s*=\s*['"]([^'"]+)['"]/i);
+      if (varMatch?.[1]) {
+        return this.resolveMaybeRelativeUrl(varMatch[1], baseUrl);
+      }
+    }
+
+    const iframeMatch = html.match(/<iframe[^>]+src=['"]([^'"]+)['"][^>]*>/i);
+    if (iframeMatch?.[1]) {
+      return this.resolveMaybeRelativeUrl(iframeMatch[1], baseUrl);
+    }
+
+    const absoluteMatch = html.match(/https?:\/\/(?:www\.)?(?:streamtape\.(?:com|to|net|xyz|ca|cc|site|link))\/(?:e|v)\/[A-Za-z0-9_-]+/i);
+    return absoluteMatch?.[0] || null;
+  }
+
+  collectPlayersFromPage({ target, nextData, html }) {
+    const players = target.type === "series"
+      ? nextData?.episode?.players
+      : nextData?.post?.players;
+
+    const mappedPlayers = players
+      ? [
+          ...this.mapRegionPlayers(players.latino, "[LAT]"),
+          ...this.mapRegionPlayers(players.spanish, "[CAST]"),
+          ...this.mapRegionPlayers(players.english, "[SUB]")
+        ]
+      : [];
+
+    const fallbackPlayers = mappedPlayers.length > 0
+      ? []
+      : this.extractIframePlayersFromHtml(html);
+
+    return [...mappedPlayers, ...fallbackPlayers]
+      .filter((player) => player?.pageUrl)
+      .filter((player) => this.isSourceEnabled(player.server))
+      .filter((player, index, items) =>
+        items.findIndex((candidate) => candidate.pageUrl === player.pageUrl && candidate.lang === player.lang) === index
+      );
+  }
+
+  extractIframePlayersFromHtml(html) {
+    const iframeUrls = this.extractIframeUrls(html);
+    return iframeUrls.map((pageUrl) => ({
+      lang: "",
+      server: this.inferServerNameFromUrl(pageUrl) || "iframe",
+      quality: "",
+      pageUrl
+    }));
+  }
+
+  extractIframeUrls(html, baseUrl = this.baseUrl) {
+    const matches = Array.from(
+      html.matchAll(/<iframe[^>]+src=['"]([^'"]+)['"][^>]*>/gi),
+      (match) => this.resolveMaybeRelativeUrl(match[1], baseUrl)
+    ).filter(Boolean);
+
+    return Array.from(new Set(matches));
+  }
+
+  async resolvePlayerIntermediateUrl(pageUrl, maxDepth = 2) {
+    let currentUrl = pageUrl;
+
+    for (let depth = 0; depth <= maxDepth; depth += 1) {
+      if (!this.shouldFollowIntermediateUrl(currentUrl)) {
+        return currentUrl;
+      }
+
+      const html = await this.fetchText(currentUrl);
+      const discoveredUrl = this.extractPlayerUrl(html, currentUrl);
+
+      if (!discoveredUrl || discoveredUrl === currentUrl) {
+        return currentUrl;
+      }
+
+      currentUrl = discoveredUrl;
+    }
+
+    return currentUrl;
+  }
+
+  shouldFollowIntermediateUrl(url) {
+    if (!url || /\.(m3u8|mp4)(\?|$)/i.test(url)) {
+      return false;
+    }
+
+    return /player\.gnula\.life\/player\.php/i.test(url)
+      || /gnula\.life\//i.test(url);
+  }
+
+  resolveMaybeRelativeUrl(url, baseUrl = this.baseUrl) {
+    if (!url) {
+      return null;
+    }
+
+    try {
+      return new URL(url, baseUrl).toString();
+    } catch {
+      return url;
+    }
+  }
+
+  inferServerNameFromUrl(url) {
+    const normalized = String(url || "").toLowerCase();
+    const knownServers = ["streamwish", "vidhide", "voe", "voesx", "doodstream", "streamtape", "netu", "filemoon"];
+    const match = knownServers.find((server) => normalized.includes(server));
+    if (match) {
+      return match;
+    }
+
+    if (normalized.includes("player.gnula.life/player.php")) {
+      return "player";
+    }
+
+    try {
+      return new URL(url).hostname.replace(/^www\./i, "");
+    } catch {
+      return "iframe";
+    }
+  }
+
+  extractEpisodeVideosFromHtml(html, posterFallback = null) {
+    const matches = Array.from(
+      html.matchAll(/<a[^>]+href=['"]([^"'<>]*\/series\/[^"'<>]+\/seasons\/(\d+)\/episodes\/(\d+))['"][^>]*>([\s\S]*?)<\/a>/gi)
+    );
+
+    return matches.map((match) => {
+      const url = this.resolveMaybeRelativeUrl(match[1], this.baseUrl);
+      const season = Number(match[2]) || 1;
+      const episode = Number(match[3]) || 1;
+      const episodeSlug = this.extractEpisodeSlugFromUrl(url);
+      const blockHtml = match[4] || "";
+      const title = this.cleanHtmlText(blockHtml) || `T${season} E${episode}`;
+      const thumbnail = this.extractImageFromHtml(blockHtml) || posterFallback;
+
+      if (!episodeSlug) {
+        return null;
+      }
+
+      return {
+        id: buildStremioId(this.id, "series", `${episodeSlug}:${season}:${episode}`),
+        title,
+        season,
+        episode,
+        thumbnail
+      };
+    }).filter(Boolean);
+  }
+
+  mergeEpisodeVideo(map, candidate) {
+    const key = `${candidate.id}:${candidate.season}:${candidate.episode}`;
+    const current = map.get(key);
+
+    if (!current) {
+      map.set(key, candidate);
+      return;
+    }
+
+    const candidateScore = this.scoreEpisodeVideo(candidate);
+    const currentScore = this.scoreEpisodeVideo(current);
+    if (candidateScore > currentScore) {
+      map.set(key, {
+        ...current,
+        ...candidate
+      });
+      return;
+    }
+
+    map.set(key, {
+      ...candidate,
+      ...current
+    });
+  }
+
+  scoreEpisodeVideo(video) {
+    let score = 0;
+    if (video?.thumbnail) score += 2;
+    if (video?.released) score += 1;
+    if (video?.title && !/^T\d+\s+E\d+$/i.test(video.title)) score += 1;
+    return score;
+  }
+
+  extractEpisodeSlugFromUrl(url) {
+    const match = String(url || "").match(/\/series\/([^/]+)\/seasons\/\d+\/episodes\/\d+/i);
     return match?.[1] || null;
+  }
+
+  extractImageFromHtml(html) {
+    const imgMatch = html.match(/<img[^>]+src=['"]([^'"]+)['"][^>]*>/i);
+    return imgMatch?.[1] ? this.resolveMaybeRelativeUrl(imgMatch[1], this.baseUrl) : null;
+  }
+
+  cleanHtmlText(html) {
+    const cleaned = String(html || "")
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&nbsp;/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (!cleaned || cleaned.toLowerCase() === "undefined") {
+      return "";
+    }
+
+    return cleaned;
   }
 
   extractNextData(html) {
@@ -789,6 +1237,20 @@ export class GnulaProvider extends Provider {
     }
 
     return null;
+  }
+
+  dedupeById(items) {
+    return Array.from(new Map((items || []).map((item) => [item.id, item])).values());
+  }
+
+  normalizeGenreFilter(value) {
+    return String(value || "")
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
   }
 
   extractBalancedJson(text) {
@@ -870,6 +1332,33 @@ export class GnulaProvider extends Provider {
       return payload?.meta || null;
     } catch {
       return null;
+    }
+  }
+
+  async fetchExternalSearchMetadata(type, externalId) {
+    return this.fetchCinemetaMeta(type, externalId);
+  }
+
+  async fetchExpandedExternalMetadata(externalMeta) {
+    if (!externalMeta?.id || !hasTmdbCredentials()) {
+      return externalMeta;
+    }
+
+    try {
+      const tmdbMeta = await getTmdbMeta(externalMeta.id);
+      return {
+        ...externalMeta,
+        originalTitle: tmdbMeta?.originalTitle || externalMeta.originalTitle || externalMeta.name,
+        aliases: Array.from(new Set([
+          ...(Array.isArray(externalMeta.aliases) ? externalMeta.aliases : []),
+          ...(Array.isArray(externalMeta.alternativeTitles) ? externalMeta.alternativeTitles : []),
+          ...(Array.isArray(tmdbMeta?.aliases) ? tmdbMeta.aliases : []),
+          tmdbMeta?.title,
+          tmdbMeta?.originalTitle
+        ].filter(Boolean)))
+      };
+    } catch {
+      return externalMeta;
     }
   }
 }

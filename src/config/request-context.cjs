@@ -19,7 +19,7 @@ const FALLBACK_CONFIG = {
   },
   selection: {
     mode: process.env.DEFAULT_SELECTION_MODE || "global",
-    maxResults: parseInt(process.env.DEFAULT_MAX_RESULTS, 10) || 2,
+    maxResults: parseInt(process.env.DEFAULT_MAX_RESULTS, 10) || 20,
     internalOnly: process.env.DEFAULT_INTERNAL_ONLY !== "false"
   },
   support: {
@@ -45,6 +45,10 @@ function getRequestConfig() {
 
 function getRequestConfigToken() {
   return getRequestState().token || null;
+}
+
+function getRequestTraceId() {
+  return getRequestState().traceId || "unknown";
 }
 
 function getRequestBasePathPrefix() {
@@ -114,6 +118,7 @@ module.exports = {
   getRequestBasePathPrefix,
   getRequestConfig,
   getRequestConfigToken,
+  getRequestTraceId,
   getSelectionMaxResults,
   getSelectionMode,
   isEngineEnabled,

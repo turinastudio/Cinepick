@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: stremio-web-scraper-addon
+    name: cinepick
     runtime: node
     plan: free
     buildCommand: npm install
@@ -12,11 +12,21 @@ services:
       - key: NODE_ENV
         value: production
       - key: ADDON_URL
-        value: https://stremio-web-scraper-addon.onrender.com
+        value: https://cinepick.onrender.com
+      - key: MANIFEST_DESCRIPTION
+        value: Cinepick addon de Stremio con motor general y motor anime integrados.
+      - key: DEFAULT_SELECTION_MODE
+        value: global
+      - key: DEFAULT_MAX_RESULTS
+        value: 20
+      - key: DEFAULT_INTERNAL_ONLY
+        value: true
       - key: STREAM_SELECTION_MODE
         value: global
       - key: STREAM_MAX_RESULTS
-        value: 2
+        value: 20
+      - key: ACTIVE_PROVIDERS
+        value: ""
       - key: SHOW_SUPPORT_STREAM
         value: true
       - key: SUPPORT_URL
@@ -25,12 +35,30 @@ services:
         value: 25000
       - key: PROVIDER_DEBUG_TIMEOUT_MS
         value: 40000
+      - key: PROVIDER_MAX_CONCURRENT
+        value: 6
+      - key: WEBSTREAM_HTTP_TIMEOUT_MS
+        value: 25000
       - key: EXTRACTOR_TIMEOUT_MS
         value: 3500
       - key: EXTRACTOR_CANDIDATE_TIMEOUT_MS
         value: 5000
+      - key: EXTRACTOR_RETRIES
+        value: 1
       - key: WEBSTREAM_HTTP_RETRIES
         value: 1
+      - key: CIRCUIT_BREAKER_FAILURES
+        value: 5
+      - key: CIRCUIT_BREAKER_COOLDOWN_MS
+        value: 600000
+      - key: SCRAPING_MIN_DELAY_MS
+        value: 0
+      - key: SCRAPING_MAX_DELAY_MS
+        value: 0
+      - key: ALLOW_UNSTABLE_HOSTS
+        value: false
+      - key: DISABLED_STREAM_SOURCES
+        value: ""
       - key: TMDB_API_KEY
         value: 439c478a771f35c05022f9feabcca01c
       - key: ENABLE_ANIME_ENGINE
@@ -39,6 +67,8 @@ services:
         value: false
       - key: GNULA_BASE_URL
         value: https://gnula.life
+      - key: EMBED69_BASE_URL
+        value: https://embed69.org
       - key: CINECALIDAD_BASE_URL
         value: https://www.cinecalidad.vg
       - key: NETMIRROR_BASE_URL
@@ -47,12 +77,16 @@ services:
         value: https://net52.cc
       - key: CASTLE_BASE_URL
         value: https://api.fstcy.com
+      - key: CASTLE_DECRYPT_URL
+        value: https://decryptor.fstcy.com/decrypt
       - key: CUEVANA_BASE_URL
         value: https://ww1.cuevana3.is
       - key: HOMECINE_BASE_URL
         value: https://homecine.to
       - key: TIOPLUS_BASE_URL
         value: https://tioplus.app
+      - key: TIOANIME_BASE_URL
+        value: https://tioanime.com
       - key: MHDFLIX_BASE_URL
         value: https://ww1.mhdflix.com
       - key: MHDFLIX_API_URL

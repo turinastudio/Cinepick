@@ -1,14 +1,74 @@
-import { fetchText } from "../shared/http.js";
+import { fetchText, fetchWithTimeout } from "../shared/http.js";
 import { buildStream } from "../public-builders.js";
 import { pickQualityLabel } from "../shared/html.js";
 import { decryptVoePayload } from "../shared/crypto.js";
 import { unpackWithDictionary } from "../shared/packer.js";
+import { getRandomUserAgent } from "../../user-agents.js";
+
+function mergeResponseCookies(cookieJar, response) {
+  const rawCookies =
+    (typeof response?.headers?.getSetCookie === "function" && response.headers.getSetCookie()) ||
+    (response?.headers?.get("set-cookie") ? [response.headers.get("set-cookie")] : []);
+
+  for (const rawCookie of rawCookies) {
+    const pair = String(rawCookie || "").split(";")[0]?.trim();
+    if (!pair || !pair.includes("=")) {
+      continue;
+    }
+    const separatorIndex = pair.indexOf("=");
+    const name = pair.slice(0, separatorIndex).trim();
+    const value = pair.slice(separatorIndex + 1).trim();
+    if (name) {
+      cookieJar.set(name, value);
+    }
+  }
+}
+
+function buildCookieHeader(cookieJar) {
+  return Array.from(cookieJar.entries())
+    .map(([name, value]) => `${name}=${value}`)
+    .join("; ");
+}
+
+async function fetchVoePage(url, { referer, userAgent, cookieJar }) {
+  const headers = {
+    "user-agent": userAgent,
+    accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    Referer: referer || url
+  };
+  const cookieHeader = buildCookieHeader(cookieJar);
+  if (cookieHeader) {
+    headers.Cookie = cookieHeader;
+  }
+
+  const response = await fetchWithTimeout(url, {
+    headers,
+    redirect: "follow"
+  });
+
+  if (!response.ok) {
+    throw new Error(`Extractor respondio ${response.status} para ${url}`);
+  }
+
+  mergeResponseCookies(cookieJar, response);
+  return response.text();
+}
 
 export async function extractVoe(url, label) {
-  let html = await fetchText(url, { Referer: url });
+  const userAgent = getRandomUserAgent();
+  const cookieJar = new Map();
+  let html = await fetchVoePage(url, {
+    referer: url,
+    userAgent,
+    cookieJar
+  });
   const redirectUrl = html.match(/window\.location\.href\s*=\s*'([^']+)'/i)?.[1];
   if (redirectUrl) {
-    html = await fetchText(redirectUrl, { Referer: url });
+    html = await fetchVoePage(redirectUrl, {
+      referer: url,
+      userAgent,
+      cookieJar
+    });
   }
 
   const encodedArrayMatch = html.match(

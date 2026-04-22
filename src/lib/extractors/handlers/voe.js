@@ -30,28 +30,81 @@ function buildCookieHeader(cookieJar) {
     .join("; ");
 }
 
-async function fetchVoePage(url, { referer, userAgent, cookieJar }) {
-  const headers = {
-    "user-agent": userAgent,
-    accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    Referer: referer || url
-  };
-  const cookieHeader = buildCookieHeader(cookieJar);
-  if (cookieHeader) {
-    headers.Cookie = cookieHeader;
-  }
+function isDdosGuardResponse(response) {
+  return Number(response?.status) === 403 && /ddos-guard/i.test(String(response?.headers?.get("server") || ""));
+}
 
-  const response = await fetchWithTimeout(url, {
-    headers,
+async function fetchDdosGuardCookie(url, { userAgent, referer, cookieJar }) {
+  const checkScriptResponse = await fetchWithTimeout("https://check.ddos-guard.net/check.js", {
+    headers: {
+      "user-agent": userAgent,
+      accept: "*/*",
+      Referer: referer || url
+    },
     redirect: "follow"
   });
 
-  if (!response.ok) {
-    throw new Error(`Extractor respondio ${response.status} para ${url}`);
+  if (!checkScriptResponse.ok) {
+    return false;
   }
 
-  mergeResponseCookies(cookieJar, response);
-  return response.text();
+  const checkScript = await checkScriptResponse.text();
+  const suffix = checkScript.match(/'([^']+)'/)?.[1];
+
+  if (!suffix) {
+    return false;
+  }
+
+  const target = new URL(url);
+  const challengeUrl = `${target.protocol}//${target.host}${suffix}`;
+  const cookieHeader = buildCookieHeader(cookieJar);
+  const challengeResponse = await fetchWithTimeout(challengeUrl, {
+    headers: {
+      "user-agent": userAgent,
+      accept: "*/*",
+      Referer: `${target.protocol}//${target.host}/`,
+      ...(cookieHeader ? { Cookie: cookieHeader } : {})
+    },
+    redirect: "follow"
+  });
+
+  mergeResponseCookies(cookieJar, challengeResponse);
+  return cookieJar.has("__ddg2_");
+}
+
+async function fetchVoePage(url, { referer, userAgent, cookieJar }) {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const headers = {
+      "user-agent": userAgent,
+      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      Referer: referer || url
+    };
+    const cookieHeader = buildCookieHeader(cookieJar);
+    if (cookieHeader) {
+      headers.Cookie = cookieHeader;
+    }
+
+    const response = await fetchWithTimeout(url, {
+      headers,
+      redirect: "follow"
+    });
+
+    if (isDdosGuardResponse(response) && attempt === 0) {
+      const solved = await fetchDdosGuardCookie(url, { userAgent, referer, cookieJar }).catch(() => false);
+      if (solved) {
+        continue;
+      }
+    }
+
+    if (!response.ok) {
+      throw new Error(`Extractor respondio ${response.status} para ${url}`);
+    }
+
+    mergeResponseCookies(cookieJar, response);
+    return response.text();
+  }
+
+  throw new Error(`Extractor no pudo resolver DDos-Guard para ${url}`);
 }
 
 export async function extractVoe(url, label) {

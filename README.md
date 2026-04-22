@@ -102,6 +102,44 @@ Manifest local:
 - [manifest alt](http://127.0.0.1:3000/alt/manifest.json)
 - [panel de configuracion](http://127.0.0.1:3000/configure)
 
+## Deploy en Vercel
+
+El repo ahora incluye un entrypoint serverless dedicado para Vercel:
+
+- [api/[[...path]].js](/C:/Users/lautaroturina/Desktop/Codex/QwenCode/CinePick/api/[[...path]].js)
+- [vercel.json](/C:/Users/lautaroturina/Desktop/Codex/QwenCode/CinePick/vercel.json)
+
+Puntos importantes:
+
+- Vercel usa un handler serverless, no `npm start`
+- `ADDON_URL` debe apuntar a la URL publica real del proyecto
+- Render, Railway y otros deploys tradicionales siguen usando `npm start`
+
+Variables minimas recomendadas para Vercel:
+
+- `ADDON_URL`
+- `DEFAULT_SELECTION_MODE`
+- `DEFAULT_MAX_RESULTS`
+- `DEFAULT_INTERNAL_ONLY`
+- `PROVIDER_MAX_CONCURRENT`
+- `WEBSTREAM_HTTP_TIMEOUT_MS`
+- `EXTRACTOR_RETRIES`
+- `CIRCUIT_BREAKER_FAILURES`
+- `CIRCUIT_BREAKER_COOLDOWN_MS`
+
+Validacion recomendada despues del deploy:
+
+- `/`
+- `/health`
+- `/manifest.json`
+- un `/catalog/SeriesKao/...`
+- un `/meta/...`
+- un `/stream/...`
+
+Nota:
+
+- aunque el repo quede adaptado a Vercel, algunos hosts de video externos pueden seguir fallando por restricciones propias del upstream
+
 ## Panel de configuracion
 
 Cinepick expone un panel web en `/configure` para:

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api/$1"
+    }
+  ],
+  "functions": {
+    "api/[[...path]].js": {
+      "maxDuration": 300,
+      "excludeFiles": "{docs/**,runtime/**,scripts/**,src/tests/**,.qwen/**,scratch_recovery.txt}"
+    }
+  }
+}
